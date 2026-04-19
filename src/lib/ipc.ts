@@ -1,17 +1,21 @@
 import type { IpcResponse } from '@shared/types/index'
 
-// Type declaration for the API surface exposed by preload.ts via contextBridge.
-// Keep in sync with the `api` object in electron/preload.ts.
+export interface DbStatus {
+  integrityOk: boolean
+  migrationCount: number
+  tradeCount: number
+}
+
 declare global {
   interface Window {
     api: {
       ping: () => Promise<IpcResponse<string>>
+      dbStatus: () => Promise<IpcResponse<DbStatus>>
     }
   }
 }
 
-// Typed wrapper so the renderer never calls window.api directly.
-// Every method returns IpcResponse<T> — callers check .ok before using .data.
 export const ipc = {
   ping: (): Promise<IpcResponse<string>> => window.api.ping(),
+  dbStatus: (): Promise<IpcResponse<DbStatus>> => window.api.dbStatus(),
 } as const
