@@ -1,25 +1,10 @@
-import { createHashRouter, RouterProvider, Outlet } from 'react-router-dom'
-
-function PlaceholderHome() {
-  return (
-    <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground">
-      <div className="text-center">
-        <h1 className="text-display-lg font-sans font-semibold tracking-tight text-text-primary">
-          Cairn
-        </h1>
-        <p className="mt-2 text-body text-text-secondary">A Discipline-First Trading Journal</p>
-        <p className="mt-6 font-mono text-caption text-text-muted">
-          scaffold — shell UI in progress
-        </p>
-      </div>
-    </div>
-  )
-}
+import { createHashRouter, RouterProvider, Navigate } from 'react-router-dom'
+import { Shell } from './components/layout/Shell'
 
 const devRoutes = import.meta.env.DEV
   ? [
       {
-        path: '/dev/components',
+        path: 'dev/components',
         lazy: () =>
           import('./features/dev/ComponentsPage').then((m) => ({ Component: m.ComponentsPage })),
       },
@@ -29,9 +14,49 @@ const devRoutes = import.meta.env.DEV
 const router = createHashRouter([
   {
     path: '/',
-    element: <Outlet />,
+    element: <Shell />,
     children: [
-      { index: true, element: <PlaceholderHome /> },
+      { index: true, element: <Navigate to="/dashboard" replace /> },
+      {
+        path: 'dashboard',
+        lazy: () =>
+          import('./features/dashboard/DashboardPage').then((m) => ({
+            Component: m.DashboardPage,
+          })),
+      },
+      {
+        path: 'trades',
+        lazy: () =>
+          import('./features/trade-log/TradeLogPage').then((m) => ({
+            Component: m.TradeLogPage,
+          })),
+      },
+      {
+        path: 'analytics',
+        lazy: () =>
+          import('./features/analytics/AnalyticsPage').then((m) => ({
+            Component: m.AnalyticsPage,
+          })),
+      },
+      {
+        path: 'accounts',
+        lazy: () =>
+          import('./features/accounts/AccountsPage').then((m) => ({
+            Component: m.AccountsPage,
+          })),
+      },
+      {
+        path: 'review',
+        lazy: () =>
+          import('./features/review/ReviewPage').then((m) => ({ Component: m.ReviewPage })),
+      },
+      {
+        path: 'settings',
+        lazy: () =>
+          import('./features/settings/SettingsPage').then((m) => ({
+            Component: m.SettingsPage,
+          })),
+      },
       ...devRoutes,
     ],
   },

@@ -5,15 +5,18 @@ interface TooltipProps {
   content: React.ReactNode
   children: React.ReactElement
   side?: 'top' | 'bottom' | 'left' | 'right'
+  /** Applied to the tooltip popup content */
   className?: string
+  /** Applied to the outer wrapper div */
+  wrapperClassName?: string
 }
 
-export function Tooltip({ content, children, side = 'top', className }: TooltipProps) {
+export function Tooltip({ content, children, side = 'top', className, wrapperClassName }: TooltipProps) {
   const [visible, setVisible] = useState(false)
 
   return (
     <div
-      className="relative inline-flex"
+      className={cn('relative inline-flex', wrapperClassName)}
       onMouseEnter={() => setVisible(true)}
       onMouseLeave={() => setVisible(false)}
       onFocus={() => setVisible(true)}
