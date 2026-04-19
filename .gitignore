@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+release/
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Screenshots / user data (not source)
+/screenshots/
+
+# Backups (runtime)
+/backups/
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Vite cache
+.vite/
+
+# Electron builder cache
+.electron-builder.cache
+
+# Test output
+coverage/
+test-results/
+playwright-report/

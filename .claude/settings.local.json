@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm install *)",
+      "Bash(npm install *)",
+      "Bash(npm root *)",
+      "Bash(export PATH=\"$PATH:$\\(npm root -g\\)/../.bin\")",
+      "Bash(pnpm approve-builds *)",
+      "Bash(pnpm typecheck *)",
+      "Bash(pnpm lint *)",
+      "Bash(git init *)",
+      "Bash(git add *)"
+    ]
+  }
+}
