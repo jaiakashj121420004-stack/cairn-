@@ -1,2 +1,60 @@
-// UI store — implemented in shell UI phase (§13.12 build order step 5)
-// Holds: sidebar collapsed state, active modal, theme preference
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+
+type ThemePreference = 'dark' | 'light' | 'system'
+type ResolvedTheme = 'dark' | 'light'
+
+interface UiState {
+  themePreference: ThemePreference
+  resolvedTheme: ResolvedTheme
+  sidebarCollapsed: boolean
+  activeModal: string | null
+  setThemePreference: (pref: ThemePreference) => void
+  setSidebarCollapsed: (collapsed: boolean) => void
+  setActiveModal: (id: string | null) => void
+}
+
+function resolveTheme(pref: ThemePreference): ResolvedTheme {
+  if (pref === 'light') return 'light'
+  if (pref === 'dark') return 'dark'
+  if (typeof window !== 'undefined') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  }
+  return 'dark'
+}
+
+function applyTheme(theme: ResolvedTheme): void {
+  document.documentElement.setAttribute('data-theme', theme)
+}
+
+export const useUiStore = create<UiState>()(
+  persist(
+    (set) => ({
+      themePreference: 'system',
+      resolvedTheme: 'dark',
+      sidebarCollapsed: false,
+      activeModal: null,
+      setThemePreference: (pref) => {
+        const resolved = resolveTheme(pref)
+        applyTheme(resolved)
+        set({ themePreference: pref, resolvedTheme: resolved })
+      },
+      setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+      setActiveModal: (id) => set({ activeModal: id }),
+    }),
+    {
+      name: 'cairn-ui',
+      partialize: (state) => ({
+        themePreference: state.themePreference,
+        sidebarCollapsed: state.sidebarCollapsed,
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          const resolved = resolveTheme(state.themePreference)
+          applyTheme(resolved)
+          state.resolvedTheme = resolved
+        }
+      },
+    },
+  ),
+)
