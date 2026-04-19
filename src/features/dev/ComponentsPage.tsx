@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ipc } from '../../lib/ipc'
 import {
   Button,
   Input,
@@ -302,6 +303,23 @@ export function ComponentsPage() {
             <p className="text-body text-warning">text-warning — caution</p>
             <p className="text-body text-info">text-info — informational</p>
           </div>
+        </Section>
+
+        {/* Dev tools */}
+        <Section title="Dev Tools">
+          <Row>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={async () => {
+                await ipc.settings.set('onboarding_completed', false)
+                await ipc.settings.set('onboarding_step', 0)
+                window.location.reload()
+              }}
+            >
+              Reset onboarding
+            </Button>
+          </Row>
         </Section>
 
         <div className="pb-12 text-caption text-text-muted">
