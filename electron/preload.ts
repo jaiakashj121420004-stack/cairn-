@@ -18,6 +18,16 @@ import type {
   SessionStateDTO,
   AccountRuleConfigDTO,
   UpsertAccountRuleInput,
+  Pair,
+  CreatePairInput,
+  UpdatePairInput,
+  Setup,
+  CreateSetupInput,
+  UpdateSetupInput,
+  Killzone,
+  CreateKillzoneInput,
+  UpdateKillzoneInput,
+  AccountStats,
 } from '../shared/types/index'
 
 const api = {
@@ -54,10 +64,41 @@ const api = {
       ipcRenderer.invoke('accounts:create', input),
     update: (input: UpdateAccountInput): Promise<IpcResponse<Account>> =>
       ipcRenderer.invoke('accounts:update', input),
+    stats: (): Promise<IpcResponse<AccountStats[]>> => ipcRenderer.invoke('accounts:stats'),
+  },
+
+  pairs: {
+    list: (): Promise<IpcResponse<Pair[]>> => ipcRenderer.invoke('pairs:list'),
+    create: (input: CreatePairInput): Promise<IpcResponse<Pair>> =>
+      ipcRenderer.invoke('pairs:create', input),
+    update: (input: UpdatePairInput): Promise<IpcResponse<Pair>> =>
+      ipcRenderer.invoke('pairs:update', input),
+  },
+
+  setups: {
+    list: (): Promise<IpcResponse<Setup[]>> => ipcRenderer.invoke('setups:list'),
+    create: (input: CreateSetupInput): Promise<IpcResponse<Setup>> =>
+      ipcRenderer.invoke('setups:create', input),
+    update: (input: UpdateSetupInput): Promise<IpcResponse<Setup>> =>
+      ipcRenderer.invoke('setups:update', input),
+  },
+
+  killzones: {
+    list: (): Promise<IpcResponse<Killzone[]>> => ipcRenderer.invoke('killzones:list'),
+    create: (input: CreateKillzoneInput): Promise<IpcResponse<Killzone>> =>
+      ipcRenderer.invoke('killzones:create', input),
+    update: (input: UpdateKillzoneInput): Promise<IpcResponse<Killzone>> =>
+      ipcRenderer.invoke('killzones:update', input),
   },
 
   paths: {
     pickFolder: (): Promise<IpcResponse<string | null>> => ipcRenderer.invoke('paths:pickFolder'),
+  },
+
+  data: {
+    openFolder: (): Promise<IpcResponse<void>> => ipcRenderer.invoke('data:openFolder'),
+    export: (): Promise<IpcResponse<string>> => ipcRenderer.invoke('data:export'),
+    reset: (ack: string): Promise<IpcResponse<void>> => ipcRenderer.invoke('data:reset', { ack }),
   },
 
   rules: {

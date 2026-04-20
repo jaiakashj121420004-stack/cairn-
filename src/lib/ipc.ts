@@ -16,6 +16,16 @@ import type {
   SessionStateDTO,
   AccountRuleConfigDTO,
   UpsertAccountRuleInput,
+  Pair,
+  CreatePairInput,
+  UpdatePairInput,
+  Setup,
+  CreateSetupInput,
+  UpdateSetupInput,
+  Killzone,
+  CreateKillzoneInput,
+  UpdateKillzoneInput,
+  AccountStats,
 } from '@shared/types/index'
 
 export interface DbStatus {
@@ -47,9 +57,30 @@ declare global {
         list: () => Promise<IpcResponse<Account[]>>
         create: (input: CreateAccountInput) => Promise<IpcResponse<Account>>
         update: (input: UpdateAccountInput) => Promise<IpcResponse<Account>>
+        stats: () => Promise<IpcResponse<AccountStats[]>>
+      }
+      pairs: {
+        list: () => Promise<IpcResponse<Pair[]>>
+        create: (input: CreatePairInput) => Promise<IpcResponse<Pair>>
+        update: (input: UpdatePairInput) => Promise<IpcResponse<Pair>>
+      }
+      setups: {
+        list: () => Promise<IpcResponse<Setup[]>>
+        create: (input: CreateSetupInput) => Promise<IpcResponse<Setup>>
+        update: (input: UpdateSetupInput) => Promise<IpcResponse<Setup>>
+      }
+      killzones: {
+        list: () => Promise<IpcResponse<Killzone[]>>
+        create: (input: CreateKillzoneInput) => Promise<IpcResponse<Killzone>>
+        update: (input: UpdateKillzoneInput) => Promise<IpcResponse<Killzone>>
       }
       paths: {
         pickFolder: () => Promise<IpcResponse<string | null>>
+      }
+      data: {
+        openFolder: () => Promise<IpcResponse<void>>
+        export: () => Promise<IpcResponse<string>>
+        reset: (ack: string) => Promise<IpcResponse<void>>
       }
       rules: {
         evaluatePreTrade: (input: DraftTradeInput) => Promise<IpcResponse<RuleEvaluationDTO[]>>
@@ -122,6 +153,37 @@ export const ipc = {
       window.api.accounts.create(input),
     update: (input: UpdateAccountInput): Promise<IpcResponse<Account>> =>
       window.api.accounts.update(input),
+    stats: (): Promise<IpcResponse<AccountStats[]>> => window.api.accounts.stats(),
+  },
+
+  pairs: {
+    list: (): Promise<IpcResponse<Pair[]>> => window.api.pairs.list(),
+    create: (input: CreatePairInput): Promise<IpcResponse<Pair>> =>
+      window.api.pairs.create(input),
+    update: (input: UpdatePairInput): Promise<IpcResponse<Pair>> =>
+      window.api.pairs.update(input),
+  },
+
+  setups: {
+    list: (): Promise<IpcResponse<Setup[]>> => window.api.setups.list(),
+    create: (input: CreateSetupInput): Promise<IpcResponse<Setup>> =>
+      window.api.setups.create(input),
+    update: (input: UpdateSetupInput): Promise<IpcResponse<Setup>> =>
+      window.api.setups.update(input),
+  },
+
+  killzones: {
+    list: (): Promise<IpcResponse<Killzone[]>> => window.api.killzones.list(),
+    create: (input: CreateKillzoneInput): Promise<IpcResponse<Killzone>> =>
+      window.api.killzones.create(input),
+    update: (input: UpdateKillzoneInput): Promise<IpcResponse<Killzone>> =>
+      window.api.killzones.update(input),
+  },
+
+  data: {
+    openFolder: (): Promise<IpcResponse<void>> => window.api.data.openFolder(),
+    export: (): Promise<IpcResponse<string>> => window.api.data.export(),
+    reset: (ack: string): Promise<IpcResponse<void>> => window.api.data.reset(ack),
   },
 
   paths: {

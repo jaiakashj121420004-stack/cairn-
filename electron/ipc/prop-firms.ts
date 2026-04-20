@@ -17,6 +17,7 @@ const UpdatePropFirmSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   defaultStepCount: z.number().int().min(1).max(5).optional(),
   notes: z.string().max(500).nullable().optional(),
+  deletedAt: z.number().int().nullable().optional(),
 })
 
 export function registerPropFirmHandlers(): void {
@@ -76,6 +77,7 @@ export function registerPropFirmHandlers(): void {
       if (fields.name !== undefined) updateData.name = fields.name
       if (fields.defaultStepCount !== undefined) updateData.defaultStepCount = fields.defaultStepCount
       if ('notes' in fields) updateData.notes = fields.notes ?? null
+      if ('deletedAt' in fields) updateData.deletedAt = fields.deletedAt ?? null
       db.update(schema.propFirms).set(updateData).where(eq(schema.propFirms.id, id)).run()
       const row = db.select().from(schema.propFirms).where(eq(schema.propFirms.id, id)).get()
       if (!row) return { ok: false, error: { code: 'NOT_FOUND', message: 'Prop firm not found' } }

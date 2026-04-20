@@ -6,6 +6,10 @@ import { registerAccountHandlers } from './accounts'
 import { registerPathHandlers } from './paths'
 import { registerRulesHandlers } from './rules'
 import { registerAccountRulesHandlers } from './account-rules'
+import { registerPairHandlers } from './pairs'
+import { registerSetupHandlers } from './setups'
+import { registerKillzoneHandlers } from './killzones'
+import { registerDataHandlers } from './data'
 
 export function setupIpcHandlers(): void {
   registerPingHandler()
@@ -17,4 +21,8 @@ export function setupIpcHandlers(): void {
   registerPathHandlers()
   registerRulesHandlers()
   registerAccountRulesHandlers()
+  registerPairHandlers()
+  registerSetupHandlers()
+  registerKillzoneHandlers()
+  registerDataHandlers()
 }

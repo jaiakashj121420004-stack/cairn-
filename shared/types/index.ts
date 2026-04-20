@@ -189,6 +189,7 @@ export interface UpdatePropFirmInput {
   name?: string
   defaultStepCount?: number
   notes?: string | null
+  deletedAt?: number | null
 }
 
 export interface CreateAccountTemplateInput {
@@ -252,4 +253,123 @@ export interface UpdateAccountInput {
   currentEquityCents?: number
   peakEquityCents?: number
   notes?: string | null
+}
+
+// ─── Pairs ───────────────────────────────────────────────────────────────────
+
+export interface Pair {
+  id: string
+  symbol: string
+  displayName: string
+  assetClass: string
+  pipDecimal: number
+  pipValuePerStandardLotCents: number
+  correlatedWith: string | null
+  active: number
+  displayOrder: number
+  notes: string | null
+  createdAt: number
+  updatedAt: number
+}
+
+export interface CreatePairInput {
+  symbol: string
+  displayName: string
+  assetClass: string
+  pipDecimal: number
+  pipValuePerStandardLotCents: number
+  correlatedWith?: string[]
+  notes?: string
+}
+
+export interface UpdatePairInput {
+  id: string
+  symbol?: string
+  displayName?: string
+  assetClass?: string
+  pipDecimal?: number
+  pipValuePerStandardLotCents?: number
+  correlatedWith?: string[] | null
+  active?: boolean
+  displayOrder?: number
+  notes?: string | null
+}
+
+// ─── Setups ──────────────────────────────────────────────────────────────────
+
+export interface Setup {
+  id: string
+  name: string
+  category: string
+  description: string | null
+  color: string
+  active: number
+  displayOrder: number
+  createdAt: number
+  updatedAt: number
+}
+
+export interface CreateSetupInput {
+  name: string
+  category: string
+  description?: string
+  color: string
+}
+
+export interface UpdateSetupInput {
+  id: string
+  name?: string
+  category?: string
+  description?: string | null
+  color?: string
+  active?: boolean
+  displayOrder?: number
+}
+
+// ─── Killzones ────────────────────────────────────────────────────────────────
+
+export interface Killzone {
+  id: string
+  name: string
+  startTimeUtc: string
+  endTimeUtc: string
+  color: string
+  active: number
+  displayOrder: number
+  notes: string | null
+  createdAt: number
+  updatedAt: number
+}
+
+export interface CreateKillzoneInput {
+  name: string
+  startTimeUtc: string
+  endTimeUtc: string
+  color: string
+  notes?: string
+}
+
+export interface UpdateKillzoneInput {
+  id: string
+  name?: string
+  startTimeUtc?: string
+  endTimeUtc?: string
+  color?: string
+  active?: boolean
+  displayOrder?: number
+  notes?: string | null
+}
+
+// ─── Account Stats ────────────────────────────────────────────────────────────
+
+export interface AccountStats {
+  accountId: string
+  tradeCount: number
+  cleanCount: number
+  cleanRate: number
+  daysSinceStart: number
+  dailyPnlCents: number
+  totalPnlCents: number
+  ddUsedBps: number
+  profitPctBps: number
 }
