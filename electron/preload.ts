@@ -28,6 +28,10 @@ import type {
   CreateKillzoneInput,
   UpdateKillzoneInput,
   AccountStats,
+  Session,
+  CreateSessionInput,
+  Trade,
+  CreateTradeInput,
 } from '../shared/types/index'
 
 const api = {
@@ -135,6 +139,22 @@ const api = {
       ipcRenderer.invoke('accountRules:list', { accountId }),
     upsert: (input: UpsertAccountRuleInput): Promise<IpcResponse<AccountRuleConfigDTO>> =>
       ipcRenderer.invoke('accountRules:upsert', input),
+  },
+
+  sessions: {
+    getToday: (accountId: string): Promise<IpcResponse<Session | null>> =>
+      ipcRenderer.invoke('sessions:getToday', { accountId }),
+    upsert: (input: CreateSessionInput): Promise<IpcResponse<Session>> =>
+      ipcRenderer.invoke('sessions:upsert', input),
+    lock: (sessionId: string): Promise<IpcResponse<Session>> =>
+      ipcRenderer.invoke('sessions:lock', { sessionId }),
+  },
+
+  trades: {
+    create: (input: CreateTradeInput): Promise<IpcResponse<Trade>> =>
+      ipcRenderer.invoke('trades:create', input),
+    setOpen: (tradeId: string, accountId: string): Promise<IpcResponse<Trade>> =>
+      ipcRenderer.invoke('trades:setOpen', { tradeId, accountId }),
   },
 } as const
 

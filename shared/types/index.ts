@@ -360,6 +360,108 @@ export interface UpdateKillzoneInput {
   notes?: string | null
 }
 
+// ─── Sessions ─────────────────────────────────────────────────────────────────
+
+export interface Session {
+  id: string
+  accountId: string
+  sessionDate: string
+  dailyBias: DailyBias
+  dailyBiasReason: string
+  h4Bias: DailyBias
+  h4BiasReason: string
+  h1Bias: DailyBias
+  h1BiasReason: string
+  htfLiquidityTarget: string | null
+  dxyBias: DailyBias | 'n/a' | null
+  smtNotes: string | null
+  sessionPlan: string | null
+  keyLevels: string | null
+  createdAt: number
+  updatedAt: number
+  lockedAt: number | null
+}
+
+export interface CreateSessionInput {
+  accountId: string
+  dailyBias: DailyBias
+  dailyBiasReason: string
+  h4Bias: DailyBias
+  h4BiasReason: string
+  h1Bias: DailyBias
+  h1BiasReason: string
+  htfLiquidityTarget?: string
+  dxyBias?: DailyBias | 'n/a'
+  smtNotes?: string
+  sessionPlan?: string
+  keyLevels?: string[]
+}
+
+// ─── Trades ───────────────────────────────────────────────────────────────────
+
+export type TradeMode = 'live' | 'sim' | 'backtest'
+export type TradeStatus = 'planned' | 'open' | 'closed' | 'cancelled'
+
+export interface Trade {
+  id: string
+  accountId: string
+  sessionId: string | null
+  pairId: string
+  setupId: string
+  killzoneId: string | null
+  mode: TradeMode
+  direction: TradeDirection
+  status: TradeStatus
+  entryPrice: number
+  stopLossPrice: number
+  takeProfitPrice: number
+  slPips: number
+  rrRatio: number
+  lotSize: number
+  riskAmountCents: number
+  riskPctBps: number
+  plannedInvalidation: string
+  mssConfirmed: number
+  htfBiasAligned: number
+  dxyAligned: number | null
+  smtConfirmed: number | null
+  correlatedPairUsed: string | null
+  preCalmScore: number
+  preUrgencyScore: number
+  preNeedScore: number
+  isClean: number | null
+  createdAt: number
+  updatedAt: number
+}
+
+export interface CreateTradeInput {
+  accountId: string
+  sessionId?: string | null
+  pairId: string
+  setupId: string
+  killzoneId?: string | null
+  mode: TradeMode
+  direction: TradeDirection
+  status: TradeStatus
+  entryPrice: number
+  stopLossPrice: number
+  takeProfitPrice: number
+  slPips: number
+  rrRatio: number
+  lotSize: number
+  riskAmountCents: number
+  riskPctBps: number
+  plannedInvalidation: string
+  mssConfirmed: number
+  htfBiasAligned: number
+  dxyAligned?: number | null
+  smtConfirmed?: number | null
+  correlatedPairUsed?: string | null
+  preCalmScore: number
+  preUrgencyScore: number
+  preNeedScore: number
+}
+
 // ─── Account Stats ────────────────────────────────────────────────────────────
 
 export interface AccountStats {

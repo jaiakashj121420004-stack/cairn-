@@ -10,6 +10,8 @@ import { registerPairHandlers } from './pairs'
 import { registerSetupHandlers } from './setups'
 import { registerKillzoneHandlers } from './killzones'
 import { registerDataHandlers } from './data'
+import { registerSessionHandlers } from './sessions'
+import { registerTradeHandlers } from './trades'
 
 export function setupIpcHandlers(): void {
   registerPingHandler()
@@ -25,4 +27,6 @@ export function setupIpcHandlers(): void {
   registerSetupHandlers()
   registerKillzoneHandlers()
   registerDataHandlers()
+  registerSessionHandlers()
+  registerTradeHandlers()
 }

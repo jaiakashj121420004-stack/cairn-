@@ -26,6 +26,10 @@ import type {
   CreateKillzoneInput,
   UpdateKillzoneInput,
   AccountStats,
+  Session,
+  CreateSessionInput,
+  Trade,
+  CreateTradeInput,
 } from '@shared/types/index'
 
 export interface DbStatus {
@@ -107,6 +111,15 @@ declare global {
       accountRules: {
         list: (accountId: string) => Promise<IpcResponse<AccountRuleConfigDTO[]>>
         upsert: (input: UpsertAccountRuleInput) => Promise<IpcResponse<AccountRuleConfigDTO>>
+      }
+      sessions: {
+        getToday: (accountId: string) => Promise<IpcResponse<Session | null>>
+        upsert: (input: CreateSessionInput) => Promise<IpcResponse<Session>>
+        lock: (sessionId: string) => Promise<IpcResponse<Session>>
+      }
+      trades: {
+        create: (input: CreateTradeInput) => Promise<IpcResponse<Trade>>
+        setOpen: (tradeId: string, accountId: string) => Promise<IpcResponse<Trade>>
       }
     }
   }
@@ -212,5 +225,21 @@ export const ipc = {
       window.api.accountRules.list(accountId),
     upsert: (input: UpsertAccountRuleInput): Promise<IpcResponse<AccountRuleConfigDTO>> =>
       window.api.accountRules.upsert(input),
+  },
+
+  sessions: {
+    getToday: (accountId: string): Promise<IpcResponse<Session | null>> =>
+      window.api.sessions.getToday(accountId),
+    upsert: (input: CreateSessionInput): Promise<IpcResponse<Session>> =>
+      window.api.sessions.upsert(input),
+    lock: (sessionId: string): Promise<IpcResponse<Session>> =>
+      window.api.sessions.lock(sessionId),
+  },
+
+  trades: {
+    create: (input: CreateTradeInput): Promise<IpcResponse<Trade>> =>
+      window.api.trades.create(input),
+    setOpen: (tradeId: string, accountId: string): Promise<IpcResponse<Trade>> =>
+      window.api.trades.setOpen(tradeId, accountId),
   },
 } as const
