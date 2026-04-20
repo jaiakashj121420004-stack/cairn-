@@ -29,7 +29,12 @@ import type {
   Session,
   CreateSessionInput,
   Trade,
+  TradeListItem,
+  TradeDetail,
+  TradeScreenshot,
+  TradeFilter,
   CreateTradeInput,
+  CloseTradeInput,
 } from '@shared/types/index'
 
 export interface DbStatus {
@@ -120,6 +125,14 @@ declare global {
       trades: {
         create: (input: CreateTradeInput) => Promise<IpcResponse<Trade>>
         setOpen: (tradeId: string, accountId: string) => Promise<IpcResponse<Trade>>
+        close: (input: CloseTradeInput) => Promise<IpcResponse<Trade>>
+        list: (filter: TradeFilter) => Promise<IpcResponse<TradeListItem[]>>
+        get: (tradeId: string) => Promise<IpcResponse<TradeDetail>>
+        delete: (tradeId: string) => Promise<IpcResponse<{ ok: true }>>
+        addScreenshot: (tradeId: string, kind: string, sourcePath: string, caption?: string) => Promise<IpcResponse<TradeScreenshot>>
+        pickScreenshots: (tradeId: string) => Promise<IpcResponse<string[]>>
+        listScreenshots: (tradeId: string) => Promise<IpcResponse<TradeScreenshot[]>>
+        deleteScreenshot: (screenshotId: string) => Promise<IpcResponse<{ ok: true }>>
       }
     }
   }
@@ -241,5 +254,26 @@ export const ipc = {
       window.api.trades.create(input),
     setOpen: (tradeId: string, accountId: string): Promise<IpcResponse<Trade>> =>
       window.api.trades.setOpen(tradeId, accountId),
+    close: (input: CloseTradeInput): Promise<IpcResponse<Trade>> =>
+      window.api.trades.close(input),
+    list: (filter: TradeFilter): Promise<IpcResponse<TradeListItem[]>> =>
+      window.api.trades.list(filter),
+    get: (tradeId: string): Promise<IpcResponse<TradeDetail>> =>
+      window.api.trades.get(tradeId),
+    delete: (tradeId: string): Promise<IpcResponse<{ ok: true }>> =>
+      window.api.trades.delete(tradeId),
+    addScreenshot: (
+      tradeId: string,
+      kind: string,
+      sourcePath: string,
+      caption?: string,
+    ): Promise<IpcResponse<TradeScreenshot>> =>
+      window.api.trades.addScreenshot(tradeId, kind, sourcePath, caption),
+    pickScreenshots: (tradeId: string): Promise<IpcResponse<string[]>> =>
+      window.api.trades.pickScreenshots(tradeId),
+    listScreenshots: (tradeId: string): Promise<IpcResponse<TradeScreenshot[]>> =>
+      window.api.trades.listScreenshots(tradeId),
+    deleteScreenshot: (screenshotId: string): Promise<IpcResponse<{ ok: true }>> =>
+      window.api.trades.deleteScreenshot(screenshotId),
   },
 } as const

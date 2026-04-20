@@ -401,6 +401,8 @@ export interface CreateSessionInput {
 
 export type TradeMode = 'live' | 'sim' | 'backtest'
 export type TradeStatus = 'planned' | 'open' | 'closed' | 'cancelled'
+export type ExitReason = 'tp' | 'sl' | 'manual' | 'be' | 'partial_full' | 'timeout'
+export type ScreenshotKind = 'htf_context' | 'entry' | 'exit' | 'review' | 'other'
 
 export interface Trade {
   id: string
@@ -412,6 +414,7 @@ export interface Trade {
   mode: TradeMode
   direction: TradeDirection
   status: TradeStatus
+  // Plan
   entryPrice: number
   stopLossPrice: number
   takeProfitPrice: number
@@ -421,17 +424,47 @@ export interface Trade {
   riskAmountCents: number
   riskPctBps: number
   plannedInvalidation: string
+  // Context
   mssConfirmed: number
   htfBiasAligned: number
   dxyAligned: number | null
   smtConfirmed: number | null
   correlatedPairUsed: string | null
+  // Pre-trade emotional
   preCalmScore: number
   preUrgencyScore: number
   preNeedScore: number
+  // Execution (post-trade)
+  actualEntryPrice: number | null
+  actualEntryTime: number | null
+  exitPrice: number | null
+  exitTime: number | null
+  exitReason: ExitReason | null
+  pnlCents: number | null
+  pnlR: number | null
+  pnlPctBps: number | null
+  maePips: number | null
+  mfePips: number | null
+  durationMinutes: number | null
+  // Honesty
+  followedPlanExactly: number | null
+  planChangesDescription: string | null
+  slMoved: number | null
+  slMovedReason: string | null
+  tpMoved: number | null
+  enteredBeforeMss: number | null
+  revengeTradeFlag: number | null
+  rulesBroken: string | null
   isClean: number | null
+  // Reflection
+  postCalmScore: number | null
+  whatIDidRight: string | null
+  whatIDidWrong: string | null
+  tags: string | null
+  // Timestamps
   createdAt: number
   updatedAt: number
+  deletedAt: number | null
 }
 
 export interface CreateTradeInput {
@@ -460,6 +493,110 @@ export interface CreateTradeInput {
   preCalmScore: number
   preUrgencyScore: number
   preNeedScore: number
+}
+
+export interface CloseTradeInput {
+  tradeId: string
+  exitPrice: number      // encoded integer (Math.round(float × 10^(pipDecimal+1)))
+  exitTime: number       // UTC ms
+  exitReason: ExitReason
+  maePips?: number       // tenths (user pips × 10)
+  mfePips?: number
+  followedPlanExactly: boolean
+  planChangesDescription?: string
+  slMoved: boolean
+  slMovedReason?: string
+  enteredBeforeMss: boolean
+  rulesBroken: string[]
+  postCalmScore: number
+  whatIDidRight?: string
+  whatIDidWrong?: string
+  tags?: string[]
+}
+
+export interface TradeScreenshot {
+  id: string
+  tradeId: string
+  kind: ScreenshotKind
+  filename: string
+  caption: string | null
+  createdAt: number
+  absolutePath: string
+}
+
+export interface RuleViolation {
+  id: string
+  accountId: string
+  tradeId: string | null
+  ruleKey: string
+  severity: string
+  outcome: string
+  contextJson: string
+  createdAt: number
+}
+
+export interface TradeListItem {
+  id: string
+  accountId: string
+  sessionId: string | null
+  pairId: string
+  pairSymbol: string
+  pairPipDecimal: number
+  pairPipValuePerLotCents: number
+  setupId: string
+  setupName: string
+  killzoneId: string | null
+  killzoneName: string | null
+  mode: TradeMode
+  direction: TradeDirection
+  status: TradeStatus
+  entryPrice: number
+  stopLossPrice: number
+  takeProfitPrice: number
+  slPips: number
+  rrRatio: number
+  lotSize: number
+  riskAmountCents: number
+  riskPctBps: number
+  exitPrice: number | null
+  exitTime: number | null
+  exitReason: ExitReason | null
+  pnlCents: number | null
+  pnlR: number | null
+  pnlPctBps: number | null
+  durationMinutes: number | null
+  isClean: number | null
+  rulesBroken: string | null
+  tags: string | null
+  followedPlanExactly: number | null
+  slMoved: number | null
+  enteredBeforeMss: number | null
+  createdAt: number
+  updatedAt: number
+}
+
+export interface TradeFilter {
+  accountId: string
+  dateFrom?: number
+  dateTo?: number
+  pairId?: string
+  setupId?: string
+  killzoneId?: string
+  mode?: TradeMode
+  direction?: TradeDirection
+  isClean?: boolean
+  status?: TradeStatus
+}
+
+export interface TradeDetail extends Trade {
+  pairSymbol: string
+  pairPipDecimal: number
+  pairPipValuePerLotCents: number
+  setupName: string
+  killzoneName: string | null
+  screenshots: TradeScreenshot[]
+  ruleViolations: RuleViolation[]
+  relatedTrades: TradeListItem[]
 }
 
 // ─── Account Stats ────────────────────────────────────────────────────────────

@@ -31,7 +31,12 @@ import type {
   Session,
   CreateSessionInput,
   Trade,
+  TradeListItem,
+  TradeDetail,
+  TradeScreenshot,
+  TradeFilter,
   CreateTradeInput,
+  CloseTradeInput,
 } from '../shared/types/index'
 
 const api = {
@@ -155,6 +160,27 @@ const api = {
       ipcRenderer.invoke('trades:create', input),
     setOpen: (tradeId: string, accountId: string): Promise<IpcResponse<Trade>> =>
       ipcRenderer.invoke('trades:setOpen', { tradeId, accountId }),
+    close: (input: CloseTradeInput): Promise<IpcResponse<Trade>> =>
+      ipcRenderer.invoke('trades:close', input),
+    list: (filter: TradeFilter): Promise<IpcResponse<TradeListItem[]>> =>
+      ipcRenderer.invoke('trades:list', filter),
+    get: (tradeId: string): Promise<IpcResponse<TradeDetail>> =>
+      ipcRenderer.invoke('trades:get', { tradeId }),
+    delete: (tradeId: string): Promise<IpcResponse<{ ok: true }>> =>
+      ipcRenderer.invoke('trades:delete', { tradeId }),
+    addScreenshot: (
+      tradeId: string,
+      kind: string,
+      sourcePath: string,
+      caption?: string,
+    ): Promise<IpcResponse<TradeScreenshot>> =>
+      ipcRenderer.invoke('trades:addScreenshot', { tradeId, kind, sourcePath, caption }),
+    pickScreenshots: (tradeId: string): Promise<IpcResponse<string[]>> =>
+      ipcRenderer.invoke('trades:pickScreenshots', { tradeId }),
+    listScreenshots: (tradeId: string): Promise<IpcResponse<TradeScreenshot[]>> =>
+      ipcRenderer.invoke('trades:listScreenshots', { tradeId }),
+    deleteScreenshot: (screenshotId: string): Promise<IpcResponse<{ ok: true }>> =>
+      ipcRenderer.invoke('trades:deleteScreenshot', { screenshotId }),
   },
 } as const
 
