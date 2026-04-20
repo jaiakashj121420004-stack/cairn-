@@ -8,6 +8,11 @@ const devRoutes = import.meta.env.DEV
         lazy: () =>
           import('./features/dev/ComponentsPage').then((m) => ({ Component: m.ComponentsPage })),
       },
+      {
+        path: 'dev/rules',
+        lazy: () =>
+          import('./features/dev/RulesPage').then((m) => ({ Component: m.RulesPage })),
+      },
     ]
   : []
 

@@ -9,6 +9,13 @@ import type {
   UpdateAccountTemplateInput,
   CreateAccountInput,
   UpdateAccountInput,
+  DraftTradeInput,
+  EvaluateModificationInput,
+  OverrideInputDTO,
+  RuleEvaluationDTO,
+  SessionStateDTO,
+  AccountRuleConfigDTO,
+  UpsertAccountRuleInput,
 } from '@shared/types/index'
 
 export interface DbStatus {
@@ -43,6 +50,32 @@ declare global {
       }
       paths: {
         pickFolder: () => Promise<IpcResponse<string | null>>
+      }
+      rules: {
+        evaluatePreTrade: (input: DraftTradeInput) => Promise<IpcResponse<RuleEvaluationDTO[]>>
+        evaluateModification: (
+          input: EvaluateModificationInput,
+        ) => Promise<IpcResponse<RuleEvaluationDTO[]>>
+        getSessionState: (accountId: string) => Promise<IpcResponse<SessionStateDTO>>
+        override: (input: OverrideInputDTO) => Promise<IpcResponse<{ ok: true }>>
+        clearCooldown: (id: string, ack: string) => Promise<IpcResponse<{ ok: true }>>
+        onTradeClosed: (tradeId: string) => Promise<IpcResponse<{ ok: true }>>
+        listAvailable: () => Promise<
+          IpcResponse<
+            Array<{
+              key: string
+              label: string
+              description: string
+              category: string
+              severity: string
+              isHardLock: boolean
+            }>
+          >
+        >
+      }
+      accountRules: {
+        list: (accountId: string) => Promise<IpcResponse<AccountRuleConfigDTO[]>>
+        upsert: (input: UpsertAccountRuleInput) => Promise<IpcResponse<AccountRuleConfigDTO>>
       }
     }
   }
@@ -93,5 +126,29 @@ export const ipc = {
 
   paths: {
     pickFolder: (): Promise<IpcResponse<string | null>> => window.api.paths.pickFolder(),
+  },
+
+  rules: {
+    evaluatePreTrade: (input: DraftTradeInput): Promise<IpcResponse<RuleEvaluationDTO[]>> =>
+      window.api.rules.evaluatePreTrade(input),
+    evaluateModification: (
+      input: EvaluateModificationInput,
+    ): Promise<IpcResponse<RuleEvaluationDTO[]>> => window.api.rules.evaluateModification(input),
+    getSessionState: (accountId: string): Promise<IpcResponse<SessionStateDTO>> =>
+      window.api.rules.getSessionState(accountId),
+    override: (input: OverrideInputDTO): Promise<IpcResponse<{ ok: true }>> =>
+      window.api.rules.override(input),
+    clearCooldown: (id: string, ack: string): Promise<IpcResponse<{ ok: true }>> =>
+      window.api.rules.clearCooldown(id, ack),
+    onTradeClosed: (tradeId: string): Promise<IpcResponse<{ ok: true }>> =>
+      window.api.rules.onTradeClosed(tradeId),
+    listAvailable: () => window.api.rules.listAvailable(),
+  },
+
+  accountRules: {
+    list: (accountId: string): Promise<IpcResponse<AccountRuleConfigDTO[]>> =>
+      window.api.accountRules.list(accountId),
+    upsert: (input: UpsertAccountRuleInput): Promise<IpcResponse<AccountRuleConfigDTO>> =>
+      window.api.accountRules.upsert(input),
   },
 } as const

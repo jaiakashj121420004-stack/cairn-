@@ -75,7 +75,7 @@ export function StepPropFirm({ step, totalSteps, onBack, onNext, onSkip, default
       />
       {defaultFirm && (
         <p className="text-micro text-text-muted">
-          "Custom" firm already exists for accounts without a specific firm.
+          &ldquo;Custom&rdquo; firm already exists for accounts without a specific firm.
         </p>
       )}
     </OnboardingCard>

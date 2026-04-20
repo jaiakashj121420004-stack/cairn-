@@ -86,6 +86,18 @@ const DEFAULT_ACCOUNT_RULES: Array<{
   },
   { ruleKey: 'require_htf_bias_logged', enabled: 1, value: JSON.stringify({}), priority: 80 },
   { ruleKey: 'no_sl_widening', enabled: 1, value: JSON.stringify({}), priority: 90 },
+  {
+    ruleKey: 'require_killzone',
+    enabled: 1,
+    value: JSON.stringify({ zoneNames: ['London', 'NY AM'] }),
+    priority: 95,
+  },
+  {
+    ruleKey: 'require_dxy_check',
+    enabled: 0,
+    value: JSON.stringify({}),
+    priority: 96,
+  },
   { ruleKey: 'max_trades_per_day', enabled: 1, value: JSON.stringify({ maxTrades: 3 }), priority: 100 },
   {
     ruleKey: 'cooldown_after_loss_minutes',
@@ -98,6 +110,30 @@ const DEFAULT_ACCOUNT_RULES: Array<{
     enabled: 1,
     value: JSON.stringify({ consecutiveLosses: 2 }),
     priority: 120,
+  },
+  {
+    ruleKey: 'no_revenge_trade_window',
+    enabled: 0,
+    value: JSON.stringify({ minutes: 30 }),
+    priority: 130,
+  },
+  {
+    ruleKey: 'emotional_state_gate',
+    enabled: 0,
+    value: JSON.stringify({ maxUrgency: 7, maxNeed: 6 }),
+    priority: 140,
+  },
+  {
+    ruleKey: 'weekend_holding_blocked',
+    enabled: 1,
+    value: JSON.stringify({ fridayCloseUtcHour: 20 }),
+    priority: 150,
+  },
+  {
+    ruleKey: 'min_trading_days_check',
+    enabled: 0,
+    value: JSON.stringify({}),
+    priority: 160,
   },
 ]
 

@@ -4,6 +4,8 @@ import { registerPropFirmHandlers } from './prop-firms'
 import { registerAccountTemplateHandlers } from './account-templates'
 import { registerAccountHandlers } from './accounts'
 import { registerPathHandlers } from './paths'
+import { registerRulesHandlers } from './rules'
+import { registerAccountRulesHandlers } from './account-rules'
 
 export function setupIpcHandlers(): void {
   registerPingHandler()
@@ -13,4 +15,6 @@ export function setupIpcHandlers(): void {
   registerAccountTemplateHandlers()
   registerAccountHandlers()
   registerPathHandlers()
+  registerRulesHandlers()
+  registerAccountRulesHandlers()
 }

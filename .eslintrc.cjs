@@ -28,6 +28,11 @@ module.exports = {
     'no-console': 'off',
     // Enforce strict null checks patterns
     '@typescript-eslint/no-non-null-assertion': 'error',
+    // Allow intentional unused args/vars when prefixed with _
+    '@typescript-eslint/no-unused-vars': [
+      'error',
+      { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+    ],
   },
   settings: {
     react: {

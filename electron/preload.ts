@@ -11,6 +11,13 @@ import type {
   UpdateAccountTemplateInput,
   CreateAccountInput,
   UpdateAccountInput,
+  DraftTradeInput,
+  EvaluateModificationInput,
+  OverrideInputDTO,
+  RuleEvaluationDTO,
+  SessionStateDTO,
+  AccountRuleConfigDTO,
+  UpsertAccountRuleInput,
 } from '../shared/types/index'
 
 const api = {
@@ -51,6 +58,42 @@ const api = {
 
   paths: {
     pickFolder: (): Promise<IpcResponse<string | null>> => ipcRenderer.invoke('paths:pickFolder'),
+  },
+
+  rules: {
+    evaluatePreTrade: (input: DraftTradeInput): Promise<IpcResponse<RuleEvaluationDTO[]>> =>
+      ipcRenderer.invoke('rules:evaluatePreTrade', input),
+    evaluateModification: (
+      input: EvaluateModificationInput,
+    ): Promise<IpcResponse<RuleEvaluationDTO[]>> =>
+      ipcRenderer.invoke('rules:evaluateModification', input),
+    getSessionState: (accountId: string): Promise<IpcResponse<SessionStateDTO>> =>
+      ipcRenderer.invoke('rules:getSessionState', { accountId }),
+    override: (input: OverrideInputDTO): Promise<IpcResponse<{ ok: true }>> =>
+      ipcRenderer.invoke('rules:override', input),
+    clearCooldown: (id: string, ack: string): Promise<IpcResponse<{ ok: true }>> =>
+      ipcRenderer.invoke('rules:clearCooldown', { id, ack }),
+    onTradeClosed: (tradeId: string): Promise<IpcResponse<{ ok: true }>> =>
+      ipcRenderer.invoke('rules:onTradeClosed', { tradeId }),
+    listAvailable: (): Promise<
+      IpcResponse<
+        Array<{
+          key: string
+          label: string
+          description: string
+          category: string
+          severity: string
+          isHardLock: boolean
+        }>
+      >
+    > => ipcRenderer.invoke('rules:listAvailable'),
+  },
+
+  accountRules: {
+    list: (accountId: string): Promise<IpcResponse<AccountRuleConfigDTO[]>> =>
+      ipcRenderer.invoke('accountRules:list', { accountId }),
+    upsert: (input: UpsertAccountRuleInput): Promise<IpcResponse<AccountRuleConfigDTO>> =>
+      ipcRenderer.invoke('accountRules:upsert', input),
   },
 } as const
 
