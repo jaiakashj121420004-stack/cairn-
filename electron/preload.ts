@@ -37,6 +37,7 @@ import type {
   TradeFilter,
   CreateTradeInput,
   CloseTradeInput,
+  DashboardStats,
 } from '../shared/types/index'
 
 const api = {
@@ -181,6 +182,10 @@ const api = {
       ipcRenderer.invoke('trades:listScreenshots', { tradeId }),
     deleteScreenshot: (screenshotId: string): Promise<IpcResponse<{ ok: true }>> =>
       ipcRenderer.invoke('trades:deleteScreenshot', { screenshotId }),
+  },
+  dashboard: {
+    getStats: (accountId: string): Promise<IpcResponse<DashboardStats>> =>
+      ipcRenderer.invoke('dashboard:getStats', { accountId }),
   },
 } as const
 

@@ -12,6 +12,7 @@ import { registerKillzoneHandlers } from './killzones'
 import { registerDataHandlers } from './data'
 import { registerSessionHandlers } from './sessions'
 import { registerTradeHandlers } from './trades'
+import { registerDashboardHandlers } from './dashboard'
 
 export function setupIpcHandlers(): void {
   registerPingHandler()
@@ -29,4 +30,5 @@ export function setupIpcHandlers(): void {
   registerDataHandlers()
   registerSessionHandlers()
   registerTradeHandlers()
+  registerDashboardHandlers()
 }

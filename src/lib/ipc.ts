@@ -35,6 +35,7 @@ import type {
   TradeFilter,
   CreateTradeInput,
   CloseTradeInput,
+  DashboardStats,
 } from '@shared/types/index'
 
 export interface DbStatus {
@@ -133,6 +134,9 @@ declare global {
         pickScreenshots: (tradeId: string) => Promise<IpcResponse<string[]>>
         listScreenshots: (tradeId: string) => Promise<IpcResponse<TradeScreenshot[]>>
         deleteScreenshot: (screenshotId: string) => Promise<IpcResponse<{ ok: true }>>
+      }
+      dashboard: {
+        getStats: (accountId: string) => Promise<IpcResponse<DashboardStats>>
       }
     }
   }
@@ -275,5 +279,10 @@ export const ipc = {
       window.api.trades.listScreenshots(tradeId),
     deleteScreenshot: (screenshotId: string): Promise<IpcResponse<{ ok: true }>> =>
       window.api.trades.deleteScreenshot(screenshotId),
+  },
+
+  dashboard: {
+    getStats: (accountId: string): Promise<IpcResponse<DashboardStats>> =>
+      window.api.dashboard.getStats(accountId),
   },
 } as const
