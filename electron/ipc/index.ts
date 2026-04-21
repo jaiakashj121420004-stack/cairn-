@@ -13,6 +13,7 @@ import { registerDataHandlers } from './data'
 import { registerSessionHandlers } from './sessions'
 import { registerTradeHandlers } from './trades'
 import { registerDashboardHandlers } from './dashboard'
+import { registerAnalyticsHandlers } from './analytics'
 
 export function setupIpcHandlers(): void {
   registerPingHandler()
@@ -31,4 +32,5 @@ export function setupIpcHandlers(): void {
   registerSessionHandlers()
   registerTradeHandlers()
   registerDashboardHandlers()
+  registerAnalyticsHandlers()
 }

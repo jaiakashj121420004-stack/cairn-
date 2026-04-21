@@ -599,6 +599,59 @@ export interface TradeDetail extends Trade {
   relatedTrades: TradeListItem[]
 }
 
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+
+export interface RecentTradeItem {
+  id: string
+  pairSymbol: string
+  setupName: string
+  direction: TradeDirection
+  status: TradeStatus
+  rrRatio: number
+  pnlCents: number | null
+  pnlR: number | null
+  isClean: number | null
+  createdAt: number
+}
+
+export interface WeekDayStats {
+  date: string
+  tradeCount: number
+  cleanCount: number
+  adherencePct: number  // 0-100, or -1 meaning no trades that day
+}
+
+export interface DashboardStats {
+  disciplineScore: number
+  disciplineWindow: number
+  ruleBreakdown: { ruleKey: string; count: number }[]
+  rollingExpectancy: number       // avg pnlR ×100 of last 20 closed trades
+  expectancySpark: number[]       // pnlR ×100 values, oldest first
+  todayTradeCount: number
+  todayClosedCount: number
+  todayPnlCents: number
+  todayRulesBrokenCount: number
+  account: {
+    id: string
+    displayName: string
+    currentEquityCents: number
+    accountSizeCents: number
+    peakEquityCents: number
+    dailyDrawdownType: string
+    dailyDrawdownValue: number
+    totalDrawdownType: string
+    totalDrawdownValue: number
+    profitTargetPct: number
+    currentPhase: number
+    stepCount: number
+    status: string
+  } | null
+  recentTrades: RecentTradeItem[]
+  weekAdherence: WeekDayStats[]
+  ddUsedBps: number
+  totalPnlCents: number
+}
+
 // ─── Account Stats ────────────────────────────────────────────────────────────
 
 export interface AccountStats {
@@ -611,4 +664,308 @@ export interface AccountStats {
   totalPnlCents: number
   ddUsedBps: number
   profitPctBps: number
+}
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
+export type DatePreset =
+  | 'today'
+  | '7d'
+  | '30d'
+  | 'this_month'
+  | 'last_month'
+  | 'all'
+  | 'custom'
+
+export type ModeFilter = 'all' | 'live' | 'sim' | 'backtest'
+
+export interface AnalyticsFilter {
+  accountIds: string[] | 'all'
+  dateFrom: number | null
+  dateTo: number | null
+  datePreset: DatePreset
+  mode: ModeFilter
+  pairIds: string[]
+  setupIds: string[]
+  killzoneIds: string[]
+  cleanOnly: boolean
+}
+
+export interface SampleGuard {
+  n: number
+  sufficient: boolean
+}
+
+export interface AnalyticsTotals {
+  tradeCount: number
+  winCount: number
+  lossCount: number
+  winRateBps: number
+  expectancyR: number
+  totalR: number
+  netPnlCents: number
+  netPnlPctBps: number
+  profitFactor: number // ×100; -1 = infinity (no losses)
+  avgWinCents: number
+  avgLossCents: number
+}
+
+// ── Tab 1: Performance
+export interface EquityPoint {
+  t: number
+  cumCents: number
+  cumR: number
+}
+
+export interface RDistributionBucket {
+  rLowHundredths: number // ×100, bucket lower bound
+  rHighHundredths: number
+  count: number
+}
+
+export interface StreakInfo {
+  currentKind: 'win' | 'loss' | 'none'
+  currentLen: number
+  longestWin: number
+  longestLoss: number
+}
+
+export interface DailyPnlCell {
+  date: string // YYYY-MM-DD UTC
+  pnlCents: number
+  tradeCount: number
+}
+
+export interface PerformanceStats {
+  totals: AnalyticsTotals
+  equityCurve: EquityPoint[]
+  distribution: RDistributionBucket[]
+  streaks: StreakInfo
+  dailyHeatmap: DailyPnlCell[]
+  maxDrawdownCents: number
+  ddLimitCents: number | null
+}
+
+// ── Tab 2: Rule Adherence
+export interface AdherenceScore {
+  cleanCount: number
+  dirtyCount: number
+  scoreBps: number
+  prevScoreBps: number | null
+  trendDirection: 'up' | 'down' | 'flat'
+}
+
+export interface CleanVsDirty {
+  clean: AnalyticsTotals
+  dirty: AnalyticsTotals
+  avgPnlDiffCents: number // clean.avgPnl - dirty.avgPnl
+}
+
+export interface RuleBreakRow {
+  ruleKey: string
+  count: number
+  avgPnlCentsWhenBroken: number
+  winRateBps: number
+  netPnlCents: number
+}
+
+export interface AdherenceTrendPoint {
+  weekStart: string // YYYY-MM-DD (Monday UTC)
+  cleanCount: number
+  totalCount: number
+  scoreBps: number
+}
+
+export interface BlockedInfo {
+  blockedCount: number
+  projectedAvoidedCents: number
+}
+
+export interface RuleAdherenceStats {
+  score: AdherenceScore
+  cleanVsDirty: CleanVsDirty
+  topBroken: RuleBreakRow[]
+  impactTable: RuleBreakRow[]
+  blocked: BlockedInfo
+  trendLine: AdherenceTrendPoint[]
+}
+
+// ── Tab 3: Setup Performance
+export interface SubTotals {
+  n: number
+  winRateBps: number
+  expectancyR: number
+  netPnlCents: number
+}
+
+export interface MatrixCell {
+  setupId: string
+  killzoneId: string
+  n: number
+  expectancyR: number
+  winRateBps: number
+}
+
+export interface SetupRow {
+  setupId: string
+  setupName: string
+  n: number
+  winRateBps: number
+  expectancyR: number
+  avgRrAchievedBps: number
+}
+
+export interface DayOfWeekRow {
+  dow: number // 0 = Sun
+  n: number
+  winRateBps: number
+  expectancyR: number
+}
+
+export interface CompareCard {
+  withFlag: SubTotals
+  withoutFlag: SubTotals
+}
+
+export interface SetupPerformanceStats {
+  matrix: MatrixCell[]
+  setupNames: { id: string; name: string }[]
+  killzoneNames: { id: string; name: string }[]
+  bySetup: SetupRow[]
+  byDay: DayOfWeekRow[]
+  mssCompare: CompareCard
+  dxyCompare: CompareCard
+  smtCompare: CompareCard
+}
+
+// ── Tab 4: Behavioral
+export type EmotionalBucket = 'calm' | 'neutral' | 'urgent'
+export interface BucketRow {
+  bucket: EmotionalBucket
+  n: number
+  winRateBps: number
+  expectancyR: number
+}
+
+export interface PostLossBehavior {
+  firstAfterLoss: SubTotals
+  secondAfterLoss: SubTotals
+  revenge: SubTotals
+}
+
+export interface TradeNumOfDayRow {
+  bucket: 1 | 2 | 3 // 3 means 3+
+  n: number
+  winRateBps: number
+  expectancyR: number
+}
+
+export interface HourDayCell {
+  dow: number // 0..6
+  hour: number // 0..23
+  n: number
+  expectancyR: number
+}
+
+export interface RecoveryPattern {
+  recoveryCount: number
+  cleanRecoveryCount: number
+  cleanRateBps: number
+}
+
+export interface BehavioralStats {
+  emotionalBuckets: BucketRow[]
+  needBuckets: BucketRow[]
+  postLoss: PostLossBehavior
+  tradeNumOfDay: TradeNumOfDayRow[]
+  hourDayHeatmap: HourDayCell[]
+  recovery: RecoveryPattern
+}
+
+// ── Tab 5: Accounts & Phases
+export interface AccountLadderRow {
+  id: string
+  displayName: string
+  firmName: string
+  sizeCents: number
+  phase: number
+  stepCount: number
+  daysAlive: number
+  status: string
+  endReason: string | null
+  costCents: number
+}
+
+export interface PhaseTrendPoint {
+  month: string // YYYY-MM
+  phase1PassRate: number // bps
+  phase2PassRate: number // bps
+  fundedRate: number // bps
+  sampleSize: number
+}
+
+export interface CostAnalysis {
+  totalSpentCents: number
+  totalPayoutsCents: number
+  netCents: number
+  costPerTradeCents: number
+  accountCount: number
+}
+
+export interface FailureCauseRow {
+  ruleKey: string
+  count: number
+}
+
+export interface DaysToFailureBucket {
+  bucket: string // e.g. "0-3", "4-7"
+  count: number
+}
+
+export interface PatternInsight {
+  id: string
+  text: string
+  sampleSize: number
+}
+
+export interface AccountsPhaseStats {
+  ladder: AccountLadderRow[]
+  phaseTrend: PhaseTrendPoint[]
+  cost: CostAnalysis
+  failureCauses: FailureCauseRow[]
+  daysToFailure: DaysToFailureBucket[]
+  insights: PatternInsight[]
+}
+
+// ── Tab 6: Review
+export type ReviewPeriodType = 'weekly' | 'monthly'
+
+export interface ReviewSummary {
+  id: string
+  accountId: string | null
+  periodType: ReviewPeriodType
+  periodStart: string
+  periodEnd: string
+  topMistakes: string
+  bestTradeId: string | null
+  worstTradeId: string | null
+  lessonNextPeriod: string
+  ruleFocus: string | null
+  adherenceScore: number
+  notes: string | null
+  createdAt: number
+}
+
+export interface CreateReviewInput {
+  accountId?: string | null
+  periodType: ReviewPeriodType
+  periodStart: string
+  periodEnd: string
+  topMistakes: string
+  bestTradeId?: string | null
+  worstTradeId?: string | null
+  lessonNextPeriod: string
+  ruleFocus?: string | null
+  adherenceScore: number
+  notes?: string | null
 }

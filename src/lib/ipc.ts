@@ -36,6 +36,14 @@ import type {
   CreateTradeInput,
   CloseTradeInput,
   DashboardStats,
+  AnalyticsFilter,
+  PerformanceStats,
+  RuleAdherenceStats,
+  SetupPerformanceStats,
+  BehavioralStats,
+  AccountsPhaseStats,
+  ReviewSummary,
+  CreateReviewInput,
 } from '@shared/types/index'
 
 export interface DbStatus {
@@ -137,6 +145,15 @@ declare global {
       }
       dashboard: {
         getStats: (accountId: string) => Promise<IpcResponse<DashboardStats>>
+      }
+      analytics: {
+        performance: (filter: AnalyticsFilter) => Promise<IpcResponse<PerformanceStats>>
+        adherence: (filter: AnalyticsFilter) => Promise<IpcResponse<RuleAdherenceStats>>
+        setups: (filter: AnalyticsFilter) => Promise<IpcResponse<SetupPerformanceStats>>
+        behavioral: (filter: AnalyticsFilter) => Promise<IpcResponse<BehavioralStats>>
+        phases: () => Promise<IpcResponse<AccountsPhaseStats>>
+        listReviews: (accountId?: string | null) => Promise<IpcResponse<ReviewSummary[]>>
+        createReview: (input: CreateReviewInput) => Promise<IpcResponse<ReviewSummary>>
       }
     }
   }
@@ -284,5 +301,21 @@ export const ipc = {
   dashboard: {
     getStats: (accountId: string): Promise<IpcResponse<DashboardStats>> =>
       window.api.dashboard.getStats(accountId),
+  },
+
+  analytics: {
+    performance: (filter: AnalyticsFilter): Promise<IpcResponse<PerformanceStats>> =>
+      window.api.analytics.performance(filter),
+    adherence: (filter: AnalyticsFilter): Promise<IpcResponse<RuleAdherenceStats>> =>
+      window.api.analytics.adherence(filter),
+    setups: (filter: AnalyticsFilter): Promise<IpcResponse<SetupPerformanceStats>> =>
+      window.api.analytics.setups(filter),
+    behavioral: (filter: AnalyticsFilter): Promise<IpcResponse<BehavioralStats>> =>
+      window.api.analytics.behavioral(filter),
+    phases: (): Promise<IpcResponse<AccountsPhaseStats>> => window.api.analytics.phases(),
+    listReviews: (accountId?: string | null): Promise<IpcResponse<ReviewSummary[]>> =>
+      window.api.analytics.listReviews(accountId ?? null),
+    createReview: (input: CreateReviewInput): Promise<IpcResponse<ReviewSummary>> =>
+      window.api.analytics.createReview(input),
   },
 } as const

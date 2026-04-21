@@ -38,6 +38,14 @@ import type {
   CreateTradeInput,
   CloseTradeInput,
   DashboardStats,
+  AnalyticsFilter,
+  PerformanceStats,
+  RuleAdherenceStats,
+  SetupPerformanceStats,
+  BehavioralStats,
+  AccountsPhaseStats,
+  ReviewSummary,
+  CreateReviewInput,
 } from '../shared/types/index'
 
 const api = {
@@ -186,6 +194,22 @@ const api = {
   dashboard: {
     getStats: (accountId: string): Promise<IpcResponse<DashboardStats>> =>
       ipcRenderer.invoke('dashboard:getStats', { accountId }),
+  },
+  analytics: {
+    performance: (filter: AnalyticsFilter): Promise<IpcResponse<PerformanceStats>> =>
+      ipcRenderer.invoke('analytics:performance', { filter }),
+    adherence: (filter: AnalyticsFilter): Promise<IpcResponse<RuleAdherenceStats>> =>
+      ipcRenderer.invoke('analytics:adherence', { filter }),
+    setups: (filter: AnalyticsFilter): Promise<IpcResponse<SetupPerformanceStats>> =>
+      ipcRenderer.invoke('analytics:setups', { filter }),
+    behavioral: (filter: AnalyticsFilter): Promise<IpcResponse<BehavioralStats>> =>
+      ipcRenderer.invoke('analytics:behavioral', { filter }),
+    phases: (): Promise<IpcResponse<AccountsPhaseStats>> =>
+      ipcRenderer.invoke('analytics:phases'),
+    listReviews: (accountId?: string | null): Promise<IpcResponse<ReviewSummary[]>> =>
+      ipcRenderer.invoke('analytics:listReviews', { accountId: accountId ?? null }),
+    createReview: (input: CreateReviewInput): Promise<IpcResponse<ReviewSummary>> =>
+      ipcRenderer.invoke('analytics:createReview', input),
   },
 } as const
 
