@@ -468,6 +468,7 @@ export interface Trade {
 }
 
 export interface CreateTradeInput {
+  id?: string // client-generated uuid for idempotent creates (§13.11 item 12)
   accountId: string
   sessionId?: string | null
   pairId: string
@@ -968,4 +969,36 @@ export interface CreateReviewInput {
   ruleFocus?: string | null
   adherenceScore: number
   notes?: string | null
+}
+
+// ── Backup & Restore ──────────────────────────────────────────────────────────
+export interface BackupLogEntry {
+  id: string
+  kind: 'auto_local' | 'manual'
+  destination: string
+  filesizeBytes: number
+  status: 'success' | 'failed'
+  errorMessage: string | null
+  createdAt: number
+}
+
+export interface BackupResult {
+  path: string
+  filesizeBytes: number
+  tradeCount: number
+  accountCount: number
+}
+
+export interface RestoreInfo {
+  version: string
+  createdAt: number
+  tradeCount: number
+  accountCount: number
+}
+
+export interface BackupSettings {
+  folder: string | null
+  schedule: 'daily' | 'on_close' | 'manual'
+  dailyTime: string  // HH:MM UTC
+  backupOnClose: boolean
 }

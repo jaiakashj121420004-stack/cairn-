@@ -86,6 +86,16 @@ export function getDbStatus(): { integrityOk: boolean; migrationCount: number; t
   return { integrityOk, migrationCount, tradeCount }
 }
 
+export function vacuumInto(destPath: string): void {
+  if (!_sqlite) throw new Error('Database not open')
+  _sqlite.prepare(`VACUUM INTO '${destPath.replace(/'/g, "''")}'`).run()
+}
+
+export function getRawSqlite(): Database.Database {
+  if (!_sqlite) throw new Error('Database not open')
+  return _sqlite
+}
+
 export function closeDb(): void {
   if (_sqlite) {
     _sqlite.close()

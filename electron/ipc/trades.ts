@@ -95,6 +95,7 @@ function mapScreenshotRow(
 }
 
 const CreateTradeSchema = z.object({
+  id: z.string().uuid().optional(), // client-generated for idempotent retries (§13.11 item 12)
   accountId: z.string().uuid(),
   sessionId: z.string().uuid().nullable().optional(),
   pairId: z.string().uuid(),
@@ -164,8 +165,39 @@ export function registerTradeHandlers(): void {
     try {
       const db = getDb()
       const now = Date.now()
-      const id = uuidv7()
       const d = parsed.data
+      const id = d.id ?? uuidv7()
+
+      // Idempotency: if client provided an id and the trade already exists, return it (§13.11 item 12)
+      if (d.id) {
+        const existing = db.select().from(schema.trades).where(eq(schema.trades.id, d.id)).get()
+        if (existing) return { ok: true, data: mapRow(existing) }
+      }
+
+      // Duplicate prevention: warn if near-identical trade within last 5 min (§13.11 item 7)
+      const fiveMinAgo = now - 5 * 60_000
+      const nearDup = db
+        .select({ id: schema.trades.id })
+        .from(schema.trades)
+        .where(
+          and(
+            eq(schema.trades.accountId, d.accountId),
+            eq(schema.trades.pairId, d.pairId),
+            eq(schema.trades.direction, d.direction),
+            isNull(schema.trades.deletedAt),
+            gte(schema.trades.createdAt, fiveMinAgo),
+          ),
+        )
+        .get()
+      if (nearDup) {
+        return {
+          ok: false,
+          error: {
+            code: 'DUPLICATE_TRADE',
+            message: 'A trade with the same account, pair, and direction was logged within the last 5 minutes. Check your trade log before proceeding.',
+          },
+        }
+      }
 
       db.transaction(() => {
         db.insert(schema.trades)

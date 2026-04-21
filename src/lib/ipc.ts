@@ -44,6 +44,10 @@ import type {
   AccountsPhaseStats,
   ReviewSummary,
   CreateReviewInput,
+  BackupLogEntry,
+  BackupResult,
+  RestoreInfo,
+  BackupSettings,
 } from '@shared/types/index'
 
 export interface DbStatus {
@@ -154,6 +158,17 @@ declare global {
         phases: () => Promise<IpcResponse<AccountsPhaseStats>>
         listReviews: (accountId?: string | null) => Promise<IpcResponse<ReviewSummary[]>>
         createReview: (input: CreateReviewInput) => Promise<IpcResponse<ReviewSummary>>
+      }
+      backup: {
+        getSettings: () => Promise<IpcResponse<BackupSettings>>
+        setSettings: (s: Partial<BackupSettings>) => Promise<IpcResponse<void>>
+        pickFolder: () => Promise<IpcResponse<string | null>>
+        now: () => Promise<IpcResponse<BackupResult>>
+        nowToFolder: () => Promise<IpcResponse<BackupResult>>
+        getLog: () => Promise<IpcResponse<BackupLogEntry[]>>
+        pickRestoreFile: () => Promise<IpcResponse<RestoreInfo & { path: string }>>
+        restore: (path: string, ack: string) => Promise<IpcResponse<void>>
+        reschedule: () => Promise<IpcResponse<void>>
       }
     }
   }
@@ -317,5 +332,20 @@ export const ipc = {
       window.api.analytics.listReviews(accountId ?? null),
     createReview: (input: CreateReviewInput): Promise<IpcResponse<ReviewSummary>> =>
       window.api.analytics.createReview(input),
+  },
+
+  backup: {
+    getSettings: (): Promise<IpcResponse<BackupSettings>> => window.api.backup.getSettings(),
+    setSettings: (s: Partial<BackupSettings>): Promise<IpcResponse<void>> =>
+      window.api.backup.setSettings(s),
+    pickFolder: (): Promise<IpcResponse<string | null>> => window.api.backup.pickFolder(),
+    now: (): Promise<IpcResponse<BackupResult>> => window.api.backup.now(),
+    nowToFolder: (): Promise<IpcResponse<BackupResult>> => window.api.backup.nowToFolder(),
+    getLog: (): Promise<IpcResponse<BackupLogEntry[]>> => window.api.backup.getLog(),
+    pickRestoreFile: (): Promise<IpcResponse<RestoreInfo & { path: string }>> =>
+      window.api.backup.pickRestoreFile(),
+    restore: (path: string, ack: string): Promise<IpcResponse<void>> =>
+      window.api.backup.restore(path, ack),
+    reschedule: (): Promise<IpcResponse<void>> => window.api.backup.reschedule(),
   },
 } as const

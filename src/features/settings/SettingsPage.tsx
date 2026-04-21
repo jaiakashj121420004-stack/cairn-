@@ -8,6 +8,7 @@ import { KillzonesTab } from './tabs/KillzonesTab'
 import { PropFirmsTab } from './tabs/PropFirmsTab'
 import { TemplatesTab } from './tabs/TemplatesTab'
 import { DataTab } from './tabs/DataTab'
+import { BackupsTab } from './tabs/BackupsTab'
 
 const TABS: TabItem[] = [
   { id: 'general', label: 'General' },
@@ -17,6 +18,7 @@ const TABS: TabItem[] = [
   { id: 'firms', label: 'Prop Firms' },
   { id: 'templates', label: 'Templates' },
   { id: 'data', label: 'Data' },
+  { id: 'backups', label: 'Backups' },
 ]
 
 export function SettingsPage() {
@@ -36,6 +38,7 @@ export function SettingsPage() {
         {activeTab === 'firms' && <PropFirmsTab />}
         {activeTab === 'templates' && <TemplatesTab />}
         {activeTab === 'data' && <DataTab />}
+        {activeTab === 'backups' && <BackupsTab />}
       </div>
     </div>
   )

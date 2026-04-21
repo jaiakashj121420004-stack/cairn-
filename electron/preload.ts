@@ -2,6 +2,12 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { IpcResponse } from '../shared/types/index'
 import type { DbStatus } from './ipc/db'
 import type {
+  BackupLogEntry,
+  BackupResult,
+  RestoreInfo,
+  BackupSettings,
+} from '../shared/types/index'
+import type {
   PropFirm,
   AccountTemplate,
   Account,
@@ -210,6 +216,26 @@ const api = {
       ipcRenderer.invoke('analytics:listReviews', { accountId: accountId ?? null }),
     createReview: (input: CreateReviewInput): Promise<IpcResponse<ReviewSummary>> =>
       ipcRenderer.invoke('analytics:createReview', input),
+  },
+  backup: {
+    getSettings: (): Promise<IpcResponse<BackupSettings>> =>
+      ipcRenderer.invoke('backup:getSettings'),
+    setSettings: (s: Partial<BackupSettings>): Promise<IpcResponse<void>> =>
+      ipcRenderer.invoke('backup:setSettings', s),
+    pickFolder: (): Promise<IpcResponse<string | null>> =>
+      ipcRenderer.invoke('backup:pickFolder'),
+    now: (): Promise<IpcResponse<BackupResult>> =>
+      ipcRenderer.invoke('backup:now'),
+    nowToFolder: (): Promise<IpcResponse<BackupResult>> =>
+      ipcRenderer.invoke('backup:nowToFolder'),
+    getLog: (): Promise<IpcResponse<BackupLogEntry[]>> =>
+      ipcRenderer.invoke('backup:getLog'),
+    pickRestoreFile: (): Promise<IpcResponse<RestoreInfo & { path: string }>> =>
+      ipcRenderer.invoke('backup:pickRestoreFile'),
+    restore: (path: string, ack: string): Promise<IpcResponse<void>> =>
+      ipcRenderer.invoke('backup:restore', { path, ack }),
+    reschedule: (): Promise<IpcResponse<void>> =>
+      ipcRenderer.invoke('backup:reschedule'),
   },
 } as const
 
