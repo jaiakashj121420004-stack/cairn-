@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import { db } from '../db/index'
+import { getDb } from '../db/index'
 import { trades, accounts, pairs, setups } from '../db/schema'
 import { eq, and, gte, isNull, desc, sql } from 'drizzle-orm'
 import type { IpcResponse, DashboardStats, RecentTradeItem, WeekDayStats } from '../../shared/types/index'
@@ -164,12 +164,12 @@ export function registerDashboardHandlers(): void {
 
         const pairRows =
           pairIds.length > 0
-            ? db.select({ id: pairs.id, symbol: pairs.symbol }).from(pairs).all()
+            ? getDb().select({ id: pairs.id, symbol: pairs.symbol }).from(pairs).all()
                 .filter((p) => pairIds.includes(p.id))
             : []
         const setupRows =
           setupIds.length > 0
-            ? db.select({ id: setups.id, name: setups.name }).from(setups).all()
+            ? getDb().select({ id: setups.id, name: setups.name }).from(setups).all()
                 .filter((s) => setupIds.includes(s.id))
             : []
 

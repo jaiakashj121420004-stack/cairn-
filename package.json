@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Cairn — A Discipline-First Trading Journal",
   "private": true,
-  "main": "out/main/index.js",
+  "main": "out/main/main.js",
   "author": "Jai Akash",
   "engines": {
     "node": ">=20.0.0",
