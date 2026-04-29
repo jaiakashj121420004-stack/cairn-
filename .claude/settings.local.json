@@ -9,7 +9,36 @@
       "Bash(pnpm typecheck *)",
       "Bash(pnpm lint *)",
       "Bash(git init *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git *)",
+      "Bash(pnpm test:unit)",
+      "Bash(pnpm rebuild *)",
+      "Bash(node node_modules/.bin/node-pre-gyp install --runtime=node --fallback-to-build=false)",
+      "Bash(node -e \"require\\('@mapbox/node-pre-gyp'\\).find\\('./package.json'\\)\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k: d.get\\(k\\) for k in ['scripts','dependencies','peerDependencies']}, indent=2\\)\\)\")",
+      "Bash(\"C:\\\\Users\\\\jaiak\\\\Desktop\\\\JOR_CLAUDE\\\\node_modules\\\\.pnpm\\\\prebuild-install@7.1.3\\\\node_modules\\\\.bin\\\\prebuild-install\" --verbose)",
+      "Bash(node \"C:\\\\Users\\\\jaiak\\\\Desktop\\\\JOR_CLAUDE\\\\node_modules\\\\.pnpm\\\\prebuild-install@7.1.3\\\\node_modules\\\\prebuild-install\\\\bin.js\" --verbose)",
+      "Bash(pnpm add *)",
+      "Bash(pnpm remove *)",
+      "Bash(pnpm run *)",
+      "Bash(curl -s http://localhost:5173/)",
+      "Bash(npx vite *)",
+      "Bash(pnpm test *)",
+      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\('rhf:', p.dependencies['react-hook-form'], 'resolvers:', p.dependencies['@hookform/resolvers']\\)\")",
+      "Bash(xargs grep *)",
+      "Bash(grep -E \"\\\\.ts$\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); deps={**d.get\\('dependencies',{}\\), **d.get\\('devDependencies',{}\\)}; [print\\(k\\) for k in deps]\")",
+      "Bash(pnpm tsc *)",
+      "Bash(grep -v \"^$\")",
+      "Bash(rm -rf out)",
+      "Bash(pnpm dev *)",
+      "Bash(pnpm vitest *)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(k,v\\) for k,v in {**d.get\\('dependencies',{}\\),**d.get\\('devDependencies',{}\\)}.items\\(\\)]\")",
+      "Bash(node -e \"const p=require\\('./package.json'\\); const all={...p.dependencies,...p.devDependencies}; Object.keys\\(all\\).forEach\\(k=>console.log\\(k,all[k]\\)\\)\")",
+      "Bash(pnpm build *)",
+      "Bash(pnpm electron-builder *)",
+      "Bash(pnpm exec *)"
     ]
-  }
+  },
+  "outputStyle": "default"
 }

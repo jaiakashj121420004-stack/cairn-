@@ -1,7 +1,7 @@
 # CLAUDE.md — CAIRN
 
 **Project:** Cairn — A Discipline-First Trading Journal
-**Version:** 1.0 Specification
+**Version:** 1.1 Specification
 **Author of spec:** Trading coach collaboration
 **App creator credit:** Designed & built by Jai Akash
 **Intended build tool:** Claude Code (Anthropic)
@@ -16,6 +16,8 @@ This is the slim root spec for Cairn. Full detail lives in `/docs/*.md` sub-file
 
 **Navigation map:** See §4 below for a pointer to every sub-file and what it covers.
 
+**Current version:** v1.1. See §17 for what changed from v1.0.
+
 ---
 
 ## 1. FOUNDING DOCUMENT — WHY CAIRN EXISTS
@@ -24,13 +26,10 @@ This is the slim root spec for Cairn. Full detail lives in `/docs/*.md` sub-file
 
 A cairn is a stack of stones placed on a trail to mark the way for those who come after. Each stone is deliberate. Each stone stays where it's placed. A cairn is built by people who have walked the path and want to make sure they — and others — can find it again.
 
-This app exists because someone walked off the path roughly 45-50 times and wants to build the cairn that keeps them on it.
+This app exists because someone walked off the path and wants to build the cairn that keeps them on it.
 
-The user who commissioned this app has:
+The user has:
 - Studied ICT (Inner Circle Trader) methodology for over a year.
-- Attempted roughly 45-50 funded prop-firm challenges.
-- Cleared Phase 1 approximately 70% of the time.
-- Cleared Phase 2 only 7-10% of the time.
 - Diagnosed their own problem as primarily discipline and process, not knowledge.
 
 After structured assessment, the diagnosis was confirmed: **this is ~20% knowledge gap, ~80% discipline and process gap.** The trader knows how to take a good trade. The trader does not yet have the system that prevents them from taking bad ones.
@@ -47,7 +46,7 @@ This one sentence shapes every decision in this spec. When there is a choice bet
 - A generic analytic vs. an ICT-specific analytic → go ICT-specific.
 - A friendly nudge vs. a hard block when a rule is breaking → hard block.
 
-The app is an **external discipline layer**. The user has proven (45-50 times) that willpower alone does not work during live markets. Cairn replaces willpower with structure.
+The app is an **external discipline layer**. Cairn replaces willpower with structure.
 
 ### 1.3 The Three Jobs Cairn Must Do
 
@@ -103,16 +102,19 @@ This is a financial app. Money-adjacent calculations must be correct to the cent
 The user will add v2 features and MT5/cTrader integration later. Every architectural decision in v1 must accommodate v2 without requiring rewrites. Data model, component structure, and state management are all designed to be added to, never ripped up.
 
 ### 2.7 The App is a Cockpit, Not a Notebook
-The trader should trade **through** Cairn — lot size calculator, rule-checker, target validator — not log in Cairn **after** trading elsewhere. This is the difference between a journal traders skip and a journal that becomes indispensable.
+The trader should trade **through** Cairn — lot size calculator, rule-checker, target validator — not log in Cairn **after** trading elsewhere.
 
 ### 2.8 Aesthetic is Functional
-Good design is a feature, not a polish layer. A calm, beautiful, deliberate UI reinforces the discipline the app is teaching. A cluttered or garish UI undermines it.
+Good design is a feature, not a polish layer. A calm, beautiful, deliberate UI reinforces the discipline the app is teaching. Cairn uses a **glassmorphism + depth** design language: frosted glass surfaces, layered depth, subtle glow accents, and smooth physics-based animations. A cluttered or flat UI undermines the discipline the app is teaching.
 
 ### 2.9 Never Mention Specific Prop Firms in UI
 The app is prop-firm-agnostic. Prop firms are configured as generic "firms" with configurable rule sets. No firm name is hardcoded or referenced in user-visible text.
 
 ### 2.10 No Reference to the User's Backstory in the App
-The founding document above exists for context to whoever is building the app. The user's history (45-50 accounts, etc.) must never appear in the UI, error messages, onboarding, or any user-visible text. The app speaks to a trader, not to *this* trader's history.
+The founding document above exists for context. The user's history must never appear in the UI, error messages, onboarding, or any user-visible text.
+
+### 2.11 Everything User-Configurable is User-Configurable
+Any behavioral preference — timezone, leverage, risk %, daily trade limit, loss circuit breaker, R-target alerts, default pairs — must be configurable in Settings. Defaults are sensible starting points, not constraints.
 
 ---
 
@@ -147,43 +149,43 @@ The founding document above exists for context to whoever is building the app. T
 
 ```
 cairn/
-├── CLAUDE.md                     # Root spec (slim version after split)
-├── docs/                         # Split sub-specs
+├── CLAUDE.md
+├── docs/
 │   ├── philosophy.md
-│   ├── design-system.md
-│   ├── data-model.md
-│   ├── features-v1.md
+│   ├── design-system.md          # v1.1: updated for glassmorphism design language
+│   ├── data-model.md             # v1.1: leverage field, partial close, screenshot attachment
+│   ├── features-v1.md            # v1.1: risk calculator, draft activation, pairs list, new features
 │   ├── features-v2.md
-│   ├── rules-engine.md
+│   ├── rules-engine.md           # v1.1: daily trade limit rule, max daily loss circuit breaker
 │   ├── analytics.md
 │   ├── ui-flows.md
-│   ├── customization.md
+│   ├── customization.md          # v1.1: timezone setting, leverage, R-target alerts
 │   ├── integrations-future.md
 │   ├── testing.md
 │   └── conventions.md
-├── electron/                     # Main process
-│   ├── main.ts                   # App entry, window management
-│   ├── preload.ts                # Context bridge
-│   ├── ipc/                      # IPC handlers grouped by domain
+├── electron/
+│   ├── main.ts
+│   ├── preload.ts
+│   ├── ipc/
 │   │   ├── trades.ts
 │   │   ├── accounts.ts
 │   │   ├── rules.ts
 │   │   ├── backup.ts
 │   │   └── settings.ts
 │   ├── db/
-│   │   ├── index.ts              # DB connection singleton
-│   │   ├── schema.ts             # Drizzle schema
-│   │   ├── migrations/           # Migration files, versioned
-│   │   └── seed.ts               # Default data seed
-│   ├── services/                 # Business logic (not UI)
+│   │   ├── index.ts
+│   │   ├── schema.ts
+│   │   ├── migrations/
+│   │   └── seed.ts
+│   ├── services/
 │   │   ├── rules-engine.ts
 │   │   ├── pnl-calculator.ts
 │   │   ├── backup-service.ts
-│   │   ├── import-adapters/      # v2 MT5/cTrader adapters slot here
-│   │   │   └── manual.ts         # v1 "adapter" (just passthrough)
+│   │   ├── import-adapters/
+│   │   │   └── manual.ts
 │   │   └── export-service.ts
 │   └── utils/
-├── src/                          # Renderer (React app)
+├── src/
 │   ├── main.tsx
 │   ├── App.tsx
 │   ├── router.tsx
@@ -191,7 +193,7 @@ cairn/
 │   │   ├── fonts/
 │   │   └── icons/
 │   ├── components/
-│   │   ├── ui/                   # shadcn/ui customized primitives
+│   │   ├── ui/
 │   │   ├── layout/
 │   │   │   ├── Sidebar.tsx
 │   │   │   ├── TopBar.tsx
@@ -203,7 +205,7 @@ cairn/
 │   │   ├── accounts/
 │   │   ├── settings/
 │   │   └── shared/
-│   ├── features/                 # Feature modules (page + hooks + logic)
+│   ├── features/
 │   │   ├── dashboard/
 │   │   ├── pre-trade/
 │   │   ├── post-trade/
@@ -211,27 +213,27 @@ cairn/
 │   │   ├── accounts/
 │   │   ├── settings/
 │   │   └── review/
-│   ├── stores/                   # Zustand stores
-│   │   ├── session-store.ts      # Current session bias, trades today
+│   ├── stores/
+│   │   ├── session-store.ts
 │   │   ├── settings-store.ts
 │   │   └── ui-store.ts
 │   ├── hooks/
 │   ├── lib/
-│   │   ├── ipc.ts                # Typed IPC wrapper
-│   │   ├── formatters.ts         # Money, pips, percentages
-│   │   ├── calculators.ts        # Lot size, RR, pip value
-│   │   └── cn.ts                 # Tailwind class utility
+│   │   ├── ipc.ts
+│   │   ├── formatters.ts
+│   │   ├── calculators.ts        # v1.1: lot size from risk % or risk $, leverage-aware
+│   │   └── cn.ts
 │   ├── styles/
 │   │   └── globals.css
 │   └── types/
-│       └── index.ts              # Shared types
-├── shared/                       # Types shared between main and renderer
+│       └── index.ts
+├── shared/
 │   └── types/
 ├── tests/
 │   ├── unit/
 │   ├── integration/
 │   └── e2e/
-├── scripts/                      # Build, migrate, seed scripts
+├── scripts/
 ├── .nvmrc
 ├── package.json
 ├── pnpm-lock.yaml
@@ -263,21 +265,21 @@ Every IPC handler:
 
 ## 4. DOCS NAVIGATION MAP
 
-Load sub-files only as needed. Each is self-contained.
+Load sub-files only as needed. Each is self-contained. Files marked **[v1.1 updated]** have new sections appended at the bottom under `## v1.1 Additions`.
 
 | File | Contents |
 |---|---|
-| `docs/philosophy.md` | §1 full text — why Cairn exists, design philosophy, three jobs, voice & tone. Load when making product decisions or writing UI copy. |
-| `docs/design-system.md` | §4 — colors, typography, spacing, motion, component aesthetics, Discipline Ring. Load when building any UI component. |
-| `docs/data-model.md` | §5 — all SQLite tables, columns, types, indexes, migration strategy, seed data. Load when touching the database or schema. |
-| `docs/rules-engine.md` | §6 — Rule/RuleContext/RuleEvaluation interfaces, all built-in rules, evaluation flow, cooldown system, override system, hard locks, session lock state. Load when touching the rules engine or any enforcement logic. |
-| `docs/features-v1.md` | §7 — full feature specs: onboarding, dashboard, session bias, new trade panel, post-trade log, trade log, accounts, settings, playbook. Load when implementing any feature. |
-| `docs/analytics.md` | §8 — all 6 analytics tabs in detail, filter bar, chart standards. Load when working on analytics. |
-| `docs/ui-flows.md` | §9 — key user journeys: happy path, rule-block path, tilt flow, backup flow, migration-fail state. Load when implementing flows or writing E2E tests. |
-| `docs/customization.md` | §10 — what's customizable globally vs per-account, custom pair/setup forms. Load when working on settings or customization features. |
-| `docs/integrations-future.md` | §11 — v2 broker adapter interface, adapter list, never-features. Load when making v1 architectural decisions that must not foreclose v2. |
-| `docs/testing.md` | §12 — unit, integration, E2E test requirements, manual QA checklist. Load when writing tests. |
-| `docs/conventions.md` | §13 — code style, naming, commits, branching, git hooks, error handling, logging, performance budgets, accessibility, self-healing practices, build order. Load at session start for any implementation work. |
+| `docs/philosophy.md` | §1 full text — why Cairn exists, design philosophy, three jobs, voice & tone. |
+| `docs/design-system.md` | Colors, typography, spacing, motion, component aesthetics, Discipline Ring. **[v1.1 updated]** — glassmorphism design language, new dark/light palettes, text contrast requirements, animation spec. |
+| `docs/data-model.md` | All SQLite tables, columns, types, indexes, migration strategy, seed data. **[v1.1 updated]** — leverage column, partial_closes table, screenshot_path column, trade duration fix. |
+| `docs/rules-engine.md` | Rule/RuleContext/RuleEvaluation interfaces, all built-in rules, evaluation flow, cooldown system, override system, hard locks, session lock state. **[v1.1 updated]** — daily trade limit rule, max daily loss circuit breaker rule. |
+| `docs/features-v1.md` | Full feature specs: onboarding, dashboard, session bias, new trade panel, post-trade log, trade log, accounts, settings, playbook. **[v1.1 updated]** — risk calculator in trade entry, draft activation flow, partial close flow, screenshot attachment (optional), win/loss streak on dashboard, keyboard shortcuts, PDF export, trade duration fix. |
+| `docs/analytics.md` | All 6 analytics tabs in detail, filter bar, chart standards. |
+| `docs/ui-flows.md` | Key user journeys: happy path, rule-block path, tilt flow, backup flow, migration-fail state. |
+| `docs/customization.md` | What's customizable globally vs per-account, custom pair/setup forms. **[v1.1 updated]** — timezone (default: America/New_York), leverage (default: 100:1), default pairs list, daily trade limit, max daily loss %, R-target alert levels, all user-configurable. |
+| `docs/integrations-future.md` | v2 broker adapter interface, adapter list, never-features. |
+| `docs/testing.md` | Unit, integration, E2E test requirements, manual QA checklist. |
+| `docs/conventions.md` | Code style, naming, commits, branching, git hooks, error handling, logging, performance budgets, accessibility, self-healing practices, build order. |
 
 ---
 
@@ -294,11 +296,14 @@ The following decisions are **locked** and should not be revisited without expli
 7. No user-history references in UI (founding document context only).
 8. App name: **Cairn**.
 9. Attribution: "Designed & built by Jai Akash" in sidebar bottom-left, nowhere else.
-10. Color palette: Graphite & Citrus (dark) / Bone & Forest (light). Zero purple/cyan.
+10. Color palette: Glassmorphism dark (deep graphite base with frosted glass surfaces) / Glassmorphism light (warm bone base with frosted white surfaces). Zero purple/cyan as primary colors.
 11. Fonts: Inter + JetBrains Mono.
-12. v1 feature scope as listed in §7. v2 additions in §11.
+12. v1 feature scope as listed in §7 (plus v1.1 additions in §17). v2 additions in §11.
 13. Rule-gating is blocking by default; overrides require typed acknowledgment; hard locks cannot be overridden.
 14. Prevention over detection is the app's north star.
+15. Screenshot attachment on trade entry is **always optional** — never required, never blocks trade submission.
+16. Default timezone is **America/New_York**. User can change it in Settings.
+17. All behavioral preferences (timezone, leverage, daily trade limit, max loss %, R-target alerts, default pairs) are user-configurable in Settings.
 
 ---
 
@@ -325,30 +330,65 @@ The following decisions are **locked** and should not be revisited without expli
 - **Clean trade** — Trade with zero rules broken and plan followed exactly.
 - **Dirty trade** — Trade with any rule broken or plan deviation.
 - **DXY** — US Dollar Index.
+- **Partial close** — Closing a portion of an open position while leaving the remainder running.
+- **Circuit breaker** — Automatic session lock triggered when max daily loss % is hit.
+- **Leverage** — Account leverage ratio (e.g. 100:1). Used in lot size calculations.
 
 ---
 
-## 16. END STATE DEFINITION (WHAT "V1 DONE" MEANS)
+## 16. END STATE DEFINITION (WHAT "V1.1 DONE" MEANS)
 
-v1 is complete when:
+v1.1 is complete when all v1.0 criteria are met PLUS:
 
-1. A user can install, onboard, and configure an account in under 10 minutes.
-2. A user can log a session bias in under 60 seconds.
-3. A user can submit a pre-trade plan with full rule gating in under 60 seconds (with prior context loaded).
-4. A user can log a trade close with full reflection in under 60 seconds.
-5. Every rule in §6.3 is implemented, configurable, and evaluated correctly.
-6. Dashboard renders accurate live stats for the active account.
-7. Analytics tabs 1-5 are fully functional with 500+ trade datasets.
-8. Backup and restore work cleanly, including cross-device via pen drive.
-9. Dark and light modes both ship polished.
-10. All motion respects reduced-motion preference.
-11. All of §13.11 self-healing behaviors are in place.
-12. Critical paths in §12.4 pass E2E.
-13. No console errors in normal use.
-14. Performance budgets in §13.9 are met.
-15. App packages successfully for Windows (NSIS), macOS (DMG), Linux (AppImage).
+16. Design is glassmorphism — frosted glass cards, depth layers, smooth animations. Text contrast passes WCAG AA in both dark and light modes.
+17. Dashboard shows correct discipline score, current account balance, and today's P&L after every trade.
+18. P&L calculates correctly in trade log, dashboard, and analytics using actual exit price, lot size, leverage, and pip value.
+19. Trade entry panel includes risk calculator: user inputs risk $ or risk %, lot size auto-calculates from account size, leverage, entry, and SL.
+20. Leverage is configurable per account in Settings and used in all calculations.
+21. Draft trades can be re-opened and activated (placed) from the trade log.
+22. Partial close is available when closing a trade — user can close X% of position and leave remainder open.
+23. Screenshot attachment field exists on trade entry and post-trade review — optional, never blocks submission.
+24. Default pairs seed includes: EURUSD, GBPUSD, XAUUSD, XAGUSD, NZDUSD, AUDNZD, GBPJPY, AUDUSD, USDJPY, USDCAD, USDCHF, EURGBP, EURJPY, GBPCAD, GBPAUD, BTCUSD, US30, NAS100, SPX500.
+25. Daily trade limit rule is implemented and configurable per account.
+26. Max daily loss circuit breaker is implemented and configurable per account.
+27. R-target alerts (configurable levels, e.g. 1R, 2R) provide a visual indicator on open trades.
+28. Trade duration shows correct elapsed time from entry time to exit time.
+29. Win streak and loss streak are displayed on the dashboard.
+30. PDF export of trade review is available from the Review section.
+31. Keyboard shortcuts are implemented for core actions (configurable, documented in Settings).
+32. Timezone defaults to America/New_York and is user-configurable in Settings.
 
-When all 15 are true, v1 ships. v2 planning begins the same day.
+---
+
+## 17. V1.1 CHANGE LOG
+
+These items were added in v1.1. For full detail, see the `## v1.1 Additions` section at the bottom of each relevant doc file.
+
+### Design
+- Glassmorphism design language across all surfaces (see `docs/design-system.md § v1.1`)
+- Text contrast fix: all text meets WCAG AA contrast ratios
+- Smooth Framer Motion animations on card load, modal entry, and state transitions
+
+### Bug Fixes
+- Dashboard discipline score now updates in real time after each trade
+- Dashboard account card shows current balance (not "No account selected" when account exists)
+- P&L calculation fixed: uses actual exit price × lot size × pip value × leverage
+- Trade duration shows correct elapsed time (open timestamp → close timestamp)
+
+### New Features
+- **Risk calculator** in trade entry: risk $ or risk % → auto lot size (see `docs/features-v1.md § v1.1`)
+- **Leverage** field added to account settings; used in all lot size and P&L calculations
+- **Draft activation**: draft trades appear in trade log with an "Activate" button to open position
+- **Partial close**: when closing a trade, user can specify close % and log a partial exit
+- **Screenshot attachment**: optional image field on trade entry and post-trade review
+- **Default pairs**: expanded seed list with 19 instruments
+- **Daily trade limit rule**: configurable max trades/day per account (see `docs/rules-engine.md § v1.1`)
+- **Max daily loss circuit breaker**: configurable % drawdown triggers session lock (see `docs/rules-engine.md § v1.1`)
+- **R-target alerts**: visual badge on open trades at configurable R levels
+- **Win/loss streak**: displayed on dashboard
+- **PDF export**: trade review report from Review section
+- **Keyboard shortcuts**: core actions, configurable, listed in Settings help panel
+- **Timezone setting**: defaults to America/New_York, configurable in Settings (see `docs/customization.md § v1.1`)
 
 ---
 
