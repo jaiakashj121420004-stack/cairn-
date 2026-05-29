@@ -250,6 +250,7 @@ export interface UpdateAccountInput {
   displayName?: string
   status?: AccountStatus
   currentPhase?: number
+  leverage?: number
   currentEquityCents?: number
   peakEquityCents?: number
   notes?: string | null
@@ -515,6 +516,28 @@ export interface CloseTradeInput {
   tags?: string[]
 }
 
+export interface PartialCloseInput {
+  tradeId: string
+  closeLots: number     // stored integer (lots × 100)
+  exitPrice: number     // encoded integer (Math.round(float × 10^(pipDecimal+1)))
+  exitTime: number      // UTC ms
+  closePercent?: number // 0–100, optional for display
+  notes?: string
+}
+
+export interface PartialCloseRecord {
+  id: string
+  tradeId: string
+  closePercent: number
+  closeLots: number | null
+  exitPrice: number
+  exitTime: number
+  pnlR: number | null
+  pnlUsd: number | null
+  notes: string | null
+  createdAt: number
+}
+
 export interface TradeScreenshot {
   id: string
   tradeId: string
@@ -598,6 +621,7 @@ export interface TradeDetail extends Trade {
   screenshots: TradeScreenshot[]
   ruleViolations: RuleViolation[]
   relatedTrades: TradeListItem[]
+  partialCloses: PartialCloseRecord[]
 }
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
@@ -632,6 +656,7 @@ export interface DashboardStats {
   todayClosedCount: number
   todayPnlCents: number
   todayRulesBrokenCount: number
+  streak: { count: number; type: 'win' | 'loss' } | null
   account: {
     id: string
     displayName: string

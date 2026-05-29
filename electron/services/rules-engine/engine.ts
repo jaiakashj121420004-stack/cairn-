@@ -1,5 +1,5 @@
 import { v7 as uuidv7 } from 'uuid'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, gte, isNull, lte } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import type { CairnDb } from '../../db/index'
 import { listRules, getRule } from './registry'
@@ -17,6 +17,7 @@ import {
   type SessionStateDTO,
   type TradeModification,
 } from './types'
+import { dayStartUtc, dayEndUtc } from './helpers'
 
 const SEVERITY_RANK: Record<RuleEvaluation['severity'], number> = {
   blocking: 0,
@@ -145,31 +146,112 @@ export function onTradeClosed(db: CairnDb, tradeId: string, now?: number): void 
     .from(schema.trades)
     .where(eq(schema.trades.id, tradeId))
     .get()
-  if (!trade || trade.pnlCents === null || trade.pnlCents >= 0) return
+  if (!trade || trade.pnlCents === null) return
   const ts = now ?? Date.now()
 
-  const cfgRow = db
+  if (trade.pnlCents < 0) {
+    const cfgRow = db
+      .select()
+      .from(schema.accountRules)
+      .where(
+        and(
+          eq(schema.accountRules.accountId, trade.accountId),
+          eq(schema.accountRules.ruleKey, 'cooldown_after_loss_minutes'),
+        ),
+      )
+      .get()
+    if (cfgRow && cfgRow.enabled === 1) {
+      try {
+        const parsed = JSON.parse(cfgRow.value) as { minutes?: number }
+        const minutes = parsed.minutes ?? 30
+        if (minutes > 0) {
+          db.transaction(() => {
+            insertCooldown(db, trade.accountId, 'post_loss', minutes * 60_000, ts)
+          })
+        }
+      } catch {
+        // malformed config — skip cooldown creation
+      }
+    }
+  }
+
+  // Circuit breaker: lock today's session if cumulative daily loss limit is hit
+  checkAndLockSession(db, trade.accountId, ts)
+}
+
+function checkAndLockSession(db: CairnDb, accountId: string, ts: number): void {
+  const pctCfg = db
     .select()
     .from(schema.accountRules)
+    .where(and(eq(schema.accountRules.accountId, accountId), eq(schema.accountRules.ruleKey, 'max_daily_loss_pct')))
+    .get()
+  const fixedCfg = db
+    .select()
+    .from(schema.accountRules)
+    .where(and(eq(schema.accountRules.accountId, accountId), eq(schema.accountRules.ruleKey, 'max_daily_loss_fixed')))
+    .get()
+
+  const hasPct = pctCfg && pctCfg.enabled === 1
+  const hasFixed = fixedCfg && fixedCfg.enabled === 1
+  if (!hasPct && !hasFixed) return
+
+  const todayStart = dayStartUtc(ts)
+  const todayEnd = dayEndUtc(ts)
+  const tradesToday = db
+    .select()
+    .from(schema.trades)
     .where(
       and(
-        eq(schema.accountRules.accountId, trade.accountId),
-        eq(schema.accountRules.ruleKey, 'cooldown_after_loss_minutes'),
+        eq(schema.trades.accountId, accountId),
+        gte(schema.trades.createdAt, todayStart),
+        lte(schema.trades.createdAt, todayEnd),
+        isNull(schema.trades.deletedAt),
       ),
     )
-    .get()
-  if (cfgRow && cfgRow.enabled === 1) {
+    .all()
+
+  const realizedCents = tradesToday.reduce((sum, t) => sum + (t.pnlCents ?? 0), 0)
+  const lossCents = Math.max(0, -realizedCents)
+  if (lossCents === 0) return
+
+  let shouldLock = false
+
+  if (hasPct && pctCfg) {
     try {
-      const parsed = JSON.parse(cfgRow.value) as { minutes?: number }
-      const minutes = parsed.minutes ?? 30
-      if (minutes > 0) {
-        db.transaction(() => {
-          insertCooldown(db, trade.accountId, 'post_loss', minutes * 60_000, ts)
-        })
+      const cfg = JSON.parse(pctCfg.value) as { maxPct?: number }
+      if (cfg.maxPct && cfg.maxPct > 0) {
+        const account = db.select().from(schema.accounts).where(eq(schema.accounts.id, accountId)).get()
+        if (account) {
+          const limitCents = Math.floor((account.accountSizeCents * cfg.maxPct) / 10_000)
+          if (lossCents >= limitCents) shouldLock = true
+        }
       }
-    } catch {
-      // malformed config — skip cooldown creation
-    }
+    } catch { /* malformed config */ }
+  }
+
+  if (!shouldLock && hasFixed && fixedCfg) {
+    try {
+      const cfg = JSON.parse(fixedCfg.value) as { maxLossCents?: number }
+      if (cfg.maxLossCents && cfg.maxLossCents > 0 && lossCents >= cfg.maxLossCents) {
+        shouldLock = true
+      }
+    } catch { /* malformed config */ }
+  }
+
+  if (!shouldLock) return
+
+  const todayDateStr = new Date(todayStart).toISOString().slice(0, 10)
+  const session = db
+    .select()
+    .from(schema.sessions)
+    .where(and(eq(schema.sessions.accountId, accountId), eq(schema.sessions.sessionDate, todayDateStr)))
+    .get()
+
+  if (session && !session.lockedAt) {
+    db.update(schema.sessions)
+      .set({ lockedAt: ts, updatedAt: ts })
+      .where(eq(schema.sessions.id, session.id))
+      .run()
   }
 }
 

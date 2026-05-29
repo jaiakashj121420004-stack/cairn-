@@ -1,6 +1,7 @@
 import type { Rule } from './types'
 import { rule as maxRiskPerTradePct } from './rules/max-risk-per-trade-pct'
 import { rule as maxDailyLossPct } from './rules/max-daily-loss-pct'
+import { rule as maxDailyLossFixed } from './rules/max-daily-loss-fixed'
 import { rule as maxOverallDailyLossHardStopPct } from './rules/max-overall-daily-loss-hard-stop-pct'
 import { rule as minRrRatio } from './rules/min-rr-ratio'
 import { rule as positionSizeMatchesPlan } from './rules/position-size-matches-plan'
@@ -21,6 +22,7 @@ import { rule as minTradingDaysCheck } from './rules/min-trading-days-check'
 const ALL: Rule[] = [
   maxRiskPerTradePct,
   maxDailyLossPct,
+  maxDailyLossFixed,
   maxOverallDailyLossHardStopPct,
   minRrRatio,
   positionSizeMatchesPlan,
