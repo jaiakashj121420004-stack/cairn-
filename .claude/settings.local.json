@@ -37,7 +37,18 @@
       "Bash(node -e \"const p=require\\('./package.json'\\); const all={...p.dependencies,...p.devDependencies}; Object.keys\\(all\\).forEach\\(k=>console.log\\(k,all[k]\\)\\)\")",
       "Bash(pnpm build *)",
       "Bash(pnpm electron-builder *)",
-      "Bash(pnpm exec *)"
+      "Bash(pnpm exec *)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(taskkill /F /IM node.exe /T)",
+      "Bash(findstr \"SUCCESS\")",
+      "Bash(Remove-Item \"C:\\\\Users\\\\jaiak\\\\Desktop\\\\JOR_CLAUDE\\\\.git\\\\index.lock\" -Force)",
+      "Bash(Write-Output \"done\")",
+      "Bash(cat vitest.config.ts)",
+      "Bash(cat vite.config.ts)",
+      "Bash(cat vitest.config.*)",
+      "Bash(grep -rn \"include\\\\|tests/\" vite.config.ts vitest.config.ts)",
+      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\(JSON.stringify\\(Object.keys\\(p.devDependencies ?? {}\\).filter\\(k => k.includes\\('testing'\\) || k.includes\\('jsdom'\\)\\)\\)\\)\")"
     ]
   },
   "outputStyle": "default"
