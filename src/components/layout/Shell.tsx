@@ -5,6 +5,7 @@ import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
 import { duration } from '../../lib/motion'
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts'
+import { CommandPalette } from '../../features/command-palette/CommandPalette'
 
 export function Shell() {
   const location = useLocation()
@@ -80,6 +81,7 @@ export function Shell() {
           </Suspense>
         </main>
       </div>
+      <CommandPalette />
     </div>
   )
 }

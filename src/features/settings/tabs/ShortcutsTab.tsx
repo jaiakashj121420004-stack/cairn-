@@ -2,6 +2,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform
 const mod = isMac ? '⌘' : 'Ctrl'
 
 const SHORTCUTS = [
+  { keys: [mod, 'K'], description: 'Open command palette' },
   { keys: ['N'], description: 'Open new trade panel' },
   { keys: ['B'], description: 'Open session bias modal' },
   { keys: ['Escape'], description: 'Close any open modal or panel' },

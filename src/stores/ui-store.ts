@@ -11,11 +11,16 @@ interface UiState {
   activeModal: string | null
   newTradeRequested: boolean
   biasRequested: boolean
+  commandPaletteOpen: boolean
+  /** Which settings tab to activate on the next /settings visit. Cleared after consumed. */
+  settingsTabRequested: string | null
   setThemePreference: (pref: ThemePreference) => void
   setSidebarCollapsed: (collapsed: boolean) => void
   setActiveModal: (id: string | null) => void
   setNewTradeRequested: (v: boolean) => void
   setBiasRequested: (v: boolean) => void
+  setCommandPaletteOpen: (v: boolean) => void
+  setSettingsTabRequested: (tab: string | null) => void
 }
 
 function resolveTheme(pref: ThemePreference): ResolvedTheme {
@@ -40,6 +45,8 @@ export const useUiStore = create<UiState>()(
       activeModal: null,
       newTradeRequested: false,
       biasRequested: false,
+      commandPaletteOpen: false,
+      settingsTabRequested: null,
       setThemePreference: (pref) => {
         const resolved = resolveTheme(pref)
         applyTheme(resolved)
@@ -49,6 +56,8 @@ export const useUiStore = create<UiState>()(
       setActiveModal: (id) => set({ activeModal: id }),
       setNewTradeRequested: (v) => set({ newTradeRequested: v }),
       setBiasRequested: (v) => set({ biasRequested: v }),
+      setCommandPaletteOpen: (v) => set({ commandPaletteOpen: v }),
+      setSettingsTabRequested: (tab) => set({ settingsTabRequested: tab }),
     }),
     {
       name: 'cairn-ui',

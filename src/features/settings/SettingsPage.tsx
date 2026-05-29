@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Tabs } from '../../components/ui'
+import { useUiStore } from '../../stores/ui-store'
 import type { TabItem } from '../../components/ui'
 import { GeneralTab } from './tabs/GeneralTab'
 import { PairsTab } from './tabs/PairsTab'
@@ -27,6 +28,14 @@ const TABS: TabItem[] = [
 
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState('general')
+  const { settingsTabRequested, setSettingsTabRequested } = useUiStore()
+
+  useEffect(() => {
+    if (!settingsTabRequested) return
+    const valid = TABS.some((t) => t.id === settingsTabRequested)
+    if (valid) setActiveTab(settingsTabRequested)
+    setSettingsTabRequested(null)
+  }, [settingsTabRequested, setSettingsTabRequested])
 
   return (
     <div className="flex h-full flex-col">

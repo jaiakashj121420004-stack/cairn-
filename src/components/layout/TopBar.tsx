@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { ChevronDown, Search, Wallet, Check } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { useSessionStore } from '../../stores/session-store'
+import { useUiStore } from '../../stores/ui-store'
 import { ipc } from '../../lib/ipc'
 import type { SessionState } from '../../stores/session-store'
 import type { Account } from '@shared/types/index'
@@ -16,6 +17,7 @@ const SESSION_CONFIG: Record<SessionState, { label: string; dotClass: string; pu
 
 export function TopBar() {
   const { sessionState, selectedAccountId, setSelectedAccountId } = useSessionStore()
+  const { setCommandPaletteOpen } = useUiStore()
   const [accountOpen, setAccountOpen] = useState(false)
   const [accounts, setAccounts] = useState<Account[]>([])
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -143,17 +145,16 @@ export function TopBar() {
           <span className="text-caption font-medium text-text-secondary">{config.label}</span>
         </div>
 
-        {/* Search shortcut */}
+        {/* Command palette trigger */}
         <button
           type="button"
-          disabled
-          aria-label="Quick search (coming soon)"
+          onClick={() => setCommandPaletteOpen(true)}
+          aria-label="Open command palette (⌘K)"
           className={cn(
             'flex items-center gap-2 rounded-[8px] px-2.5 py-1.5',
             'border border-border text-caption text-text-muted',
             'transition-colors duration-150',
             'hover:border-border-strong hover:text-text-secondary',
-            'disabled:pointer-events-none',
           )}
         >
           <Search className="h-3 w-3" strokeWidth={1.5} />

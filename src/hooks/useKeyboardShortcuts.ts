@@ -9,11 +9,18 @@ function isInputActive() {
 
 export function useKeyboardShortcuts() {
   const navigate = useNavigate()
-  const { setNewTradeRequested, setBiasRequested } = useUiStore()
+  const { setNewTradeRequested, setBiasRequested, setCommandPaletteOpen } = useUiStore()
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const mod = e.metaKey || e.ctrlKey
+
+      // ⌘K / Ctrl+K opens the command palette from anywhere — including inside inputs
+      if (mod && e.key === 'k') {
+        e.preventDefault()
+        setCommandPaletteOpen(true)
+        return
+      }
 
       if (mod && e.key === 'e') {
         e.preventDefault()
@@ -40,5 +47,5 @@ export function useKeyboardShortcuts() {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [navigate, setNewTradeRequested, setBiasRequested])
+  }, [navigate, setNewTradeRequested, setBiasRequested, setCommandPaletteOpen])
 }
