@@ -6,6 +6,7 @@ import { ipc } from '../../lib/ipc'
 import { useSessionStore } from '../../stores/session-store'
 import { useSettingsStore } from '../../stores/settings-store'
 import { useLastTradeContextStore, getRecentContext } from '../../stores/last-trade-context'
+import { INVALIDATION_CHIPS, INVALIDATION_MIN_CHARS } from './constants/invalidation-chips'
 import { useToast } from '../../components/ui'
 import { Button, Select, Checkbox, Modal } from '../../components/ui'
 import { calculateLotSizeFromRisk, calculateRR, calcRiskCentsFromPct } from '../../lib/calculators'
@@ -159,6 +160,10 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
   const [saving, setSaving] = useState(false)
   const [shake, setShake] = useState(false)
   const [pendingCharts, setPendingCharts] = useState<string[]>([])
+  /** Id of the currently selected quick-chip, or null if free-text / none. */
+  const [selectedChipId, setSelectedChipId] = useState<string | null>(null)
+  /** Whether the free-text textarea is visible (always visible when Custom is active). */
+  const [showCustom, setShowCustom] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   /**
    * Tracks which fields were pre-filled from the last trade context and haven't
@@ -233,6 +238,8 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
       setAccount(null)
       setPendingCharts([])
       setInheritedFields(new Set())
+      setSelectedChipId(null)
+      setShowCustom(false)
     }
   }, [open])
 
@@ -706,24 +713,77 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
               </section>
 
               {/* F — Invalidation */}
-              <section className="space-y-1.5">
+              <section className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-caption font-medium text-text-secondary">
                     This trade is wrong if…
                   </label>
-                  <span className={cn('text-caption font-mono', form.invalidation.length < 20 ? 'text-text-muted' : 'text-accent-a')}>
-                    {form.invalidation.length}/20+
-                  </span>
+                  {(showCustom || selectedChipId === null) && (
+                    <span className={cn('text-caption font-mono', form.invalidation.length < INVALIDATION_MIN_CHARS ? 'text-text-muted' : 'text-accent-a')}>
+                      {form.invalidation.length}/{INVALIDATION_MIN_CHARS}+
+                    </span>
+                  )}
                 </div>
-                <textarea
-                  rows={3}
-                  value={form.invalidation}
-                  onChange={(e) => setForm((f) => ({ ...f, invalidation: e.target.value }))}
-                  placeholder="Describe the exact conditions that would invalidate this trade…"
-                  className="w-full rounded-[10px] border border-border bg-surface-elevated px-3 py-2 text-body-sm text-text-primary placeholder:text-text-muted resize-none focus:border-accent-a focus:outline-none"
-                />
-                {form.invalidation.length > 0 && form.invalidation.length < 20 && (
-                  <p className="text-caption text-danger">{20 - form.invalidation.length} more characters required.</p>
+
+                {/* Quick-chips grid */}
+                <div className="flex flex-wrap gap-1.5">
+                  {INVALIDATION_CHIPS.map((chip) => (
+                    <button
+                      key={chip.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedChipId(chip.id)
+                        setShowCustom(false)
+                        setForm((f) => ({ ...f, invalidation: chip.label }))
+                      }}
+                      className={cn(
+                        'rounded-[8px] border px-2.5 py-1 text-caption transition-colors',
+                        selectedChipId === chip.id
+                          ? 'border-accent-a bg-accent-a/10 text-accent-a'
+                          : 'border-border text-text-muted hover:border-border-strong hover:text-text-secondary',
+                      )}
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedChipId(null)
+                      setShowCustom(true)
+                      setForm((f) => ({ ...f, invalidation: '' }))
+                    }}
+                    className={cn(
+                      'rounded-[8px] border px-2.5 py-1 text-caption transition-colors',
+                      showCustom
+                        ? 'border-accent-a bg-accent-a/10 text-accent-a'
+                        : 'border-border text-text-muted hover:border-border-strong hover:text-text-secondary',
+                    )}
+                  >
+                    Custom…
+                  </button>
+                </div>
+
+                {/* Free-text: shown when Custom is selected, or when a chip value has been manually edited */}
+                {(showCustom || (selectedChipId !== null && form.invalidation !== INVALIDATION_CHIPS.find((c) => c.id === selectedChipId)?.label)) && (
+                  <textarea
+                    rows={3}
+                    value={form.invalidation}
+                    onChange={(e) => {
+                      const next = e.target.value
+                      setForm((f) => ({ ...f, invalidation: next }))
+                      // If the user edits away from the chip text, clear chip selection
+                      const chip = INVALIDATION_CHIPS.find((c) => c.id === selectedChipId)
+                      if (chip && next !== chip.label) setSelectedChipId(null)
+                    }}
+                    placeholder="Describe the exact conditions that would invalidate this trade…"
+                    className="w-full rounded-[10px] border border-border bg-surface-elevated px-3 py-2 text-body-sm text-text-primary placeholder:text-text-muted resize-none focus:border-accent-a focus:outline-none"
+                    // eslint-disable-next-line jsx-a11y/no-autofocus
+                    autoFocus={showCustom}
+                  />
+                )}
+                {form.invalidation.length > 0 && form.invalidation.length < INVALIDATION_MIN_CHARS && (
+                  <p className="text-caption text-danger">{INVALIDATION_MIN_CHARS - form.invalidation.length} more characters required.</p>
                 )}
               </section>
 
