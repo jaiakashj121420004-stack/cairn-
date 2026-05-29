@@ -287,15 +287,20 @@ created_at      INTEGER
 ```
 
 #### 5.2.12 `trade_partials`
-For v1, user can log partials even though plan is "no partials" — some traders will, some won't.
+The single canonical partial-close table. Migration 0004 consolidated the former
+float `partial_closes` table into this one — see the v1.1 Additions section below.
+All money/pip columns are integer-encoded per §2.5/§19.5.
 ```
-id              TEXT PK
-trade_id        TEXT FK → trades.id
-price           INTEGER
-lots_closed     INTEGER (×100)
-pnl_cents       INTEGER
-reason          TEXT NULL
-closed_at       INTEGER
+id                 TEXT PK
+trade_id           TEXT FK → trades.id
+close_percent_bps  INTEGER (basis points; 50.0% → 5000)
+close_lots         INTEGER NULL (×100; e.g. 0.50 lots → 50)
+exit_price         INTEGER (price tick; round(realPrice × 10^(pipDecimal+1)))
+exit_time          INTEGER (UTC ms)
+pnl_r              INTEGER NULL (R × 100; 1.5R → 150)
+pnl_cents          INTEGER NULL (integer cents)
+notes              TEXT NULL
+created_at         INTEGER
 ```
 
 #### 5.2.13 `rule_violations`
@@ -381,3 +386,47 @@ On first launch:
 2. Insert default `pairs`, `setups`, `killzones`.
 3. Insert "Custom" `prop_firm`.
 4. Trigger first-run onboarding wizard.
+
+## v1.1 Additions
+
+### Leverage, daily-trade-limit, screenshot, opened_at
+- `accounts.leverage`, `accounts.daily_trade_limit`, `accounts.max_daily_loss_pct`
+  added (migration 0002; `daily_trade_limit`/`max_daily_loss_pct` are nullable —
+  null means "no limit enforced").
+- `trades.screenshot_path` (migration 0002) and `trades.opened_at` (migration 0003).
+
+### Partial-close table consolidation (migration 0004)
+v1.1 briefly carried **two** partial-close tables, which violated §2.5/§19.5
+(money/pips must be integer, never `real`/`float`):
+
+- `trade_partials` (integer-encoded) — created in 0001 but **never used by any
+  code** (dead table).
+- `partial_closes` (`real` columns: `close_percent`, `exit_price`, `pnl_r`,
+  `pnl_usd`) — created in 0002, the table the Close-Trade flow actually wrote to
+  and read from.
+
+Migration **0004** consolidates them into a single integer-encoded
+`trade_partials` (shape in §5.2.12). It drops the dead legacy table (guarded by
+an empty-table assertion), recreates `trade_partials` integer-encoded, copies and
+converts every `partial_closes` row, asserts the row counts match, then drops
+`partial_closes`. Per-column conversions (no dollar-vs-pip ambiguity — each
+column has one unit, each target encoding already used elsewhere):
+
+| `partial_closes` (real) | → `trade_partials` (integer) | conversion |
+|---|---|---|
+| `close_percent` (%) | `close_percent_bps` | `round(× 100)` |
+| `exit_price` (integer-valued tick in a real col) | `exit_price` | `round()` |
+| `pnl_r` (R) | `pnl_r` | `round(× 100)` |
+| `pnl_usd` ($) | `pnl_cents` | `round(× 100)` |
+| `close_lots` (×100) | `close_lots` | unchanged |
+
+Forward conversion, value-reversibility, and the safety abort are covered in
+`tests/integration/migrations.test.ts` (with a `fast-check` property test on the
+conversion codec). Rounding is half-away-from-zero to match SQLite's `round()`.
+
+### Migration journal fix
+Production applies migrations via Drizzle's **journal-driven** `migrate()`
+(`electron/db/index.ts`). `meta/_journal.json` had been left listing only 0001
+and 0002, so `0003_opened_at.sql` never ran in production. The journal now lists
+0001–0004, and `tests/integration/migrations.test.ts` asserts every migration
+file is journaled in order to prevent recurrence.
