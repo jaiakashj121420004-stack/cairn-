@@ -9,9 +9,13 @@ interface UiState {
   resolvedTheme: ResolvedTheme
   sidebarCollapsed: boolean
   activeModal: string | null
+  newTradeRequested: boolean
+  biasRequested: boolean
   setThemePreference: (pref: ThemePreference) => void
   setSidebarCollapsed: (collapsed: boolean) => void
   setActiveModal: (id: string | null) => void
+  setNewTradeRequested: (v: boolean) => void
+  setBiasRequested: (v: boolean) => void
 }
 
 function resolveTheme(pref: ThemePreference): ResolvedTheme {
@@ -34,6 +38,8 @@ export const useUiStore = create<UiState>()(
       resolvedTheme: 'dark',
       sidebarCollapsed: false,
       activeModal: null,
+      newTradeRequested: false,
+      biasRequested: false,
       setThemePreference: (pref) => {
         const resolved = resolveTheme(pref)
         applyTheme(resolved)
@@ -41,6 +47,8 @@ export const useUiStore = create<UiState>()(
       },
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
       setActiveModal: (id) => set({ activeModal: id }),
+      setNewTradeRequested: (v) => set({ newTradeRequested: v }),
+      setBiasRequested: (v) => set({ biasRequested: v }),
     }),
     {
       name: 'cairn-ui',

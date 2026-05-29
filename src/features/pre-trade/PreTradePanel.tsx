@@ -1,16 +1,19 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { X, Loader2, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import { X, Loader2, CheckCircle2, XCircle, AlertTriangle, Paperclip } from 'lucide-react'
 import { ipc } from '../../lib/ipc'
 import { useSessionStore } from '../../stores/session-store'
+import { useSettingsStore } from '../../stores/settings-store'
 import { useToast } from '../../components/ui'
 import { Button, Select, Checkbox, Modal } from '../../components/ui'
-import { calculateLotSize, calculateRR } from '../../lib/calculators'
+import { calculateLotSizeFromRisk, calculateRR, calcRiskCentsFromPct } from '../../lib/calculators'
+import type { PairType } from '../../lib/calculators'
 import { formatPips } from '../../lib/formatters'
 import { springDefault, respectReducedMotion } from '../../lib/motion'
 import { cn } from '../../lib/cn'
 import type {
+  Account,
   Pair,
   Setup,
   Killzone,
@@ -137,11 +140,15 @@ function Slider({
 
 export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
   const toast = useToast()
-  const { selectedAccountId, todaySession, refresh } = useSessionStore()
+  const { selectedAccountId, todaySession, refresh, bumpTradeVersion } = useSessionStore()
+  const { riskMode, setRiskMode } = useSettingsStore()
 
   const [pairs, setPairs] = useState<Pair[]>([])
   const [setups, setSetups] = useState<Setup[]>([])
   const [killzones, setKillzones] = useState<Killzone[]>([])
+  const [account, setAccount] = useState<Account | null>(null)
+  const [riskDollarStr, setRiskDollarStr] = useState('')
+  const [riskPctStr, setRiskPctStr] = useState('1')
   const [form, setForm] = useState<FormState>(BLANK)
   const [ruleResults, setRuleResults] = useState<RuleEvaluationDTO[]>([])
   const [evaluating, setEvaluating] = useState(false)
@@ -149,12 +156,19 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
   const [showDiscard, setShowDiscard] = useState(false)
   const [saving, setSaving] = useState(false)
   const [shake, setShake] = useState(false)
+  const [pendingCharts, setPendingCharts] = useState<string[]>([])
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Load reference data
+  // Load reference data + account for risk calculator
   useEffect(() => {
     if (!open) return
-    Promise.all([ipc.pairs.list(), ipc.setups.list(), ipc.killzones.list()]).then(([p, s, k]) => {
+    Promise.all([
+      ipc.pairs.list(),
+      ipc.setups.list(),
+      ipc.killzones.list(),
+      ipc.accounts.list(),
+      ipc.settings.get('default_risk_pct'),
+    ]).then(([p, s, k, accs, riskSetting]) => {
       if (p.ok) setPairs(p.data.filter((x) => x.active === 1))
       if (s.ok) setSetups(s.data.filter((x) => x.active === 1))
       if (k.ok) {
@@ -162,8 +176,18 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
         setKillzones(active)
         setForm((f) => ({ ...f, killzoneId: f.killzoneId || detectKillzone(active) }))
       }
+      if (accs.ok && selectedAccountId) {
+        const found = accs.data.find((a) => a.id === selectedAccountId) ?? null
+        setAccount(found)
+      }
+      if (riskSetting.ok && typeof riskSetting.data === 'string') {
+        try {
+          const pct = JSON.parse(riskSetting.data) as number
+          if (typeof pct === 'number' && pct > 0) setRiskPctStr(String(pct))
+        } catch (_err) { /* ignore malformed setting */ }
+      }
     })
-  }, [open])
+  }, [open, selectedAccountId])
 
   // Auto-check HTF bias aligned when direction changes
   useEffect(() => {
@@ -180,6 +204,9 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
       setRuleResults([])
       setShowConfirm(false)
       setSaving(false)
+      setRiskDollarStr('')
+      setAccount(null)
+      setPendingCharts([])
     }
   }, [open])
 
@@ -194,12 +221,29 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
   const tpPipTenths = entryDb && tpDb ? Math.abs(tpDb - entryDb) : 0
   const rrDb = calculateRR(slPipTenths, tpPipTenths)
   const pipValue = selectedPair?.pipValuePerStandardLotCents ?? 0
-  // Default to 1% risk until we have account rules loaded
-  const accountSizeCents = 1_000_000 // placeholder; real value from stats
-  const riskPctBps = 100 // 1%
-  const riskCents = Math.round(accountSizeCents * riskPctBps / 10000)
-  const lotSizeDb = calculateLotSize(riskCents, slPipTenths, pipValue)
-  const riskAmountCents = riskCents
+
+  // Risk calculator — live values
+  const accountBalance = account?.currentEquityCents ?? 0
+  const hasBalance = accountBalance > 0
+  const leverage = account?.leverage ?? 100
+
+  const riskUsdCents: number = riskMode === 'dollar'
+    ? Math.round(parseFloat(riskDollarStr || '0') * 100)
+    : calcRiskCentsFromPct(accountBalance, parseFloat(riskPctStr || '0'))
+
+  const riskPctBps: number = hasBalance && riskUsdCents > 0
+    ? Math.round((riskUsdCents / accountBalance) * 10000)
+    : 0
+
+  const lotSizeDb = calculateLotSizeFromRisk(
+    riskUsdCents / 100,
+    slPipTenths / 10,
+    pipValue / 100,
+    leverage,
+    accountBalance / 100,
+    (selectedPair?.assetClass as PairType | undefined) ?? 'forex',
+  )
+  const riskAmountCents = riskUsdCents
 
   const isFormFilled =
     !!form.pairId &&
@@ -306,6 +350,10 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
     })
     setSaving(false)
     if (res.ok) {
+      for (const chartPath of pendingCharts) {
+        await ipc.trades.addScreenshot(res.data.id, 'entry', chartPath)
+      }
+      bumpTradeVersion()
       await refresh()
       onTradeCreated?.()
       toast(status === 'open' ? 'Trade open.' : 'Draft saved.', 'success')
@@ -313,6 +361,15 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
     } else {
       toast(res.error.message, 'error')
     }
+  }
+
+  async function handlePickCharts() {
+    const res = await ipc.paths.pickImages()
+    if (!res.ok || res.data.length === 0) return
+    setPendingCharts((prev) => {
+      const combined = [...prev, ...res.data]
+      return combined.slice(0, 4)
+    })
   }
 
   function handlePlaceOrder() {
@@ -356,7 +413,8 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
             animate={{ x: 0 }}
             exit={{ x: 420 }}
             transition={respectReducedMotion(springDefault)}
-            className="fixed right-0 top-0 bottom-0 z-50 flex w-[420px] flex-col border-l border-border bg-surface shadow-xl"
+            className="fixed right-0 top-0 bottom-0 z-50 flex w-[420px] flex-col glass-strong"
+            style={{ borderLeft: '1px solid var(--glass-border)' }}
           >
             {/* Header */}
             <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
@@ -373,7 +431,7 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
             {/* Body — scrollable */}
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
               {/* A — Context */}
-              <section className="rounded-[10px] border border-border bg-surface-elevated p-3 space-y-1.5">
+              <section className="rounded-[10px] glass p-3 space-y-1.5">
                 {todaySession ? (
                   <>
                     <div className="flex items-center gap-2">
@@ -472,11 +530,87 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
 
                 {/* Computed strip */}
                 {slPipTenths > 0 && (
-                  <div className="grid grid-cols-4 gap-2 rounded-[10px] border border-border bg-surface-elevated p-3">
+                  <div className="grid grid-cols-4 gap-2 rounded-[10px] glass p-3">
                     <ComputedStat label="SL" value={formatPips(slPipTenths)} />
                     <ComputedStat label="TP" value={formatPips(tpPipTenths)} />
                     <ComputedStat label="RR" value={rrDisplay} valueClass={rrColor} />
                     <ComputedStat label="Lots" value={lotSizeDb > 0 ? (lotSizeDb / 100).toFixed(2) : '—'} />
+                  </div>
+                )}
+              </section>
+
+              {/* D2 — Risk calculator */}
+              <section className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <p className="text-caption font-medium text-text-secondary">Risk</p>
+                    {account && (
+                      <span className="text-micro text-text-muted font-mono">{leverage}:1</span>
+                    )}
+                  </div>
+                  <div className="flex rounded-[8px] border border-border p-0.5 gap-0.5">
+                    {(['dollar', 'percent'] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setRiskMode(mode)}
+                        className={cn(
+                          'rounded-[6px] px-2.5 py-0.5 text-caption font-medium transition-colors',
+                          riskMode === mode
+                            ? 'bg-accent-a/15 text-accent-a'
+                            : 'text-text-muted hover:text-text-secondary',
+                        )}
+                      >
+                        {mode === 'dollar' ? '$ Amount' : '% Account'}
+                      </button>
+                    ))}
+                  </div>
+                </div>  {/* end outer flex justify-between */}
+
+                {riskMode === 'percent' && !hasBalance ? (
+                  <p className="text-caption text-warning">
+                    Set account balance in Accounts to enable risk calculator.
+                  </p>
+                ) : riskMode === 'dollar' ? (
+                  <div className="space-y-1">
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-mono text-body-sm text-text-muted">$</span>
+                      <input
+                        type="number"
+                        step="1"
+                        min="0"
+                        value={riskDollarStr}
+                        onChange={(e) => setRiskDollarStr(e.target.value)}
+                        placeholder="50.00"
+                        className="w-full rounded-[10px] border border-border bg-surface-elevated py-2 pl-7 pr-3 font-mono text-body-sm text-text-primary placeholder:font-sans placeholder:text-text-muted focus:border-accent-a focus:outline-none"
+                      />
+                    </div>
+                    {hasBalance && riskUsdCents > 0 && (
+                      <p className="text-caption text-text-muted pl-1">
+                        {(riskPctBps / 100).toFixed(2)}% of ${(accountBalance / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="100"
+                        value={riskPctStr}
+                        onChange={(e) => setRiskPctStr(e.target.value)}
+                        placeholder="1.0"
+                        className="w-full rounded-[10px] border border-border bg-surface-elevated py-2 pl-3 pr-8 font-mono text-body-sm text-text-primary placeholder:font-sans placeholder:text-text-muted focus:border-accent-a focus:outline-none"
+                      />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-mono text-body-sm text-text-muted">%</span>
+                    </div>
+                    {riskUsdCents > 0 && (
+                      <p className="text-caption text-text-muted pl-1">
+                        ≈ ${(riskUsdCents / 100).toFixed(2)} on ${(accountBalance / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                      </p>
+                    )}
                   </div>
                 )}
               </section>
@@ -567,6 +701,20 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
                   ))}
                 </div>
               </motion.section>
+
+              {/* Chart attachment */}
+              <section>
+                <button
+                  type="button"
+                  onClick={() => void handlePickCharts()}
+                  className="flex items-center gap-1.5 text-caption text-text-muted hover:text-text-secondary transition-colors"
+                >
+                  <Paperclip className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  {pendingCharts.length === 0
+                    ? 'Attach chart screenshot (optional)'
+                    : `${pendingCharts.length} chart${pendingCharts.length > 1 ? 's' : ''} attached`}
+                </button>
+              </section>
             </div>
 
             {/* Sticky footer */}
@@ -613,7 +761,7 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
               void saveTrade('open')
             }}
           >
-            Yes, it's placed
+            Yes, it&apos;s placed
           </Button>
         </div>
       </Modal>

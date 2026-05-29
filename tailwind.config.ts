@@ -2,19 +2,15 @@ import type { Config } from 'tailwindcss'
 import animate from 'tailwindcss-animate'
 
 const config: Config = {
-  // Dark mode via data-theme attribute — applied by the no-flicker script in index.html
   darkMode: ['selector', '[data-theme="dark"]'],
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       fontFamily: {
-        // @fontsource-variable/inter ships as "Inter Variable"
         sans: ['Inter Variable', 'Inter', 'system-ui', 'sans-serif'],
-        // @fontsource-variable/jetbrains-mono ships as "JetBrains Mono Variable"
         mono: ['JetBrains Mono Variable', 'JetBrains Mono', 'ui-monospace', 'monospace'],
       },
       colors: {
-        // Semantic tokens — values come from CSS vars in globals.css
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         surface: 'hsl(var(--surface))',
@@ -33,7 +29,6 @@ const config: Config = {
         warning: 'hsl(var(--warning))',
         danger: 'hsl(var(--danger))',
         info: 'hsl(var(--info))',
-        // shadcn/ui compatibility layer
         card: {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
@@ -66,7 +61,6 @@ const config: Config = {
         ring: 'hsl(var(--ring))',
       },
       borderRadius: {
-        // Design system: 10px compact, 14px default, 20px hero, 6px badge
         DEFAULT: '14px',
         sm: '10px',
         lg: '14px',
@@ -76,16 +70,17 @@ const config: Config = {
         full: '9999px',
       },
       boxShadow: {
-        // §4.5 — used in light mode; dark mode uses border + color steps
         sm: '0 1px 2px rgba(15,20,25,0.04), 0 1px 3px rgba(15,20,25,0.06)',
         md: '0 4px 8px rgba(15,20,25,0.04), 0 2px 4px rgba(15,20,25,0.06)',
         lg: '0 12px 24px rgba(15,20,25,0.08), 0 4px 8px rgba(15,20,25,0.06)',
         xl: '0 24px 48px rgba(15,20,25,0.12), 0 8px 16px rgba(15,20,25,0.08)',
-        // Focus ring with accent-a
-        focus: '0 0 0 2px hsl(var(--accent-a) / 0.12)',
+        glass: 'var(--glass-shadow)',
+        focus: '0 0 0 2px hsl(var(--accent-a) / 0.14)',
+        'btn-primary': 'var(--btn-primary-shadow)',
+        'btn-secondary': 'var(--btn-secondary-shadow)',
+        'btn-destructive': 'var(--btn-destructive-shadow)',
       },
       fontSize: {
-        // §4.3 typography scale
         'display-xl': ['56px', { lineHeight: '64px', letterSpacing: '-0.02em' }],
         'display-lg': ['40px', { lineHeight: '48px', letterSpacing: '-0.02em' }],
         display: ['32px', { lineHeight: '40px', letterSpacing: '-0.01em' }],
@@ -97,6 +92,25 @@ const config: Config = {
         'body-sm': ['13px', { lineHeight: '18px' }],
         caption: ['12px', { lineHeight: '16px', letterSpacing: '0.01em' }],
         micro: ['11px', { lineHeight: '14px', letterSpacing: '0.03em' }],
+      },
+      animation: {
+        shimmer: 'shimmer 4s linear infinite',
+        'glow-pulse': 'glow-pulse 3s ease-in-out infinite',
+        'dot-pulse': 'dot-pulse 2s ease-in-out infinite',
+      },
+      keyframes: {
+        shimmer: {
+          '0%': { backgroundPosition: '200% center' },
+          '100%': { backgroundPosition: '-200% center' },
+        },
+        'glow-pulse': {
+          '0%, 100%': { opacity: '0.50' },
+          '50%': { opacity: '1.00' },
+        },
+        'dot-pulse': {
+          '0%, 100%': { opacity: '1', transform: 'scale(1)' },
+          '50%': { opacity: '0.6', transform: 'scale(0.85)' },
+        },
       },
     },
   },

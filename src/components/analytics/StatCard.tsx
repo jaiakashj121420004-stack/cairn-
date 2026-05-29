@@ -21,7 +21,7 @@ export function StatCard({ label, value, sub, trend, tone = 'default' }: Props) 
   const TrendIcon =
     trend === 'up' ? TrendingUp : trend === 'down' ? TrendingDown : trend === 'flat' ? Minus : null
   return (
-    <div className="rounded-lg border border-border bg-surface-elevated p-4">
+    <div className="glass rounded-[14px] p-4">
       <p className="mb-1 text-caption uppercase tracking-wider text-text-muted">{label}</p>
       <p className={cn('font-mono text-[22px] font-semibold', toneClass)}>{value}</p>
       <div className="mt-1 flex items-center gap-1 text-caption text-text-muted">

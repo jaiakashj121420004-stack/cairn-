@@ -9,9 +9,11 @@ interface SessionStore {
   todaySession: Session | null
   sessionStateDTO: SessionStateDTO | null
   sessionState: SessionState
+  tradeVersion: number
   setSelectedAccountId: (id: string) => void
   refresh: () => Promise<void>
   setTodaySession: (s: Session | null) => void
+  bumpTradeVersion: () => void
 }
 
 export const useSessionStore = create<SessionStore>()((set, get) => ({
@@ -19,6 +21,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
   todaySession: null,
   sessionStateDTO: null,
   sessionState: 'idle',
+  tradeVersion: 0,
 
   setSelectedAccountId: (id: string) => {
     set({ selectedAccountId: id })
@@ -28,6 +31,8 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
   setTodaySession: (s: Session | null) => {
     set({ todaySession: s })
   },
+
+  bumpTradeVersion: () => set((state) => ({ tradeVersion: state.tradeVersion + 1 })),
 
   refresh: async () => {
     const { selectedAccountId } = get()

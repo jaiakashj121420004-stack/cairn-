@@ -35,6 +35,7 @@ import type {
   TradeFilter,
   CreateTradeInput,
   CloseTradeInput,
+  PartialCloseInput,
   DashboardStats,
   AnalyticsFilter,
   PerformanceStats,
@@ -98,10 +99,13 @@ declare global {
       }
       paths: {
         pickFolder: () => Promise<IpcResponse<string | null>>
+        pickImages: () => Promise<IpcResponse<string[]>>
+        openFile: (filePath: string) => Promise<IpcResponse<void>>
       }
       data: {
         openFolder: () => Promise<IpcResponse<void>>
         export: () => Promise<IpcResponse<string>>
+        exportPdf: (defaultName?: string) => Promise<IpcResponse<string>>
         reset: (ack: string) => Promise<IpcResponse<void>>
       }
       rules: {
@@ -139,6 +143,7 @@ declare global {
         create: (input: CreateTradeInput) => Promise<IpcResponse<Trade>>
         setOpen: (tradeId: string, accountId: string) => Promise<IpcResponse<Trade>>
         close: (input: CloseTradeInput) => Promise<IpcResponse<Trade>>
+        partialClose: (input: PartialCloseInput) => Promise<IpcResponse<Trade>>
         list: (filter: TradeFilter) => Promise<IpcResponse<TradeListItem[]>>
         get: (tradeId: string) => Promise<IpcResponse<TradeDetail>>
         delete: (tradeId: string) => Promise<IpcResponse<{ ok: true }>>
@@ -245,11 +250,14 @@ export const ipc = {
   data: {
     openFolder: (): Promise<IpcResponse<void>> => window.api.data.openFolder(),
     export: (): Promise<IpcResponse<string>> => window.api.data.export(),
+    exportPdf: (defaultName?: string): Promise<IpcResponse<string>> => window.api.data.exportPdf(defaultName),
     reset: (ack: string): Promise<IpcResponse<void>> => window.api.data.reset(ack),
   },
 
   paths: {
     pickFolder: (): Promise<IpcResponse<string | null>> => window.api.paths.pickFolder(),
+    pickImages: (): Promise<IpcResponse<string[]>> => window.api.paths.pickImages(),
+    openFile: (filePath: string): Promise<IpcResponse<void>> => window.api.paths.openFile(filePath),
   },
 
   rules: {
@@ -292,6 +300,8 @@ export const ipc = {
       window.api.trades.setOpen(tradeId, accountId),
     close: (input: CloseTradeInput): Promise<IpcResponse<Trade>> =>
       window.api.trades.close(input),
+    partialClose: (input: PartialCloseInput): Promise<IpcResponse<Trade>> =>
+      window.api.trades.partialClose(input),
     list: (filter: TradeFilter): Promise<IpcResponse<TradeListItem[]>> =>
       window.api.trades.list(filter),
     get: (tradeId: string): Promise<IpcResponse<TradeDetail>> =>

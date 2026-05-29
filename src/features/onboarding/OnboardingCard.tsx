@@ -30,7 +30,18 @@ export function OnboardingCard({
   loading = false,
 }: OnboardingCardProps) {
   return (
-    <div className="flex h-screen w-full items-center justify-center bg-background p-6">
+    <div className="relative flex h-screen w-full items-center justify-center bg-background p-6">
+      {/* Background depth — makes glass surfaces visible */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div
+          className="absolute -left-24 -top-24 h-[400px] w-[400px] rounded-full"
+          style={{ background: 'radial-gradient(circle, hsl(var(--accent-a) / 0.08) 0%, transparent 70%)', filter: 'blur(40px)' }}
+        />
+        <div
+          className="absolute -bottom-32 -right-16 h-[360px] w-[360px] rounded-full"
+          style={{ background: 'radial-gradient(circle, hsl(var(--accent-b) / 0.07) 0%, transparent 70%)', filter: 'blur(48px)' }}
+        />
+      </div>
       <motion.div
         key={step}
         variants={slideUp}

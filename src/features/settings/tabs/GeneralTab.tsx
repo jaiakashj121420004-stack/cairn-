@@ -32,7 +32,7 @@ export function GeneralTab() {
       ])
       if (t.ok && t.data) setTheme(t.data)
       if (w.ok && w.data) setWeekStartsOn(w.data)
-      if (tz.ok && tz.data !== null) setTimezone(tz.data)
+      setTimezone(tz.ok && tz.data ? tz.data : 'America/New_York')
     })()
   }, [])
 
@@ -66,20 +66,24 @@ export function GeneralTab() {
         }}
       />
       <div className="flex flex-col gap-1.5">
-        <label className="text-caption font-medium text-text-secondary">
-          Timezone override
-        </label>
+        <label className="text-caption font-medium text-text-secondary">Timezone</label>
         <input
+          list="tz-datalist"
           type="text"
           value={timezone}
           onChange={(e) => setTimezone(e.target.value)}
-          onBlur={() => void save('timezone', timezone)}
-          placeholder="e.g. America/New_York (blank = system)"
+          onBlur={() => void save('timezone', timezone || 'America/New_York')}
+          placeholder="America/New_York"
           className="w-full rounded-[10px] border border-border bg-surface-elevated px-3 py-2 text-body text-text-primary placeholder:text-text-muted focus:border-accent-a focus:outline-none"
         />
-        <p className="text-caption text-text-muted">
-          Used for killzone detection. Leave blank to use system timezone.
-        </p>
+        <datalist id="tz-datalist">
+          {(Intl as unknown as { supportedValuesOf: (k: string) => string[] })
+            .supportedValuesOf('timeZone')
+            .map((tz) => (
+              <option key={tz} value={tz} />
+            ))}
+        </datalist>
+        <p className="text-caption text-text-muted">Used for killzone detection.</p>
       </div>
     </div>
   )

@@ -219,11 +219,11 @@ export function SessionBiasModal({ open, onClose }: Props) {
     setSaving(true)
     const res = await ipc.sessions.upsert({
       accountId: selectedAccountId,
-      dailyBias: dailyBias!,
+      dailyBias: dailyBias ?? 'neutral',
       dailyBiasReason: dailyReason,
-      h4Bias: h4Bias!,
+      h4Bias: h4Bias ?? 'neutral',
       h4BiasReason: h4Reason,
-      h1Bias: h1Bias!,
+      h1Bias: h1Bias ?? 'neutral',
       h1BiasReason: h1Reason,
       ...(dxyBias ? { dxyBias } : {}),
       ...(htfLiquidity ? { htfLiquidityTarget: htfLiquidity } : {}),
@@ -242,7 +242,7 @@ export function SessionBiasModal({ open, onClose }: Props) {
   }
 
   function lockedLabel(session: Session) {
-    return new Date(session.lockedAt!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    return new Date(session.lockedAt ?? 0).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
 
   const title = locked && todaySession

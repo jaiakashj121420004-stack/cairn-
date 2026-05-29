@@ -11,9 +11,11 @@ import {
   formatPercent,
   formatPips,
   formatTimestamp,
+  formatDate,
 } from '../../lib/formatters'
 import { springDefault } from '../../lib/motion'
 import { CloseTradeModal } from '../post-trade/CloseTradeModal'
+import { useSessionStore } from '../../stores/session-store'
 import type { TradeDetail } from '@shared/types/index'
 
 interface Props {
@@ -61,51 +63,14 @@ function PnlCell({ cents }: { cents: number | null }) {
   )
 }
 
-function Lightbox({
-  src,
-  onClose,
-}: {
-  src: string
-  onClose: () => void
-}) {
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-background/90 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <img
-        src={src}
-        alt="Screenshot"
-        className="max-h-[90vh] max-w-[90vw] rounded-xl shadow-2xl object-contain"
-        onClick={(e) => e.stopPropagation()}
-      />
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute top-4 right-4 rounded-[8px] bg-surface p-2 text-text-muted hover:text-text-primary"
-      >
-        <X className="h-5 w-5" />
-      </button>
-    </div>,
-    document.body,
-  )
-}
-
 export function TradeDetailModal({ tradeId, onClose, onTradeUpdated }: Props) {
   const toast = useToast()
+  const bumpTradeVersion = useSessionStore((s) => s.bumpTradeVersion)
   const [detail, setDetail] = useState<TradeDetail | null>(null)
   const [loading, setLoading] = useState(false)
-  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
   const [closeOpen, setCloseOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [activating, setActivating] = useState(false)
 
   useEffect(() => {
     if (!tradeId) { setDetail(null); return }
@@ -115,6 +80,20 @@ export function TradeDetailModal({ tradeId, onClose, onTradeUpdated }: Props) {
       if (res.ok) setDetail(res.data)
     })
   }, [tradeId])
+
+  async function handleActivate() {
+    if (!detail) return
+    setActivating(true)
+    const res = await ipc.trades.setOpen(detail.id, detail.accountId)
+    setActivating(false)
+    if (res.ok) {
+      bumpTradeVersion()
+      toast('Trade activated. Position is now open.', 'success')
+      onTradeUpdated?.()
+    } else {
+      toast(res.error.message, 'error')
+    }
+  }
 
   async function handleDelete() {
     if (!detail) return
@@ -206,6 +185,18 @@ export function TradeDetailModal({ tradeId, onClose, onTradeUpdated }: Props) {
               {detail && (
                 <>
                   {/* Status banner */}
+                  {detail.status === 'planned' && (
+                    <div className="mb-4 rounded-[10px] bg-warning/10 border border-warning/30 px-4 py-3 flex items-center justify-between">
+                      <p className="text-body-sm text-warning font-medium">Planned trade</p>
+                      <Button
+                        size="sm"
+                        loading={activating}
+                        onClick={() => void handleActivate()}
+                      >
+                        Open position
+                      </Button>
+                    </div>
+                  )}
                   {detail.status === 'open' && (
                     <div className="mb-4 rounded-[10px] bg-accent-a/10 border border-accent-a/30 px-4 py-3 flex items-center justify-between">
                       <p className="text-body-sm text-accent-a font-medium">Trade open</p>
@@ -471,11 +462,7 @@ export function TradeDetailModal({ tradeId, onClose, onTradeUpdated }: Props) {
                           <div
                             key={ss.id}
                             className="relative rounded-[10px] overflow-hidden border border-border group cursor-pointer"
-                            onClick={() =>
-                              setLightboxSrc(
-                                `file://${ss.absolutePath.replace(/\\/g, '/')}`,
-                              )
-                            }
+                            onClick={() => void ipc.paths.openFile(ss.absolutePath)}
                           >
                             <img
                               src={`file://${ss.absolutePath.replace(/\\/g, '/')}`}
@@ -494,6 +481,45 @@ export function TradeDetailModal({ tradeId, onClose, onTradeUpdated }: Props) {
                             </div>
                           </div>
                         ))}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Partial closes */}
+                  {detail.partialCloses.length > 0 && (
+                    <>
+                      <SectionTitle>Partial closes</SectionTitle>
+                      <div className="space-y-2">
+                        {detail.partialCloses.map((pc) => {
+                          const exitFloat = pc.exitPrice / Math.pow(10, detail.pairPipDecimal + 1)
+                          return (
+                            <div
+                              key={pc.id}
+                              className="rounded-[8px] border border-border bg-surface px-3 py-2 grid grid-cols-4 gap-2 text-caption"
+                            >
+                              <div>
+                                <p className="text-text-muted">Lots</p>
+                                <p className="font-mono text-text-primary">
+                                  {pc.closeLots !== null ? (pc.closeLots / 100).toFixed(2) : `${pc.closePercent.toFixed(0)}%`}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-text-muted">Exit</p>
+                                <p className="font-mono text-text-primary">{exitFloat.toFixed(detail.pairPipDecimal)}</p>
+                              </div>
+                              <div>
+                                <p className="text-text-muted">P&L</p>
+                                <p className={cn('font-mono font-semibold', (pc.pnlUsd ?? 0) >= 0 ? 'text-accent-a' : 'text-danger')}>
+                                  {pc.pnlUsd !== null ? formatCents(Math.round(pc.pnlUsd * 100)) : '—'}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-text-muted">Time</p>
+                                <p className="text-text-secondary">{formatDate(pc.exitTime)}</p>
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
                     </>
                   )}
@@ -541,6 +567,11 @@ export function TradeDetailModal({ tradeId, onClose, onTradeUpdated }: Props) {
                   <Trash2 className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.5} />
                   Delete
                 </Button>
+                {detail.status === 'planned' && (
+                  <Button size="sm" loading={activating} onClick={() => void handleActivate()}>
+                    Open position
+                  </Button>
+                )}
                 {detail.status === 'open' && (
                   <Button size="sm" onClick={() => setCloseOpen(true)}>
                     Close trade
@@ -557,10 +588,6 @@ export function TradeDetailModal({ tradeId, onClose, onTradeUpdated }: Props) {
   return (
     <>
       {createPortal(panel, document.body)}
-
-      {lightboxSrc && (
-        <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
-      )}
 
       {detail && (
         <CloseTradeModal

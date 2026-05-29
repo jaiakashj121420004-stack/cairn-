@@ -7,11 +7,11 @@ import { ipc } from '../../lib/ipc'
 import type { SessionState } from '../../stores/session-store'
 import type { Account } from '@shared/types/index'
 
-const SESSION_CONFIG: Record<SessionState, { label: string; dotClass: string }> = {
-  idle: { label: 'Idle', dotClass: 'bg-text-muted' },
-  active: { label: 'Session Active', dotClass: 'bg-accent-a' },
-  paused: { label: 'Paused', dotClass: 'bg-warning' },
-  locked: { label: 'Session Locked', dotClass: 'bg-danger' },
+const SESSION_CONFIG: Record<SessionState, { label: string; dotClass: string; pulse: boolean }> = {
+  idle:   { label: 'Idle',           dotClass: 'bg-text-muted/60',  pulse: false },
+  active: { label: 'Session Active', dotClass: 'bg-accent-a',       pulse: true  },
+  paused: { label: 'Paused',         dotClass: 'bg-warning',        pulse: false },
+  locked: { label: 'Session Locked', dotClass: 'bg-danger',         pulse: false },
 }
 
 export function TopBar() {
@@ -26,9 +26,9 @@ export function TopBar() {
       if (res.ok) {
         const active = res.data.filter((a) => a.deletedAt === null && (a.status === 'active' || a.status === 'paused'))
         setAccounts(active)
-        // Auto-select first active account if none selected
-        if (!selectedAccountId && active.length > 0) {
-          setSelectedAccountId(active[0]!.id)
+        const [firstActive] = active
+        if (!selectedAccountId && firstActive) {
+          setSelectedAccountId(firstActive.id)
         }
       }
     })
@@ -47,19 +47,28 @@ export function TopBar() {
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId)
 
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-surface px-4">
-      {/* Left: account selector */}
+    <header
+      className="flex h-11 shrink-0 items-center justify-between px-4"
+      style={{
+        background: 'var(--glass-sidebar-bg)',
+        backdropFilter: 'blur(20px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+        borderBottom: '1px solid var(--glass-border)',
+      }}
+    >
+      {/* Account selector */}
       <div className="relative" ref={dropdownRef}>
         <button
           type="button"
           onClick={() => setAccountOpen((o) => !o)}
           className={cn(
-            'flex items-center gap-2 rounded-[8px] px-2.5 py-1.5 transition-colors hover:bg-surface-elevated',
-            accountOpen && 'bg-surface-elevated',
+            'flex items-center gap-2 rounded-[8px] px-2.5 py-1.5 transition-colors duration-150',
+            'hover:bg-white/[0.06] text-text-secondary hover:text-text-primary',
+            accountOpen && 'bg-white/[0.06] text-text-primary',
           )}
         >
           <Wallet className="h-3.5 w-3.5 text-text-muted" strokeWidth={1.5} />
-          <span className="text-body-sm text-text-secondary">
+          <span className="text-body-sm font-medium">
             {selectedAccount ? selectedAccount.displayName : 'Select account'}
           </span>
           <ChevronDown
@@ -72,7 +81,16 @@ export function TopBar() {
         </button>
 
         {accountOpen && (
-          <div className="absolute top-full left-0 z-50 mt-1.5 w-64 rounded-[10px] border border-border bg-surface-elevated p-2 shadow-lg">
+          <div
+            className="absolute top-full left-0 z-50 mt-1.5 w-64 rounded-[10px] p-2"
+            style={{
+              background: 'var(--glass-modal-bg)',
+              backdropFilter: 'blur(24px) saturate(200%)',
+              WebkitBackdropFilter: 'blur(24px) saturate(200%)',
+              border: '1px solid var(--glass-border)',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.20)',
+            }}
+          >
             {accounts.length === 0 ? (
               <p className="px-2 py-1.5 text-caption text-text-muted">
                 No active accounts.{' '}
@@ -94,13 +112,11 @@ export function TopBar() {
                       setSelectedAccountId(a.id)
                       setAccountOpen(false)
                     }}
-                    className="flex w-full items-center justify-between rounded-[8px] px-2.5 py-1.5 text-left transition-colors hover:bg-surface"
+                    className="flex w-full items-center justify-between rounded-[8px] px-2.5 py-1.5 text-left transition-colors hover:bg-white/[0.06]"
                   >
                     <div>
                       <p className="text-body-sm font-medium text-text-primary">{a.displayName}</p>
-                      <p className="text-caption text-text-muted">
-                        Phase {a.currentPhase}/{a.stepCount}
-                      </p>
+                      <p className="text-caption text-text-muted">Phase {a.currentPhase}/{a.stepCount}</p>
                     </div>
                     {a.id === selectedAccountId && (
                       <Check className="h-3.5 w-3.5 text-accent-a" strokeWidth={2} />
@@ -113,22 +129,36 @@ export function TopBar() {
         )}
       </div>
 
-      {/* Right: session indicator + search shortcut */}
+      {/* Right: session status + search */}
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-1.5">
-          <span className={cn('h-1.5 w-1.5 rounded-full', config.dotClass)} />
-          <span className="text-caption text-text-secondary">{config.label}</span>
+        {/* Session indicator */}
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              'h-1.5 w-1.5 rounded-full',
+              config.dotClass,
+              config.pulse && 'animate-dot-pulse',
+            )}
+          />
+          <span className="text-caption font-medium text-text-secondary">{config.label}</span>
         </div>
 
+        {/* Search shortcut */}
         <button
           type="button"
           disabled
           aria-label="Quick search (coming soon)"
-          className="flex items-center gap-2 rounded-[8px] border border-border px-2.5 py-1.5 text-caption text-text-muted transition-colors hover:border-border-strong hover:text-text-secondary disabled:pointer-events-none"
+          className={cn(
+            'flex items-center gap-2 rounded-[8px] px-2.5 py-1.5',
+            'border border-border text-caption text-text-muted',
+            'transition-colors duration-150',
+            'hover:border-border-strong hover:text-text-secondary',
+            'disabled:pointer-events-none',
+          )}
         >
           <Search className="h-3 w-3" strokeWidth={1.5} />
           <span>Search</span>
-          <kbd className="font-mono text-micro">⌘K</kbd>
+          <kbd className="font-mono text-micro opacity-60">⌘K</kbd>
         </button>
       </div>
     </header>

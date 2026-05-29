@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
-import { X, Image as ImageIcon } from 'lucide-react'
+import { X, Image as ImageIcon, Paperclip } from 'lucide-react'
 import { Modal, Button, useToast } from '../../components/ui'
 import { ipc } from '../../lib/ipc'
 import { cn } from '../../lib/cn'
 import { formatCents, formatRMultiple } from '../../lib/formatters'
-import type { TradeListItem, ExitReason, ScreenshotKind } from '@shared/types/index'
+import { useSessionStore } from '../../stores/session-store'
+import { useRAlerts } from '../../hooks/useRAlerts'
+import type { TradeListItem, ExitReason, ScreenshotKind, PartialCloseInput } from '@shared/types/index'
 
 interface Props {
   open: boolean
@@ -186,6 +188,15 @@ function TagInput({
 
 export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
   const toast = useToast()
+  const bumpTradeVersion = useSessionStore((s) => s.bumpTradeVersion)
+  const { checkAndAlert } = useRAlerts()
+
+  // Close mode
+  const [closeMode, setCloseMode] = useState<'full' | 'partial'>('full')
+
+  // Partial close fields
+  const [partialLotsStr, setPartialLotsStr] = useState('')
+  const [partialNotes, setPartialNotes] = useState('')
 
   // Exit details
   const [exitPriceStr, setExitPriceStr] = useState('')
@@ -223,6 +234,9 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
   // Populate defaults on open
   useEffect(() => {
     if (!open) return
+    setCloseMode('full')
+    setPartialLotsStr('')
+    setPartialNotes('')
     const now = new Date()
     const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
     setExitTimeStr(local.toISOString().slice(0, 16))
@@ -278,6 +292,17 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
     enteredBeforeMss !== null &&
     !saving
 
+  const partialLotsDb = Math.round(parseFloat(partialLotsStr) * 100)
+  const canSubmitPartial =
+    !!trade &&
+    exitPriceStr.trim() !== '' &&
+    !isNaN(parseFloat(exitPriceStr)) &&
+    partialLotsStr.trim() !== '' &&
+    !isNaN(parseFloat(partialLotsStr)) &&
+    partialLotsDb > 0 &&
+    partialLotsDb < trade.lotSize &&
+    !saving
+
   const handleAddScreenshots = useCallback(async () => {
     if (!trade) return
     const res = await ipc.trades.pickScreenshots(trade.id)
@@ -308,6 +333,33 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
     setScreenshots((prev) => [...prev, ...items])
   }
 
+  async function handlePartialSubmit() {
+    if (!trade || !canSubmitPartial) return
+    setSaving(true)
+
+    const exitPrice = priceToDb(exitPriceStr, trade.pairPipDecimal)
+    const input: PartialCloseInput = {
+      tradeId: trade.id,
+      closeLots: partialLotsDb,
+      exitPrice,
+      exitTime: exitTimeMs,
+      closePercent: (partialLotsDb / trade.lotSize) * 100,
+      ...(partialNotes.trim() ? { notes: partialNotes.trim() } : {}),
+    }
+
+    const res = await ipc.trades.partialClose(input)
+    if (!res.ok) {
+      toast(res.error.message, 'error')
+      setSaving(false)
+      return
+    }
+
+    bumpTradeVersion()
+    setSaving(false)
+    toast(`Partial close logged. ${(partialLotsDb / 100).toFixed(2)} lots closed.`, 'success')
+    onClosed()
+  }
+
   async function handleSubmit() {
     if (!trade || !canSubmit) return
     setSaving(true)
@@ -323,11 +375,11 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
       exitReason: exitReason as ExitReason,
       ...(maePips !== undefined ? { maePips } : {}),
       ...(mfePips !== undefined ? { mfePips } : {}),
-      followedPlanExactly: followedPlan!,
+      followedPlanExactly: followedPlan ?? false,
       ...(planChanges.trim() ? { planChangesDescription: planChanges.trim() } : {}),
-      slMoved: slMoved!,
+      slMoved: slMoved ?? false,
       ...(slMovedReason.trim() ? { slMovedReason: slMovedReason.trim() } : {}),
-      enteredBeforeMss: enteredBeforeMss!,
+      enteredBeforeMss: enteredBeforeMss ?? false,
       rulesBroken,
       postCalmScore,
       ...(whatRight.trim() ? { whatIDidRight: whatRight.trim() } : {}),
@@ -351,6 +403,9 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
     // Notify rules engine
     await ipc.rules.onTradeClosed(trade.id)
 
+    checkAndAlert(res.data.pnlR)
+
+    bumpTradeVersion()
     setSaving(false)
     toast('Trade closed.', 'success')
     onClosed()
@@ -363,8 +418,93 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
   return (
     <Modal open={open} onClose={onClose} title={`Close Trade — ${pairLabel}`} maxWidth="640px">
       <div className="max-h-[70vh] overflow-y-auto pr-1 space-y-0">
-        {/* Exit details */}
-        <div className="space-y-4">
+
+        {/* Mode toggle */}
+        <div className="mb-5 grid grid-cols-2 gap-2">
+          {(['full', 'partial'] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setCloseMode(mode)}
+              className={cn(
+                'rounded-[8px] border py-2 text-body-sm font-medium transition-colors',
+                closeMode === mode
+                  ? 'border-accent-a bg-accent-a/10 text-accent-a'
+                  : 'border-border text-text-muted hover:border-border-strong hover:text-text-secondary',
+              )}
+            >
+              {mode === 'full' ? 'Full close' : 'Partial close'}
+            </button>
+          ))}
+        </div>
+
+        {/* Partial close form */}
+        {closeMode === 'partial' && (
+          <div className="space-y-4 mb-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-caption font-medium text-text-secondary">
+                  Lots to close
+                  <span className="ml-1 font-normal text-text-muted">
+                    (max {(trade.lotSize / 100).toFixed(2)})
+                  </span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={partialLotsStr}
+                  onChange={(e) => setPartialLotsStr(e.target.value)}
+                  placeholder="e.g. 0.50"
+                  className="w-full rounded-[10px] border border-border bg-surface-elevated py-2 px-3 font-mono text-body-sm text-text-primary placeholder:font-sans placeholder:text-text-muted focus:border-accent-a focus:outline-none"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-caption font-medium text-text-secondary">Exit price</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={exitPriceStr}
+                  onChange={(e) => setExitPriceStr(e.target.value)}
+                  placeholder="e.g. 1.0842"
+                  className="w-full rounded-[10px] border border-border bg-surface-elevated py-2 px-3 font-mono text-body-sm text-text-primary placeholder:font-sans placeholder:text-text-muted focus:border-accent-a focus:outline-none"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-caption font-medium text-text-secondary">Exit time</label>
+              <input
+                type="datetime-local"
+                value={exitTimeStr}
+                onChange={(e) => setExitTimeStr(e.target.value)}
+                className="w-full rounded-[10px] border border-border bg-surface-elevated py-2 px-3 text-body-sm text-text-primary focus:border-accent-a focus:outline-none"
+              />
+            </div>
+            {partialLotsStr && trade && !isNaN(parseFloat(partialLotsStr)) && (
+              <div className="rounded-[10px] border border-border bg-surface px-4 py-3 text-center">
+                <p className="text-micro text-text-muted">Remaining lots after close</p>
+                <p className="font-mono text-body-sm font-semibold text-text-primary">
+                  {Math.max(0, ((trade.lotSize - partialLotsDb) / 100)).toFixed(2)}
+                </p>
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <label className="text-caption font-medium text-text-secondary">
+                Notes{' '}
+                <span className="font-normal text-text-muted">(optional)</span>
+              </label>
+              <input
+                value={partialNotes}
+                onChange={(e) => setPartialNotes(e.target.value)}
+                placeholder="e.g. Closed 50% at 1R…"
+                className="w-full rounded-[10px] border border-border bg-surface-elevated py-2 px-3 text-body-sm text-text-primary placeholder:text-text-muted focus:border-accent-a focus:outline-none"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Full close form */}
+        {closeMode === 'full' && (<div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-caption font-medium text-text-secondary">Exit price</label>
@@ -476,8 +616,9 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
               />
             </div>
           </div>
-        </div>
+        </div>)}
 
+        {closeMode === 'full' && (<>
         {/* Honesty section */}
         <SectionHeader>Honesty</SectionHeader>
         <div className="space-y-4">
@@ -585,7 +726,18 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
         </div>
 
         {/* Screenshots */}
-        <SectionHeader>Screenshots</SectionHeader>
+        <div className="flex items-center justify-between">
+          <SectionHeader>Screenshots</SectionHeader>
+          <button
+            type="button"
+            onClick={() => void handleAddScreenshots()}
+            disabled={screenshots.length >= 4}
+            className="flex items-center gap-1 text-caption text-text-muted hover:text-text-secondary transition-colors disabled:opacity-40 disabled:pointer-events-none"
+          >
+            <Paperclip className="h-3.5 w-3.5" strokeWidth={1.5} />
+            Attach chart
+          </button>
+        </div>
         <div className="space-y-3">
           <div
             onDragOver={(e) => e.preventDefault()}
@@ -647,21 +799,33 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
             </div>
           )}
         </div>
+        </>)}
 
         {/* Spacer */}
         <div className="h-4" />
+
       </div>
 
       {/* Footer */}
       <div className="mt-5 flex justify-end gap-2 border-t border-border pt-4">
         <Button variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button
-          onClick={() => void handleSubmit()}
-          loading={saving}
-          disabled={!canSubmit}
-        >
-          Close trade
-        </Button>
+        {closeMode === 'partial' ? (
+          <Button
+            onClick={() => void handlePartialSubmit()}
+            loading={saving}
+            disabled={!canSubmitPartial}
+          >
+            Log partial close
+          </Button>
+        ) : (
+          <Button
+            onClick={() => void handleSubmit()}
+            loading={saving}
+            disabled={!canSubmit}
+          >
+            Close trade
+          </Button>
+        )}
       </div>
     </Modal>
   )

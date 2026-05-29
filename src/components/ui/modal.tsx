@@ -61,8 +61,9 @@ export function Modal({
       const nodes = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE))
       if (nodes.length === 0) return
 
-      const first = nodes[0]!
-      const last = nodes[nodes.length - 1]!
+      const first = nodes[0]
+      const last = nodes[nodes.length - 1]
+      if (!first || !last) return
 
       if (e.shiftKey) {
         if (document.activeElement === first) {
@@ -99,7 +100,7 @@ export function Modal({
           aria-labelledby={title ? 'modal-title' : undefined}
         >
           <motion.div
-            className="absolute inset-0 bg-background/[0.72] backdrop-blur-[8px]"
+            className="absolute inset-0 bg-background/80 backdrop-blur-[12px]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -109,10 +110,7 @@ export function Modal({
           />
           <motion.div
             ref={panelRef}
-            className={cn(
-              'relative w-full rounded-xl border border-border bg-surface-elevated shadow-xl',
-              className,
-            )}
+            className={cn('relative w-full rounded-[16px] glass-strong', className)}
             style={{ maxWidth }}
             variants={scaleIn}
             initial="initial"

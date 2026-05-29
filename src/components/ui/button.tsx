@@ -12,14 +12,37 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<Variant, string> = {
-  primary:
-    'bg-accent-a text-background hover:brightness-110 focus-visible:ring-accent-a/30 disabled:opacity-40',
-  secondary:
-    'border border-border bg-transparent text-text-primary hover:bg-surface-elevated focus-visible:ring-accent-a/20 disabled:opacity-40',
-  ghost:
-    'bg-transparent text-text-secondary hover:bg-surface-elevated hover:text-text-primary focus-visible:ring-accent-a/20 disabled:opacity-40',
-  destructive:
-    'bg-danger text-background hover:brightness-110 focus-visible:ring-danger/30 disabled:opacity-40',
+  primary: [
+    'bg-accent-a text-background font-semibold',
+    'shadow-btn-primary',
+    'hover:brightness-[1.07] hover:shadow-[var(--btn-primary-shadow),0_6px_20px_hsl(var(--accent-a)/0.38)]',
+    'active:brightness-[0.96] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.18)]',
+    'focus-visible:ring-accent-a/30',
+    'disabled:opacity-40',
+  ].join(' '),
+  secondary: [
+    'border border-border bg-surface/60 text-text-primary',
+    'shadow-btn-secondary',
+    'hover:bg-surface-elevated hover:border-border-strong',
+    'active:brightness-[0.96]',
+    'focus-visible:ring-accent-a/20',
+    'disabled:opacity-40',
+  ].join(' '),
+  ghost: [
+    'bg-transparent text-text-secondary',
+    'hover:bg-surface-elevated hover:text-text-primary',
+    'active:brightness-[0.96]',
+    'focus-visible:ring-accent-a/20',
+    'disabled:opacity-40',
+  ].join(' '),
+  destructive: [
+    'bg-danger text-background font-semibold',
+    'shadow-btn-destructive',
+    'hover:brightness-[1.07]',
+    'active:brightness-[0.96]',
+    'focus-visible:ring-danger/30',
+    'disabled:opacity-40',
+  ].join(' '),
 }
 
 const sizeClasses: Record<Size, string> = {
@@ -34,9 +57,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       ref={ref}
       disabled={disabled || loading}
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-[10px] font-medium transition-[filter,background-color] duration-75',
-        'active:scale-[0.97] disabled:cursor-not-allowed disabled:pointer-events-none',
+        'inline-flex items-center justify-center gap-2 rounded-[10px] font-medium',
+        'transition-[filter,box-shadow,background-color,border-color] duration-[100ms]',
+        'active:scale-[0.97]',
         'focus-visible:outline-none focus-visible:ring-2',
+        'disabled:cursor-not-allowed disabled:pointer-events-none',
         variantClasses[variant],
         sizeClasses[size],
         className,

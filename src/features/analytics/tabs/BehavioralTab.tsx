@@ -33,17 +33,17 @@ function BucketCard({ title, row }: { title: string; row: BucketRow | undefined 
     <div className="rounded-lg border border-border bg-surface-elevated p-4">
       <p className="mb-1 text-caption uppercase tracking-wider text-text-muted">{title}</p>
       <p className="font-mono text-body-sm text-text-muted">n={n}</p>
-      {n < 10 ? (
+      {n < 10 || !row ? (
         <div className="mt-2">
           <InsufficientData n={n} />
         </div>
       ) : (
         <>
           <p className={cn('mt-2 font-mono text-[20px] font-semibold', tone)}>
-            {formatRMultiple(row!.expectancyR)}
+            {formatRMultiple(row.expectancyR)}
           </p>
           <p className="font-mono text-caption text-text-muted">
-            Win rate {formatPercent(row!.winRateBps)}
+            Win rate {formatPercent(row.winRateBps)}
           </p>
         </>
       )}

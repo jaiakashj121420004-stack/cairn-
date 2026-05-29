@@ -97,7 +97,11 @@ export function AccountsPage() {
   const [editTarget, setEditTarget] = useState<Account | null>(null)
   const [editName, setEditName] = useState('')
   const [editStatus, setEditStatus] = useState<AccountStatus>('active')
+  const [editLeverage, setEditLeverage] = useState('100')
   const [editNotes, setEditNotes] = useState('')
+  const [editMaxTrades, setEditMaxTrades] = useState('0')
+  const [editMaxLossFixed, setEditMaxLossFixed] = useState('0')
+  const [editMaxLossPct, setEditMaxLossPct] = useState('0')
   const [form, setForm] = useState<CreateForm>(BLANK_FORM)
   const [saving, setSaving] = useState(false)
   const [showAll, setShowAll] = useState(false)
@@ -148,11 +152,29 @@ export function AccountsPage() {
     setCreateOpen(true)
   }
 
-  function openEdit(account: Account) {
+  async function openEdit(account: Account) {
     setEditTarget(account)
     setEditName(account.displayName)
     setEditStatus(account.status)
+    setEditLeverage(String(account.leverage))
     setEditNotes(account.notes ?? '')
+    setEditMaxTrades('0')
+    setEditMaxLossFixed('0')
+    setEditMaxLossPct('0')
+    const rulesRes = await ipc.accountRules.list(account.id)
+    if (!rulesRes.ok) return
+    for (const r of rulesRes.data) {
+      if (!r.enabled) continue
+      try {
+        const cfg = JSON.parse(r.value) as Record<string, number>
+        if (r.ruleKey === 'max_trades_per_day' && cfg.maxTrades)
+          setEditMaxTrades(String(cfg.maxTrades))
+        if (r.ruleKey === 'max_daily_loss_fixed' && cfg.maxLossCents)
+          setEditMaxLossFixed(String(cfg.maxLossCents / 100))
+        if (r.ruleKey === 'max_daily_loss_pct' && cfg.maxPct)
+          setEditMaxLossPct(String(cfg.maxPct / 100))
+      } catch { /* skip malformed */ }
+    }
   }
 
   function applyTemplate(templateId: string) {
@@ -205,14 +227,44 @@ export function AccountsPage() {
   async function handleEditSave() {
     if (!editTarget) return
     setSaving(true)
+    const leverageNum = parseInt(editLeverage, 10)
     const res = await ipc.accounts.update({
       id: editTarget.id,
       ...(editName ? { displayName: editName } : {}),
       status: editStatus,
+      ...(leverageNum >= 1 && leverageNum <= 3000 ? { leverage: leverageNum } : {}),
       notes: editNotes || null,
     })
-    if (res.ok) { toast('Account updated', 'success'); await load(); setEditTarget(null) }
-    else toast(res.error.message, 'error')
+    if (res.ok) {
+      const maxTradesNum = parseInt(editMaxTrades, 10) || 0
+      const maxLossFixedNum = parseFloat(editMaxLossFixed) || 0
+      const maxLossPctNum = parseFloat(editMaxLossPct) || 0
+      await Promise.all([
+        ipc.accountRules.upsert({
+          accountId: editTarget.id,
+          ruleKey: 'max_trades_per_day',
+          enabled: maxTradesNum > 0,
+          value: { maxTrades: maxTradesNum > 0 ? maxTradesNum : 2 },
+        }),
+        ipc.accountRules.upsert({
+          accountId: editTarget.id,
+          ruleKey: 'max_daily_loss_fixed',
+          enabled: maxLossFixedNum > 0,
+          value: { maxLossCents: maxLossFixedNum > 0 ? Math.round(maxLossFixedNum * 100) : 50000 },
+        }),
+        ipc.accountRules.upsert({
+          accountId: editTarget.id,
+          ruleKey: 'max_daily_loss_pct',
+          enabled: maxLossPctNum > 0,
+          value: { maxPct: maxLossPctNum > 0 ? Math.round(maxLossPctNum * 100) : 200 },
+        }),
+      ])
+      toast('Account updated', 'success')
+      await load()
+      setEditTarget(null)
+    } else {
+      toast(res.error.message, 'error')
+    }
     setSaving(false)
   }
 
@@ -283,7 +335,7 @@ export function AccountsPage() {
 
                   <button
                     type="button"
-                    onClick={() => openEdit(account)}
+                    onClick={() => void openEdit(account)}
                     className="ml-2 rounded-[8px] p-1.5 text-text-muted hover:bg-surface-elevated hover:text-text-primary transition-colors"
                     title="Edit"
                   >
@@ -419,7 +471,7 @@ export function AccountsPage() {
         open={editTarget !== null}
         onClose={() => setEditTarget(null)}
         title={`Edit ${editTarget?.displayName ?? ''}`}
-        maxWidth="400px"
+        maxWidth="460px"
       >
         <div className="space-y-4">
           <Input
@@ -427,12 +479,51 @@ export function AccountsPage() {
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
           />
-          <Select
-            label="Status"
-            options={STATUS_OPTIONS}
-            value={editStatus}
-            onChange={(v) => setEditStatus(v as AccountStatus)}
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              label="Status"
+              options={STATUS_OPTIONS}
+              value={editStatus}
+              onChange={(v) => setEditStatus(v as AccountStatus)}
+            />
+            <Input
+              label="Leverage"
+              type="number"
+              numeric
+              value={editLeverage}
+              onChange={(e) => setEditLeverage(e.target.value)}
+              hint="Min 1, max 3000"
+            />
+          </div>
+          <div className="rounded-[10px] border border-border bg-surface-elevated/50 p-3 space-y-3">
+            <p className="text-caption font-medium text-text-secondary">Daily limits (0 = disabled)</p>
+            <div className="grid grid-cols-3 gap-3">
+              <Input
+                label="Max trades/day"
+                type="number"
+                numeric
+                value={editMaxTrades}
+                onChange={(e) => setEditMaxTrades(e.target.value)}
+                hint="0 = off"
+              />
+              <Input
+                label="Max loss ($)"
+                type="number"
+                numeric
+                value={editMaxLossFixed}
+                onChange={(e) => setEditMaxLossFixed(e.target.value)}
+                hint="0 = off"
+              />
+              <Input
+                label="Max loss (%)"
+                type="number"
+                numeric
+                value={editMaxLossPct}
+                onChange={(e) => setEditMaxLossPct(e.target.value)}
+                hint="0 = off"
+              />
+            </div>
+          </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-caption font-medium text-text-secondary">Notes</label>
             <textarea

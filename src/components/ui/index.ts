@@ -1,4 +1,5 @@
 export { Button } from './button'
+export { GlassCard } from './GlassCard'
 export { Input } from './input'
 export { Textarea } from './textarea'
 export { Select } from './select'

@@ -132,6 +132,7 @@ export function TradeLogPage() {
   const [closeTrade, setCloseTrade] = useState<TradeListItem | null>(null)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [activating, setActivating] = useState<string | null>(null)
 
   // Filters
   const [filterPair, setFilterPair] = useState('')
@@ -219,6 +220,18 @@ export function TradeLogPage() {
     load()
   }
 
+  async function handleActivate(trade: TradeListItem) {
+    setActivating(trade.id)
+    const res = await ipc.trades.setOpen(trade.id, trade.accountId)
+    setActivating(null)
+    if (res.ok) {
+      toast('Trade activated. Position is now open.', 'success')
+      load()
+    } else {
+      toast(res.error.message, 'error')
+    }
+  }
+
   function clearFilters() {
     setFilterPair('')
     setFilterMode('')
@@ -296,7 +309,7 @@ export function TradeLogPage() {
 
       {/* Filters bar */}
       {filtersOpen && (
-        <div className="border-b border-border px-6 py-3 bg-surface flex flex-wrap items-end gap-3 shrink-0">
+        <div className="px-6 py-3 flex flex-wrap items-end gap-3 shrink-0 glass-strong" style={{ borderBottom: '1px solid var(--glass-border)' }}>
           <div className="space-y-1">
             <label className="text-micro text-text-muted">Pair</label>
             <input
@@ -404,7 +417,7 @@ export function TradeLogPage() {
           </div>
         ) : (
           <table className="w-full border-collapse text-body-sm">
-            <thead className="sticky top-0 z-10 bg-surface border-b border-border">
+            <thead className="sticky top-0 z-10 glass-strong" style={{ borderBottom: '1px solid var(--glass-border)' }}>
               <tr>
                 <th className="w-10 px-3 py-2.5">
                   <input
@@ -550,6 +563,16 @@ export function TradeLogPage() {
                       className="px-3 py-2.5"
                       onClick={(e) => e.stopPropagation()}
                     >
+                      {trade.status === 'planned' && (
+                        <button
+                          type="button"
+                          disabled={activating === trade.id}
+                          onClick={() => void handleActivate(trade)}
+                          className="text-caption text-accent-a hover:underline disabled:opacity-50"
+                        >
+                          {activating === trade.id ? '…' : 'Open'}
+                        </button>
+                      )}
                       {trade.status === 'open' && (
                         <button
                           type="button"
