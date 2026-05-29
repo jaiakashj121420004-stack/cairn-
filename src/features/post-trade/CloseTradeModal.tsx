@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { X, Image as ImageIcon, Paperclip } from 'lucide-react'
-import { Modal, Button, useToast } from '../../components/ui'
+import { Modal, Button, Tooltip, useToast } from '../../components/ui'
 import { ipc } from '../../lib/ipc'
 import { cn } from '../../lib/cn'
 import { formatCents, formatRMultiple } from '../../lib/formatters'
@@ -36,6 +36,10 @@ function priceToDb(floatStr: string, pipDecimal: number): number {
   const n = parseFloat(floatStr)
   if (isNaN(n)) return 0
   return Math.round(n * Math.pow(10, pipDecimal + 1))
+}
+
+function dbToDisplayPrice(dbInt: number, pipDecimal: number): string {
+  return (dbInt / Math.pow(10, pipDecimal + 1)).toFixed(pipDecimal + 1)
 }
 
 function computePreview(
@@ -230,6 +234,8 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
   >([])
 
   const [saving, setSaving] = useState(false)
+  /** True when the rule engine recorded at least one violation for this trade while it was live. */
+  const [hasFlaggedViolations, setHasFlaggedViolations] = useState(false)
 
   // Populate defaults on open
   useEffect(() => {
@@ -255,11 +261,21 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
     setWhatWrong('')
     setTags([])
     setScreenshots([])
+    setHasFlaggedViolations(false)
 
-    ipc.rules.listAvailable().then((res) => {
-      if (res.ok) setAvailableRules(res.data.map((r) => ({ key: r.key, label: r.label })))
+    const tradeId = trade?.id
+    Promise.all([
+      ipc.rules.listAvailable(),
+      tradeId ? ipc.trades.get(tradeId) : Promise.resolve(null),
+    ]).then(([rulesRes, tradeDetailRes]) => {
+      if (rulesRes.ok) setAvailableRules(rulesRes.data.map((r) => ({ key: r.key, label: r.label })))
+      if (tradeDetailRes && tradeDetailRes.ok) {
+        setHasFlaggedViolations(tradeDetailRes.data.ruleViolations.length > 0)
+      } else {
+        setHasFlaggedViolations(false)
+      }
     })
-  }, [open])
+  }, [open, trade?.id])
 
   // Auto-check rules based on honesty answers
   useEffect(() => {
@@ -302,6 +318,23 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
     partialLotsDb > 0 &&
     partialLotsDb < trade.lotSize &&
     !saving
+
+  function applyCleanClose(type: 'tp' | 'sl') {
+    if (!trade) return
+    const now = new Date()
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+    const dbPrice = type === 'tp' ? trade.takeProfitPrice : trade.stopLossPrice
+    setExitPriceStr(dbToDisplayPrice(dbPrice, trade.pairPipDecimal))
+    setExitTimeStr(local.toISOString().slice(0, 16))
+    setExitReason(type === 'tp' ? 'tp' : 'sl')
+    setFollowedPlan(true)
+    setPlanChanges('')
+    setSlMoved(false)
+    setSlMovedReason('')
+    setEnteredBeforeMss(false)
+    setRulesBroken([])
+    setWhatRight(type === 'tp' ? 'Closed clean at TP, plan followed' : 'Closed clean at SL, plan followed')
+  }
 
   const handleAddScreenshots = useCallback(async () => {
     if (!trade) return
@@ -505,6 +538,46 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
 
         {/* Full close form */}
         {closeMode === 'full' && (<div className="space-y-4">
+
+          {/* Quick-close shortcuts */}
+          <div className="space-y-1.5">
+            <p className="text-caption font-medium text-text-secondary">Quick close</p>
+            <div className="grid grid-cols-2 gap-2">
+              {(['tp', 'sl'] as const).map((type) => {
+                const label = type === 'tp' ? 'Closed clean at TP' : 'Closed clean at SL'
+                const disabled = hasFlaggedViolations
+                const btn = (
+                  <button
+                    key={type}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => applyCleanClose(type)}
+                    className={cn(
+                      'w-full rounded-[8px] border py-2 text-caption font-medium transition-colors',
+                      disabled
+                        ? 'border-border text-text-muted opacity-40 cursor-not-allowed'
+                        : type === 'tp'
+                          ? 'border-accent-a/50 text-accent-a hover:bg-accent-a/10'
+                          : 'border-danger/50 text-danger hover:bg-danger/10',
+                    )}
+                  >
+                    {label}
+                  </button>
+                )
+                return disabled ? (
+                  <Tooltip
+                    key={type}
+                    content="This trade has at least one flagged action; close manually."
+                    side="top"
+                    wrapperClassName="w-full"
+                  >
+                    {btn}
+                  </Tooltip>
+                ) : btn
+              })}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-caption font-medium text-text-secondary">Exit price</label>
