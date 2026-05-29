@@ -5,6 +5,7 @@ import { X, Loader2, CheckCircle2, XCircle, AlertTriangle, Paperclip } from 'luc
 import { ipc } from '../../lib/ipc'
 import { useSessionStore } from '../../stores/session-store'
 import { useSettingsStore } from '../../stores/settings-store'
+import { useLastTradeContextStore, getRecentContext } from '../../stores/last-trade-context'
 import { useToast } from '../../components/ui'
 import { Button, Select, Checkbox, Modal } from '../../components/ui'
 import { calculateLotSizeFromRisk, calculateRR, calcRiskCentsFromPct } from '../../lib/calculators'
@@ -142,6 +143,7 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
   const toast = useToast()
   const { selectedAccountId, todaySession, refresh, bumpTradeVersion } = useSessionStore()
   const { riskMode, setRiskMode } = useSettingsStore()
+  const { context: lastCtx, setContext: setLastCtx } = useLastTradeContextStore()
 
   const [pairs, setPairs] = useState<Pair[]>([])
   const [setups, setSetups] = useState<Setup[]>([])
@@ -158,6 +160,11 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
   const [shake, setShake] = useState(false)
   const [pendingCharts, setPendingCharts] = useState<string[]>([])
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /**
+   * Tracks which fields were pre-filled from the last trade context and haven't
+   * been edited yet — used to show the "(from last trade)" caption.
+   */
+  const [inheritedFields, setInheritedFields] = useState<Set<'pairId' | 'setupId' | 'mode'>>(new Set())
 
   // Load reference data + account for risk calculator
   useEffect(() => {
@@ -169,8 +176,10 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
       ipc.accounts.list(),
       ipc.settings.get('default_risk_pct'),
     ]).then(([p, s, k, accs, riskSetting]) => {
-      if (p.ok) setPairs(p.data.filter((x) => x.active === 1))
-      if (s.ok) setSetups(s.data.filter((x) => x.active === 1))
+      const activePairs = p.ok ? p.data.filter((x) => x.active === 1) : []
+      const activeSetups = s.ok ? s.data.filter((x) => x.active === 1) : []
+      if (p.ok) setPairs(activePairs)
+      if (s.ok) setSetups(activeSetups)
       if (k.ok) {
         const active = k.data.filter((x) => x.active === 1)
         setKillzones(active)
@@ -186,8 +195,24 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
           if (typeof pct === 'number' && pct > 0) setRiskPctStr(String(pct))
         } catch (_err) { /* ignore malformed setting */ }
       }
+
+      // Pre-fill pair/setup/mode from last trade context if within the 6-hour window
+      const recent = getRecentContext(lastCtx, selectedAccountId)
+      if (recent) {
+        const pairExists = activePairs.some((x) => x.id === recent.pairId)
+        const setupExists = activeSetups.some((x) => x.id === recent.setupId)
+        const inherited = new Set<'pairId' | 'setupId' | 'mode'>()
+        setForm((f) => {
+          const patch: Partial<FormState> = {}
+          if (pairExists) { patch.pairId = recent.pairId; inherited.add('pairId') }
+          if (setupExists) { patch.setupId = recent.setupId; inherited.add('setupId') }
+          patch.mode = recent.mode; inherited.add('mode')
+          return { ...f, ...patch }
+        })
+        setInheritedFields(inherited)
+      }
     })
-  }, [open, selectedAccountId])
+  }, [open, selectedAccountId]) // lastCtx intentionally excluded — snapshot at open time
 
   // Auto-check HTF bias aligned when direction changes
   useEffect(() => {
@@ -207,6 +232,7 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
       setRiskDollarStr('')
       setAccount(null)
       setPendingCharts([])
+      setInheritedFields(new Set())
     }
   }, [open])
 
@@ -297,6 +323,20 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [evaluateRules])
 
+  function dropInherited(field: 'pairId' | 'setupId' | 'mode') {
+    setInheritedFields((prev) => {
+      if (!prev.has(field)) return prev
+      const next = new Set(prev)
+      next.delete(field)
+      return next
+    })
+  }
+
+  function handleClearInherited() {
+    setForm((f) => ({ ...f, pairId: BLANK.pairId, setupId: BLANK.setupId, mode: BLANK.mode }))
+    setInheritedFields(new Set())
+  }
+
   function isDirty() {
     return form.pairId !== '' || form.direction !== null || form.entryStr !== ''
   }
@@ -352,6 +392,9 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
     if (res.ok) {
       for (const chartPath of pendingCharts) {
         await ipc.trades.addScreenshot(res.data.id, 'entry', chartPath)
+      }
+      if (status === 'open' && selectedAccountId) {
+        setLastCtx({ pairId: form.pairId, setupId: form.setupId, mode: form.mode, accountId: selectedAccountId })
       }
       bumpTradeVersion()
       await refresh()
@@ -455,7 +498,7 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
                   label="Pair"
                   options={pairOptions}
                   value={form.pairId}
-                  onChange={(v) => setForm((f) => ({ ...f, pairId: v }))}
+                  onChange={(v) => { setForm((f) => ({ ...f, pairId: v })); dropInherited('pairId') }}
                   searchable
                   placeholder="Select pair…"
                 />
@@ -463,9 +506,21 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
                   label="Setup"
                   options={setupOptions}
                   value={form.setupId}
-                  onChange={(v) => setForm((f) => ({ ...f, setupId: v }))}
+                  onChange={(v) => { setForm((f) => ({ ...f, setupId: v })); dropInherited('setupId') }}
                   placeholder="Select setup…"
                 />
+                {inheritedFields.size > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-micro text-text-muted">from last trade</span>
+                    <button
+                      type="button"
+                      onClick={handleClearInherited}
+                      className="text-micro text-text-muted underline hover:text-text-secondary transition-colors"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <Select
                     label="Killzone"
@@ -480,7 +535,7 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
                         <button
                           key={m}
                           type="button"
-                          onClick={() => setForm((f) => ({ ...f, mode: m }))}
+                          onClick={() => { setForm((f) => ({ ...f, mode: m })); dropInherited('mode') }}
                           className={cn(
                             'flex-1 rounded-[8px] border py-1.5 text-caption font-medium capitalize transition-colors',
                             form.mode === m
