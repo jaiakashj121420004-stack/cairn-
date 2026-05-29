@@ -7,6 +7,7 @@ import { useSessionStore } from '../../stores/session-store'
 import { useSettingsStore } from '../../stores/settings-store'
 import { useLastTradeContextStore, getRecentContext } from '../../stores/last-trade-context'
 import { INVALIDATION_CHIPS, INVALIDATION_MIN_CHARS } from './constants/invalidation-chips'
+import { STATE_PRESETS } from './constants/state-presets'
 import { useToast } from '../../components/ui'
 import { Button, Select, Checkbox, Modal } from '../../components/ui'
 import { calculateLotSizeFromRisk, calculateRR, calcRiskCentsFromPct } from '../../lib/calculators'
@@ -160,6 +161,8 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
   const [saving, setSaving] = useState(false)
   const [shake, setShake] = useState(false)
   const [pendingCharts, setPendingCharts] = useState<string[]>([])
+  /** Id of the currently selected emotional-state preset, or null if manually adjusted. */
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null)
   /** Id of the currently selected quick-chip, or null if free-text / none. */
   const [selectedChipId, setSelectedChipId] = useState<string | null>(null)
   /** Whether the free-text textarea is visible (always visible when Custom is active). */
@@ -238,6 +241,7 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
       setAccount(null)
       setPendingCharts([])
       setInheritedFields(new Set())
+      setSelectedPresetId(null)
       setSelectedChipId(null)
       setShowCustom(false)
     }
@@ -790,9 +794,33 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
               {/* G — Emotional state */}
               <section className="space-y-3">
                 <p className="text-caption font-medium text-text-secondary">Pre-trade state</p>
-                <Slider label="Calm (1=scattered, 10=focused)" value={form.calmScore} onChange={(v) => setForm((f) => ({ ...f, calmScore: v }))} />
-                <Slider label="Urgency (1=patient, 10=chasing)" value={form.urgencyScore} onChange={(v) => setForm((f) => ({ ...f, urgencyScore: v }))} />
-                <Slider label="Need to win (1=detached, 10=desperate)" value={form.needScore} onChange={(v) => setForm((f) => ({ ...f, needScore: v }))} />
+                <div className="grid grid-cols-3 gap-1.5">
+                  {STATE_PRESETS.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedPresetId(p.id)
+                        setForm((f) => ({ ...f, calmScore: p.calmScore, urgencyScore: p.urgencyScore, needScore: p.needScore }))
+                      }}
+                      className={cn(
+                        'rounded-[8px] border py-1.5 text-caption font-medium transition-colors',
+                        selectedPresetId === p.id
+                          ? p.id === 'focused'
+                            ? 'border-accent-a bg-accent-a/10 text-accent-a'
+                            : p.id === 'tilted'
+                              ? 'border-danger bg-danger/10 text-danger'
+                              : 'border-border-strong bg-surface-elevated text-text-primary'
+                          : 'border-border text-text-muted hover:border-border-strong hover:text-text-secondary',
+                      )}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+                <Slider label="Calm (1=scattered, 10=focused)" value={form.calmScore} onChange={(v) => { setSelectedPresetId(null); setForm((f) => ({ ...f, calmScore: v })) }} />
+                <Slider label="Urgency (1=patient, 10=chasing)" value={form.urgencyScore} onChange={(v) => { setSelectedPresetId(null); setForm((f) => ({ ...f, urgencyScore: v })) }} />
+                <Slider label="Need to win (1=detached, 10=desperate)" value={form.needScore} onChange={(v) => { setSelectedPresetId(null); setForm((f) => ({ ...f, needScore: v })) }} />
               </section>
 
               {/* H — Rule evaluation */}
