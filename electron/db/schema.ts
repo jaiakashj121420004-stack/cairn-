@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core'
 
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
@@ -54,7 +54,7 @@ export const accounts = sqliteTable('accounts', {
   stepCount: integer('step_count').notNull(),
   currentPhase: integer('current_phase').notNull(),
   accountSizeCents: integer('account_size_cents').notNull(),
-  leverage: integer('leverage').notNull(),
+  leverage: integer('leverage').notNull().default(100),
   dailyDrawdownType: text('daily_drawdown_type').notNull(),
   dailyDrawdownValue: integer('daily_drawdown_value').notNull(),
   totalDrawdownType: text('total_drawdown_type').notNull(),
@@ -74,6 +74,9 @@ export const accounts = sqliteTable('accounts', {
   peakEquityCents: integer('peak_equity_cents').notNull(),
   currentEquityCents: integer('current_equity_cents').notNull(),
   notes: text('notes'),
+  // v1.1: configurable circuit-breaker fields
+  dailyTradeLimit: integer('daily_trade_limit'),
+  maxDailyLossPct: real('max_daily_loss_pct'),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
   deletedAt: integer('deleted_at'),
@@ -218,6 +221,10 @@ export const trades = sqliteTable('trades', {
   whatIDidRight: text('what_i_did_right'),
   whatIDidWrong: text('what_i_did_wrong'),
   tags: text('tags'),
+  // v1.1: optional screenshot attachment (never required, never blocks submission)
+  screenshotPath: text('screenshot_path'),
+  // v1.1: wall-clock timestamp when a planned trade was activated (planned → open)
+  openedAt: integer('opened_at'),
   // v2 prep
   brokerSource: text('broker_source'),
   brokerTradeId: text('broker_trade_id'),
@@ -249,6 +256,22 @@ export const tradePartials = sqliteTable('trade_partials', {
   pnlCents: integer('pnl_cents').notNull(),
   reason: text('reason'),
   closedAt: integer('closed_at').notNull(),
+})
+
+// v1.1: percentage-based partial exits (used by the Close Trade UI flow)
+export const partialCloses = sqliteTable('partial_closes', {
+  id: text('id').primaryKey(),
+  tradeId: text('trade_id')
+    .notNull()
+    .references(() => trades.id),
+  closePercent: real('close_percent').notNull(),
+  closeLots: integer('close_lots'),
+  exitPrice: real('exit_price').notNull(),
+  exitTime: integer('exit_time').notNull(),
+  pnlR: real('pnl_r'),
+  pnlUsd: real('pnl_usd'),
+  notes: text('notes'),
+  createdAt: integer('created_at').notNull(),
 })
 
 export const ruleViolations = sqliteTable('rule_violations', {
