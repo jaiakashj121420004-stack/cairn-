@@ -45,7 +45,8 @@ describe('performance.getTotals', () => {
   it('matches single-trade exactly', () => {
     const { db, ids } = makeTestDb()
     seedSingleTrade(db, ids)
-    const spec = TRADES_12[0]!
+    const spec = TRADES_12[0]
+    if (!spec) throw new Error('test: TRADES_12 is empty')
     const t = getTotals(db, BASE_FILTER)
     expect(t.tradeCount).toBe(1)
     expect(t.winCount).toBe(spec.pnlR > 0 ? 1 : 0)
@@ -90,8 +91,10 @@ describe('performance.getEquityCurve', () => {
     seedAnalyticsFixtures(db, ids)
     const curve = getEquityCurve(db, BASE_FILTER)
     expect(curve.length).toBe(12)
-    expect(curve[curve.length - 1]!.cumCents).toBe(EXPECTED.netPnlCents)
-    expect(curve[curve.length - 1]!.cumR).toBe(EXPECTED.totalR)
+    const lastPoint = curve[curve.length - 1]
+    if (!lastPoint) throw new Error('test: equity curve is empty')
+    expect(lastPoint.cumCents).toBe(EXPECTED.netPnlCents)
+    expect(lastPoint.cumR).toBe(EXPECTED.totalR)
   })
 })
 

@@ -17,10 +17,11 @@ function seed(db: ReturnType<typeof drizzle<typeof schema>>): void {
   runSeed(db as unknown as BetterSQLite3Database<typeof schema>)
 }
 
-const MIGRATION_SQL = readFileSync(
-  join(__dirname, '../../electron/db/migrations/0001_initial.sql'),
-  'utf-8',
-)
+const MIGRATIONS = [
+  readFileSync(join(__dirname, '../../electron/db/migrations/0001_initial.sql'), 'utf-8'),
+  readFileSync(join(__dirname, '../../electron/db/migrations/0002_v11.sql'), 'utf-8'),
+  readFileSync(join(__dirname, '../../electron/db/migrations/0003_opened_at.sql'), 'utf-8'),
+]
 
 let SQL: Awaited<ReturnType<typeof initSqlJs>>
 
@@ -34,11 +35,12 @@ beforeEach(async () => {
 function createTestDb() {
   const sqlite = new SQL.Database()
 
-  // Execute each SQL statement split on the drizzle breakpoint marker
-  const statements = MIGRATION_SQL.split('--> statement-breakpoint')
-  for (const stmt of statements) {
-    const trimmed = stmt.trim()
-    if (trimmed) sqlite.run(trimmed)
+  // Execute each migration in sequence, split on the drizzle breakpoint marker
+  for (const migration of MIGRATIONS) {
+    for (const stmt of migration.split('--> statement-breakpoint')) {
+      const trimmed = stmt.trim()
+      if (trimmed) sqlite.run(trimmed)
+    }
   }
 
   const db = drizzle(sqlite, { schema })
@@ -62,7 +64,7 @@ function getIndexNames(sqlite: SqlJsDatabase): string[] {
 }
 
 describe('schema: migration SQL executes without errors', () => {
-  it('creates all 16 tables successfully', () => {
+  it('creates all 17 tables successfully', () => {
     const { sqlite } = createTestDb()
     const tableNames = getTableNames(sqlite)
 
@@ -78,13 +80,14 @@ describe('schema: migration SQL executes without errors', () => {
     expect(tableNames).toContain('trades')
     expect(tableNames).toContain('trade_screenshots')
     expect(tableNames).toContain('trade_partials')
+    expect(tableNames).toContain('partial_closes')
     expect(tableNames).toContain('rule_violations')
     expect(tableNames).toContain('reviews')
     expect(tableNames).toContain('cooldowns')
     expect(tableNames).toContain('backup_log')
   })
 
-  it('creates all 8 indexes', () => {
+  it('creates all 9 indexes', () => {
     const { sqlite } = createTestDb()
     const indexNames = getIndexNames(sqlite)
 
@@ -96,6 +99,7 @@ describe('schema: migration SQL executes without errors', () => {
     expect(indexNames).toContain('idx_rule_violations_account')
     expect(indexNames).toContain('idx_sessions_account_date')
     expect(indexNames).toContain('idx_cooldowns_active')
+    expect(indexNames).toContain('idx_partial_closes_trade')
   })
 })
 
@@ -117,10 +121,10 @@ describe('seed: runs without error and inserts correct data', () => {
     expect(rows.length).toBe(8)
   })
 
-  it('inserts 12 pairs', () => {
+  it('inserts 19 pairs', () => {
     seed(db)
     const rows = db.select().from(schema.pairs).all()
-    expect(rows.length).toBe(12)
+    expect(rows.length).toBe(19)
 
     const symbols = rows.map((r) => r.symbol)
     expect(symbols).toContain('EURUSD')
@@ -163,7 +167,7 @@ describe('seed: runs without error and inserts correct data', () => {
     const killzones = db.select().from(schema.killzones).all()
     const settings = db.select().from(schema.settings).all()
 
-    expect(pairs.length).toBe(12)
+    expect(pairs.length).toBe(19)
     expect(setups.length).toBe(10)
     expect(killzones.length).toBe(5)
     expect(settings.length).toBe(8)

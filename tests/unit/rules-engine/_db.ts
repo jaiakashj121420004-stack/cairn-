@@ -8,10 +8,11 @@ import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import * as schema from '../../../electron/db/schema'
 import type { CairnDb } from '../../../electron/db/index'
 
-const MIGRATION_SQL = readFileSync(
-  join(__dirname, '../../../electron/db/migrations/0001_initial.sql'),
-  'utf-8',
-)
+const MIGRATIONS = [
+  readFileSync(join(__dirname, '../../../electron/db/migrations/0001_initial.sql'), 'utf-8'),
+  readFileSync(join(__dirname, '../../../electron/db/migrations/0002_v11.sql'), 'utf-8'),
+  readFileSync(join(__dirname, '../../../electron/db/migrations/0003_opened_at.sql'), 'utf-8'),
+]
 
 let SQL: Awaited<ReturnType<typeof initSqlJs>> | null = null
 
@@ -35,9 +36,11 @@ export interface TestDbBundle {
 export function createTestDb(): TestDbBundle {
   if (!SQL) throw new Error('Call await ensureSqlJs() in beforeAll/beforeEach first')
   const sqlite = new SQL.Database()
-  for (const stmt of MIGRATION_SQL.split('--> statement-breakpoint')) {
-    const t = stmt.trim()
-    if (t) sqlite.run(t)
+  for (const migration of MIGRATIONS) {
+    for (const stmt of migration.split('--> statement-breakpoint')) {
+      const t = stmt.trim()
+      if (t) sqlite.run(t)
+    }
   }
   const drizzleDb = drizzle(sqlite, { schema })
   // Cast: same sync interface; production code is typed against better-sqlite3.

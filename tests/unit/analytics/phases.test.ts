@@ -18,8 +18,11 @@ describe('phases.getAccountLadder', () => {
     const ladder = getAccountLadder(db)
     expect(ladder.length).toBe(2)
     const byId = new Map(ladder.map((r) => [r.id, r]))
-    expect(byId.get(ids.accountId)!.status).toBe('active')
-    expect(byId.get(ids.accountId2)!.status).toBe('failed')
+    const acc1 = byId.get(ids.accountId)
+    const acc2 = byId.get(ids.accountId2)
+    if (!acc1 || !acc2) throw new Error('test: seeded accounts missing from ladder')
+    expect(acc1.status).toBe('active')
+    expect(acc2.status).toBe('failed')
   })
 })
 

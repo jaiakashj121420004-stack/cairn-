@@ -7,10 +7,11 @@ import { v7 as uuidv7 } from 'uuid'
 import * as schema from '../../../electron/db/schema'
 import type { CairnDb } from '../../../electron/db/index'
 
-const MIGRATION_SQL = readFileSync(
-  join(__dirname, '../../../electron/db/migrations/0001_initial.sql'),
-  'utf-8',
-)
+const MIGRATIONS = [
+  readFileSync(join(__dirname, '../../../electron/db/migrations/0001_initial.sql'), 'utf-8'),
+  readFileSync(join(__dirname, '../../../electron/db/migrations/0002_v11.sql'), 'utf-8'),
+  readFileSync(join(__dirname, '../../../electron/db/migrations/0003_opened_at.sql'), 'utf-8'),
+]
 
 let SQL: Awaited<ReturnType<typeof initSqlJs>> | null = null
 
@@ -45,9 +46,11 @@ export interface TestDbBundle {
 export function makeTestDb(): TestDbBundle {
   if (!SQL) throw new Error('Call await ensureSqlJs() in beforeAll first')
   const sqlite = new SQL.Database()
-  for (const stmt of MIGRATION_SQL.split('--> statement-breakpoint')) {
-    const t = stmt.trim()
-    if (t) sqlite.run(t)
+  for (const migration of MIGRATIONS) {
+    for (const stmt of migration.split('--> statement-breakpoint')) {
+      const t = stmt.trim()
+      if (t) sqlite.run(t)
+    }
   }
   const drizzleDb = drizzle(sqlite, { schema })
   const db = drizzleDb as unknown as CairnDb
@@ -178,6 +181,7 @@ export function makeTestDb(): TestDbBundle {
         currentPhase: 1,
         accountSizeCents: 5_000_000,
         leverage: 30,
+        dailyTradeLimit: null,
         dailyDrawdownType: 'percent_of_balance',
         dailyDrawdownValue: 400,
         totalDrawdownType: 'percent_of_balance',
@@ -210,6 +214,7 @@ export function makeTestDb(): TestDbBundle {
         currentPhase: 2,
         accountSizeCents: 10_000_000,
         leverage: 30,
+        dailyTradeLimit: null,
         dailyDrawdownType: 'percent_of_balance',
         dailyDrawdownValue: 400,
         totalDrawdownType: 'percent_of_balance',
@@ -407,8 +412,12 @@ export function seedAnalyticsFixtures(db: CairnDb, ids: FixtureIds): string[] {
 }
 
 export function seedSingleTrade(db: CairnDb, ids: FixtureIds): string {
-  const tradeIds = seedTrades(db, ids, [TRADES_12[0]!], ids.accountId)
-  return tradeIds[0]!
+  const firstTrade = TRADES_12[0]
+  if (!firstTrade) throw new Error('test fixtures: TRADES_12 is empty')
+  const tradeIds = seedTrades(db, ids, [firstTrade], ids.accountId)
+  const id = tradeIds[0]
+  if (!id) throw new Error('test fixtures: seedTrades returned no ids')
+  return id
 }
 
 export function seedBlockedViolations(db: CairnDb, ids: FixtureIds, count: number): void {

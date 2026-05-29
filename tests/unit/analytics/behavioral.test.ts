@@ -31,10 +31,13 @@ describe('behavioral.getEmotionalBuckets', () => {
     seedAnalyticsFixtures(db, ids)
     const b = getEmotionalBuckets(db, F)
     const map = new Map(b.map((r) => [r.bucket, r]))
-    expect(map.get('calm')!.n).toBe(EXPECTED.calmCount)
-    expect(map.get('calm')!.winRateBps).toBe(EXPECTED.calmWinRateBps)
-    expect(map.get('urgent')!.n).toBe(EXPECTED.urgentCount)
-    expect(map.get('urgent')!.winRateBps).toBe(EXPECTED.urgentWinRateBps)
+    const calm = map.get('calm')
+    const urgent = map.get('urgent')
+    if (!calm || !urgent) throw new Error('test: expected calm and urgent buckets in result')
+    expect(calm.n).toBe(EXPECTED.calmCount)
+    expect(calm.winRateBps).toBe(EXPECTED.calmWinRateBps)
+    expect(urgent.n).toBe(EXPECTED.urgentCount)
+    expect(urgent.winRateBps).toBe(EXPECTED.urgentWinRateBps)
   })
 
   it('empty on empty', () => {

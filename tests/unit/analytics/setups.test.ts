@@ -46,8 +46,9 @@ describe('setups.getBySetup', () => {
     seedAnalyticsFixtures(db, ids)
     const rows = getBySetup(db, F)
     const byId = new Map(rows.map((r) => [r.setupId, r]))
-    const fvg = byId.get(ids.setupId1)!
-    const ob = byId.get(ids.setupId2)!
+    const fvg = byId.get(ids.setupId1)
+    const ob = byId.get(ids.setupId2)
+    if (!fvg || !ob) throw new Error('test: expected fvg and ob setups in result')
     expect(fvg.n).toBe(EXPECTED.fvgTradeCount)
     expect(fvg.winRateBps).toBe(EXPECTED.fvgWinRateBps)
     expect(ob.n).toBe(EXPECTED.obTradeCount)

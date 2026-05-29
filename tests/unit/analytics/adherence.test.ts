@@ -90,7 +90,10 @@ describe('adherence.getTopRulesBroken / getRuleBreakImpact', () => {
     seedAnalyticsFixtures(db, ids)
     const rows = getRuleBreakImpact(db, F)
     for (let i = 1; i < rows.length; i++) {
-      expect(rows[i]!.netPnlCents).toBeGreaterThanOrEqual(rows[i - 1]!.netPnlCents)
+      const cur = rows[i]
+      const prev = rows[i - 1]
+      if (!cur || !prev) throw new Error('test: rows array shorter than expected')
+      expect(cur.netPnlCents).toBeGreaterThanOrEqual(prev.netPnlCents)
     }
   })
 })
