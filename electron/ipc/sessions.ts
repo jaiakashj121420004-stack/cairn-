@@ -112,7 +112,8 @@ export function registerSessionHandlers(): void {
             .where(eq(schema.sessions.id, existing.id))
             .run()
         }
-        const updated = db.select().from(schema.sessions).where(eq(schema.sessions.id, existing.id)).get()!
+        const updated = db.select().from(schema.sessions).where(eq(schema.sessions.id, existing.id)).get()
+        if (!updated) throw new Error('sessions:upsert: row vanished after update')
         return { ok: true, data: mapRow(updated) }
       }
 
@@ -139,7 +140,8 @@ export function registerSessionHandlers(): void {
         })
         .run()
 
-      const row = db.select().from(schema.sessions).where(eq(schema.sessions.id, id)).get()!
+      const row = db.select().from(schema.sessions).where(eq(schema.sessions.id, id)).get()
+      if (!row) throw new Error('sessions:upsert: row vanished after insert')
       return { ok: true, data: mapRow(row) }
     } catch (err) {
       return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }

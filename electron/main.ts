@@ -56,7 +56,7 @@ function scheduleBackups(): void {
 
     // Parse HH:MM and compute ms until next occurrence
     const [hh = 2, mm = 0] = (settings.dailyTime ?? '02:00').split(':').map(Number)
-    function msUntilNext(): number {
+    const msUntilNext = (): number => {
       const now = new Date()
       const next = new Date()
       next.setUTCHours(hh, mm, 0, 0)
@@ -64,7 +64,7 @@ function scheduleBackups(): void {
       return next.getTime() - now.getTime()
     }
 
-    function fireAndReschedule(): void {
+    const fireAndReschedule = (): void => {
       runScheduledLocalBackup()
       backupTimer = setTimeout(fireAndReschedule, msUntilNext()) as unknown as ReturnType<typeof setInterval>
     }

@@ -51,6 +51,7 @@ const UpdateAccountSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
   status: z.enum(['active', 'passed', 'failed', 'paused', 'retired']).optional(),
   currentPhase: z.number().int().min(1).max(5).optional(),
+  leverage: z.number().int().min(1).max(3000).optional(),
   currentEquityCents: z.number().int().optional(),
   peakEquityCents: z.number().int().optional(),
   notes: z.string().max(1000).nullable().optional(),
@@ -235,6 +236,7 @@ export function registerAccountHandlers(): void {
       if (fields.displayName !== undefined) updateData.displayName = fields.displayName
       if (fields.status !== undefined) updateData.status = fields.status
       if (fields.currentPhase !== undefined) updateData.currentPhase = fields.currentPhase
+      if (fields.leverage !== undefined) updateData.leverage = fields.leverage
       if (fields.currentEquityCents !== undefined)
         updateData.currentEquityCents = fields.currentEquityCents
       if (fields.peakEquityCents !== undefined) updateData.peakEquityCents = fields.peakEquityCents

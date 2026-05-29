@@ -6,6 +6,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { getDb } from '../db/index'
 import * as schema from '../db/schema'
+import { calculatePnl, calculateDurationMinutes } from '../services/pnl-calculator'
 import type {
   IpcResponse,
   Trade,
@@ -14,6 +15,8 @@ import type {
   TradeScreenshot,
   CreateTradeInput,
   CloseTradeInput,
+  PartialCloseInput,
+  PartialCloseRecord,
   TradeFilter,
 } from '../../shared/types/index'
 
@@ -261,7 +264,7 @@ export function registerTradeHandlers(): void {
 
         db.transaction(() => {
           db.update(schema.trades)
-            .set({ status: 'open', updatedAt: now })
+            .set({ status: 'open', openedAt: now, updatedAt: now })
             .where(eq(schema.trades.id, raw.tradeId))
             .run()
 
@@ -320,21 +323,21 @@ export function registerTradeHandlers(): void {
         .get()
       if (!account) return { ok: false, error: { code: 'NOT_FOUND', message: 'Account not found' } }
 
-      // P&L calculations (integer arithmetic)
-      // signed_pnl_tenths: each unit = 1/10 pip (same encoding as slPips)
-      const signedPnlTenths =
-        trade.direction === 'long'
-          ? d.exitPrice - trade.entryPrice
-          : trade.entryPrice - d.exitPrice
-
-      // pnl_cents = signedPnlTenths × lotSize × pipValuePerLotCents / 1000
-      const pnlCents = Math.round(
-        (signedPnlTenths * trade.lotSize * pair.pipValuePerStandardLotCents) / 1000,
+      // P&L calculations via pnl-calculator service
+      const { pnlCents, pnlR, pnlPctBps } = calculatePnl({
+        direction: trade.direction as 'long' | 'short',
+        exitPrice: d.exitPrice,
+        entryPrice: trade.entryPrice,
+        lotSize: trade.lotSize,
+        slPips: trade.slPips,
+        pipValuePerStandardLotCents: pair.pipValuePerStandardLotCents,
+        accountSizeCents: account.accountSizeCents,
+      })
+      const durationMinutes = calculateDurationMinutes(
+        trade.openedAt ?? trade.actualEntryTime,
+        d.exitTime,
+        trade.createdAt,
       )
-      // pnl_r (×100): R = signed_pnl_pips / sl_pips; both in tenths so ratio is same
-      const pnlR = trade.slPips > 0 ? Math.round((signedPnlTenths * 100) / trade.slPips) : 0
-      const pnlPctBps = Math.round((pnlCents * 10000) / account.accountSizeCents)
-      const durationMinutes = Math.round((d.exitTime - trade.createdAt) / 60000)
 
       const isLoss = pnlCents < 0
       const isClean =
@@ -431,6 +434,94 @@ export function registerTradeHandlers(): void {
 
       const row = db.select().from(schema.trades).where(eq(schema.trades.id, d.tradeId)).get()
       if (!row) return { ok: false, error: { code: 'DB_ERROR', message: 'Close failed' } }
+      return { ok: true, data: mapRow(row) }
+    } catch (err) {
+      return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
+    }
+  })
+
+  // ── trades:partialClose ──────────────────────────────────────────────────────
+  ipcMain.handle('trades:partialClose', (_e, raw: PartialCloseInput): IpcResponse<Trade> => {
+    try {
+      const db = getDb()
+      const now = Date.now()
+
+      const trade = db.select().from(schema.trades).where(eq(schema.trades.id, raw.tradeId)).get()
+      if (!trade) return { ok: false, error: { code: 'NOT_FOUND', message: 'Trade not found' } }
+      if (trade.status !== 'open') {
+        return { ok: false, error: { code: 'CONFLICT', message: 'Trade is not open' } }
+      }
+      if (raw.closeLots <= 0 || raw.closeLots >= trade.lotSize) {
+        return {
+          ok: false,
+          error: { code: 'VALIDATION_ERROR', message: 'closeLots must be positive and less than current lot size' },
+        }
+      }
+
+      const pair = db.select().from(schema.pairs).where(eq(schema.pairs.id, trade.pairId)).get()
+      if (!pair) return { ok: false, error: { code: 'NOT_FOUND', message: 'Pair not found' } }
+
+      const account = db
+        .select()
+        .from(schema.accounts)
+        .where(eq(schema.accounts.id, trade.accountId))
+        .get()
+      if (!account) return { ok: false, error: { code: 'NOT_FOUND', message: 'Account not found' } }
+
+      // P&L for the closed portion only
+      const { pnlCents } = calculatePnl({
+        direction: trade.direction as 'long' | 'short',
+        exitPrice: raw.exitPrice,
+        entryPrice: trade.entryPrice,
+        lotSize: raw.closeLots,
+        slPips: trade.slPips,
+        pipValuePerStandardLotCents: pair.pipValuePerStandardLotCents,
+        accountSizeCents: account.accountSizeCents,
+      })
+      const pnlUsd = pnlCents / 100
+      const pnlR = trade.slPips > 0
+        ? Math.round(
+            ((raw.exitPrice - trade.entryPrice) *
+              (trade.direction === 'long' ? 1 : -1) *
+              100) /
+              trade.slPips,
+          )
+        : null
+      const closePercent = (raw.closeLots / trade.lotSize) * 100
+      const newLotSize = trade.lotSize - raw.closeLots
+
+      db.transaction(() => {
+        db.insert(schema.partialCloses)
+          .values({
+            id: uuidv7(),
+            tradeId: raw.tradeId,
+            closePercent,
+            closeLots: raw.closeLots,
+            exitPrice: raw.exitPrice,
+            exitTime: raw.exitTime,
+            pnlR: pnlR !== null ? pnlR / 100 : null,
+            pnlUsd,
+            notes: raw.notes ?? null,
+            createdAt: now,
+          })
+          .run()
+
+        db.update(schema.trades)
+          .set({ lotSize: newLotSize, updatedAt: now })
+          .where(eq(schema.trades.id, raw.tradeId))
+          .run()
+
+        // Update account equity with realized P&L
+        const newEquity = account.currentEquityCents + pnlCents
+        const newPeak = Math.max(account.peakEquityCents, newEquity)
+        db.update(schema.accounts)
+          .set({ currentEquityCents: newEquity, peakEquityCents: newPeak, updatedAt: now })
+          .where(eq(schema.accounts.id, trade.accountId))
+          .run()
+      })
+
+      const row = db.select().from(schema.trades).where(eq(schema.trades.id, raw.tradeId)).get()
+      if (!row) return { ok: false, error: { code: 'DB_ERROR', message: 'Update failed' } }
       return { ok: true, data: mapRow(row) }
     } catch (err) {
       return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
@@ -596,6 +687,26 @@ export function registerTradeHandlers(): void {
         .where(eq(schema.ruleViolations.tradeId, tradeId))
         .all()
 
+      const partialCloseRows = db
+        .select()
+        .from(schema.partialCloses)
+        .where(eq(schema.partialCloses.tradeId, tradeId))
+        .orderBy(schema.partialCloses.createdAt)
+        .all()
+
+      const partialCloses: PartialCloseRecord[] = partialCloseRows.map((pc) => ({
+        id: pc.id,
+        tradeId: pc.tradeId,
+        closePercent: pc.closePercent,
+        closeLots: pc.closeLots ?? null,
+        exitPrice: pc.exitPrice,
+        exitTime: pc.exitTime,
+        pnlR: pc.pnlR ?? null,
+        pnlUsd: pc.pnlUsd ?? null,
+        notes: pc.notes ?? null,
+        createdAt: pc.createdAt,
+      }))
+
       // Related trades: same account, same day (by session_date substring of createdAt)
       const dayStart = new Date(tradeRow.createdAt)
       dayStart.setUTCHours(0, 0, 0, 0)
@@ -717,6 +828,7 @@ export function registerTradeHandlers(): void {
           createdAt: v.createdAt,
         })),
         relatedTrades,
+        partialCloses,
       }
 
       return { ok: true, data: detail }
@@ -789,7 +901,7 @@ export function registerTradeHandlers(): void {
   // ── trades:pickScreenshots ───────────────────────────────────────────────────
   ipcMain.handle(
     'trades:pickScreenshots',
-    async (_e, raw: { tradeId: string }): Promise<IpcResponse<string[]>> => {
+    async (_e, _raw: { tradeId: string }): Promise<IpcResponse<string[]>> => {
       try {
         const result = await dialog.showOpenDialog({
           title: 'Select Screenshots',

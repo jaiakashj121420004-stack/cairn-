@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron'
 import { getDb } from '../db/index'
 import { trades, accounts, pairs, setups } from '../db/schema'
-import { eq, and, gte, isNull, desc, sql } from 'drizzle-orm'
+import { eq, and, gte, lt, isNull, desc, sql } from 'drizzle-orm'
 import type { IpcResponse, DashboardStats, RecentTradeItem, WeekDayStats } from '../../shared/types/index'
 
 function todayUtc(): string {
@@ -25,6 +25,7 @@ export function registerDashboardHandlers(): void {
     'dashboard:getStats',
     async (_e, { accountId }: { accountId: string }): Promise<IpcResponse<DashboardStats>> => {
       try {
+        const db = getDb()
         const account = db
           .select()
           .from(accounts)
@@ -38,10 +39,10 @@ export function registerDashboardHandlers(): void {
         const today = todayUtc()
         const monday = mondayUtc()
         const todayMs = startOfDayUtcMs(today)
-        const tomorrowMs = todayMs + 86400000
+        const tomorrowMs = todayMs + 86_400_000
         const mondayMs = startOfDayUtcMs(monday)
 
-        // Last 20 closed trades for discipline score
+        // ── Last 20 closed trades (by exit time) for discipline + expectancy ────
         const last20 = db
           .select({
             id: trades.id,
@@ -49,7 +50,7 @@ export function registerDashboardHandlers(): void {
             rulesBroken: trades.rulesBroken,
             pnlCents: trades.pnlCents,
             pnlR: trades.pnlR,
-            slPips: trades.slPips,
+            exitTime: trades.exitTime,
           })
           .from(trades)
           .where(
@@ -59,7 +60,7 @@ export function registerDashboardHandlers(): void {
               isNull(trades.deletedAt),
             ),
           )
-          .orderBy(desc(trades.updatedAt))
+          .orderBy(desc(trades.exitTime))
           .limit(20)
           .all()
 
@@ -87,30 +88,56 @@ export function registerDashboardHandlers(): void {
           .slice(0, 5)
           .map(([ruleKey, count]) => ({ ruleKey, count }))
 
-        // Rolling expectancy over last 20 closed
+        // Rolling expectancy over last 20 closed (pnlR ×100)
         const closedWithPnl = last20.filter((t) => t.pnlR !== null)
         const rollingExpectancy =
           closedWithPnl.length > 0
             ? Math.round(closedWithPnl.reduce((s, t) => s + (t.pnlR ?? 0), 0) / closedWithPnl.length)
             : 0
 
-        // Sparkline: last 10 expectancy data points (rolling avg over moving window)
-        const expectancySpark: number[] = []
-        for (let i = Math.max(0, last20.length - 10); i < last20.length; i++) {
-          const slice = last20.slice(Math.max(0, i - 4), i + 1).filter((t) => t.pnlR !== null)
-          expectancySpark.push(
-            slice.length > 0
-              ? Math.round(slice.reduce((s, t) => s + (t.pnlR ?? 0), 0) / slice.length)
-              : 0,
-          )
-        }
+        // Sparkline: last 10 R values (raw, not rolling avg)
+        const sparkSlice = closedWithPnl.slice(-10)
+        const expectancySpark = sparkSlice.map((t) => t.pnlR ?? 0)
 
-        // Today stats
-        const todayTrades = db
+        // ── Win/loss streak (up to last 30 closed trades) ─────────────────────
+        const last30ForStreak = db
+          .select({ pnlCents: trades.pnlCents })
+          .from(trades)
+          .where(
+            and(
+              eq(trades.accountId, accountId),
+              eq(trades.status, 'closed'),
+              isNull(trades.deletedAt),
+            ),
+          )
+          .orderBy(desc(trades.exitTime))
+          .limit(30)
+          .all()
+
+        let streakCount = 0
+        let streakType: 'win' | 'loss' | null = null
+        for (const t of last30ForStreak) {
+          if (t.pnlCents === null) continue       // skip trades with no P&L yet
+          if (t.pnlCents === 0) break             // break-even ends the streak
+          const isWin = t.pnlCents > 0
+          if (streakCount === 0) {
+            streakType = isWin ? 'win' : 'loss'
+            streakCount = 1
+          } else if ((streakType === 'win') === isWin) {
+            streakCount++
+          } else {
+            break
+          }
+        }
+        const streak =
+          streakCount > 0 && streakType ? { count: streakCount, type: streakType } : null
+
+        // ── Today stats ───────────────────────────────────────────────────────
+        // Trade count + rules broken: trades PLACED today (by createdAt)
+        const todayEntries = db
           .select({
             id: trades.id,
             status: trades.status,
-            pnlCents: trades.pnlCents,
             rulesBroken: trades.rulesBroken,
           })
           .from(trades)
@@ -119,17 +146,13 @@ export function registerDashboardHandlers(): void {
               eq(trades.accountId, accountId),
               isNull(trades.deletedAt),
               gte(trades.createdAt, todayMs),
-              sql`${trades.createdAt} < ${tomorrowMs}`,
+              lt(trades.createdAt, tomorrowMs),
             ),
           )
           .all()
 
-        const todayTradeCount = todayTrades.length
-        const todayClosedCount = todayTrades.filter((t) => t.status === 'closed').length
-        const todayPnlCents = todayTrades
-          .filter((t) => t.status === 'closed')
-          .reduce((s, t) => s + (t.pnlCents ?? 0), 0)
-        const todayRulesBrokenCount = todayTrades.reduce((s, t) => {
+        const todayTradeCount = todayEntries.length
+        const todayRulesBrokenCount = todayEntries.reduce((s, t) => {
           if (!t.rulesBroken) return s
           try {
             return s + (JSON.parse(t.rulesBroken) as string[]).length
@@ -138,7 +161,25 @@ export function registerDashboardHandlers(): void {
           }
         }, 0)
 
-        // Recent 10 trades (joined with pairs + setups)
+        // P&L + closed count: trades CLOSED today (by exitTime)
+        const todayClosed = db
+          .select({ pnlCents: trades.pnlCents })
+          .from(trades)
+          .where(
+            and(
+              eq(trades.accountId, accountId),
+              eq(trades.status, 'closed'),
+              isNull(trades.deletedAt),
+              gte(trades.exitTime, todayMs),
+              lt(trades.exitTime, tomorrowMs),
+            ),
+          )
+          .all()
+
+        const todayClosedCount = todayClosed.length
+        const todayPnlCents = todayClosed.reduce((s, t) => s + (t.pnlCents ?? 0), 0)
+
+        // ── Recent 10 trades (joined with pairs + setups) ─────────────────────
         const recentRows = db
           .select({
             id: trades.id,
@@ -158,18 +199,17 @@ export function registerDashboardHandlers(): void {
           .limit(10)
           .all()
 
-        // Fetch pair/setup names in bulk
         const pairIds = [...new Set(recentRows.map((r) => r.pairId))]
         const setupIds = [...new Set(recentRows.map((r) => r.setupId))]
 
         const pairRows =
           pairIds.length > 0
-            ? getDb().select({ id: pairs.id, symbol: pairs.symbol }).from(pairs).all()
+            ? db.select({ id: pairs.id, symbol: pairs.symbol }).from(pairs).all()
                 .filter((p) => pairIds.includes(p.id))
             : []
         const setupRows =
           setupIds.length > 0
-            ? getDb().select({ id: setups.id, name: setups.name }).from(setups).all()
+            ? db.select({ id: setups.id, name: setups.name }).from(setups).all()
                 .filter((s) => setupIds.includes(s.id))
             : []
 
@@ -189,11 +229,11 @@ export function registerDashboardHandlers(): void {
           createdAt: r.createdAt,
         }))
 
-        // Week adherence (Mon–today)
+        // ── Week adherence (Mon–today), grouped by exitTime date ──────────────
         const weekClosed = db
           .select({
             isClean: trades.isClean,
-            updatedAt: trades.updatedAt,
+            exitTime: trades.exitTime,
           })
           .from(trades)
           .where(
@@ -201,14 +241,15 @@ export function registerDashboardHandlers(): void {
               eq(trades.accountId, accountId),
               eq(trades.status, 'closed'),
               isNull(trades.deletedAt),
-              gte(trades.updatedAt, mondayMs),
+              gte(trades.exitTime, mondayMs),
             ),
           )
           .all()
 
         const dayMap = new Map<string, { total: number; clean: number }>()
         for (const t of weekClosed) {
-          const d = new Date(t.updatedAt).toISOString().slice(0, 10)
+          if (!t.exitTime) continue
+          const d = new Date(t.exitTime).toISOString().slice(0, 10)
           const cur = dayMap.get(d) ?? { total: 0, clean: 0 }
           cur.total++
           if (t.isClean === 1) cur.clean++
@@ -222,32 +263,39 @@ export function registerDashboardHandlers(): void {
           d.setUTCDate(mondayDate.getUTCDate() + i)
           const dateStr = d.toISOString().slice(0, 10)
           if (dateStr > today) break
-          const stats = dayMap.get(dateStr)
+          const dayStats = dayMap.get(dateStr)
           weekAdherence.push({
             date: dateStr,
-            tradeCount: stats?.total ?? 0,
-            cleanCount: stats?.clean ?? 0,
-            adherencePct: stats ? Math.round((stats.clean / stats.total) * 100) : -1,
+            tradeCount: dayStats?.total ?? 0,
+            cleanCount: dayStats?.clean ?? 0,
+            adherencePct: dayStats ? Math.round((dayStats.clean / dayStats.total) * 100) : -1,
           })
         }
 
-        // DD used
+        // ── Drawdown used ─────────────────────────────────────────────────────
         let ddUsedBps = 0
-        if (account.totalDrawdownType === 'percent') {
-          const limitCents = Math.round((account.accountSizeCents * account.totalDrawdownValue) / 10000)
+        const isPercentDD =
+          account.totalDrawdownType === 'percent_of_balance' ||
+          account.totalDrawdownType === 'percent_of_equity'
+
+        if (isPercentDD) {
+          // totalDrawdownValue is in basis points
+          const limitCents = Math.round(
+            (account.accountSizeCents * account.totalDrawdownValue) / 10_000,
+          )
           const ddCents = account.peakEquityCents - account.currentEquityCents
-          ddUsedBps =
-            limitCents > 0 ? Math.round((ddCents / limitCents) * 10000) : 0
+          ddUsedBps = limitCents > 0 ? Math.round((ddCents / limitCents) * 10_000) : 0
         } else {
+          // fixed_amount: totalDrawdownValue is in cents
           const ddCents = account.peakEquityCents - account.currentEquityCents
           ddUsedBps =
             account.totalDrawdownValue > 0
-              ? Math.round((ddCents / account.totalDrawdownValue) * 10000)
+              ? Math.round((ddCents / account.totalDrawdownValue) * 10_000)
               : 0
         }
         ddUsedBps = Math.max(0, ddUsedBps)
 
-        // Total P&L
+        // ── Total P&L (all time) ──────────────────────────────────────────────
         const totalPnlRes = db
           .select({ total: sql<number>`COALESCE(SUM(${trades.pnlCents}), 0)` })
           .from(trades)
@@ -271,6 +319,7 @@ export function registerDashboardHandlers(): void {
           todayClosedCount,
           todayPnlCents,
           todayRulesBrokenCount,
+          streak,
           account: {
             id: account.id,
             displayName: account.displayName,

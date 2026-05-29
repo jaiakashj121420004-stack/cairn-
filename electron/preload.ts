@@ -43,6 +43,7 @@ import type {
   TradeFilter,
   CreateTradeInput,
   CloseTradeInput,
+  PartialCloseInput,
   DashboardStats,
   AnalyticsFilter,
   PerformanceStats,
@@ -117,11 +118,14 @@ const api = {
 
   paths: {
     pickFolder: (): Promise<IpcResponse<string | null>> => ipcRenderer.invoke('paths:pickFolder'),
+    pickImages: (): Promise<IpcResponse<string[]>> => ipcRenderer.invoke('paths:pickImages'),
+    openFile: (filePath: string): Promise<IpcResponse<void>> => ipcRenderer.invoke('paths:openFile', { filePath }),
   },
 
   data: {
     openFolder: (): Promise<IpcResponse<void>> => ipcRenderer.invoke('data:openFolder'),
     export: (): Promise<IpcResponse<string>> => ipcRenderer.invoke('data:export'),
+    exportPdf: (defaultName?: string): Promise<IpcResponse<string>> => ipcRenderer.invoke('data:exportPdf', { defaultName }),
     reset: (ack: string): Promise<IpcResponse<void>> => ipcRenderer.invoke('data:reset', { ack }),
   },
 
@@ -177,6 +181,8 @@ const api = {
       ipcRenderer.invoke('trades:setOpen', { tradeId, accountId }),
     close: (input: CloseTradeInput): Promise<IpcResponse<Trade>> =>
       ipcRenderer.invoke('trades:close', input),
+    partialClose: (input: PartialCloseInput): Promise<IpcResponse<Trade>> =>
+      ipcRenderer.invoke('trades:partialClose', input),
     list: (filter: TradeFilter): Promise<IpcResponse<TradeListItem[]>> =>
       ipcRenderer.invoke('trades:list', filter),
     get: (tradeId: string): Promise<IpcResponse<TradeDetail>> =>

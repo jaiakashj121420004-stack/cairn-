@@ -92,7 +92,7 @@ export function cleanupOrphanedScreenshots(): void {
     const orphanDir = join(screenshotsDir, '_orphaned')
     let movedCount = 0
 
-    function scanDir(dir: string): void {
+    const scanDir = (dir: string): void => {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
         if (entry.name === '_orphaned') continue
         const fullPath = join(dir, entry.name)

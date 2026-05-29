@@ -1,4 +1,4 @@
-import { ipcMain, shell } from 'electron'
+import { ipcMain, shell, dialog, BrowserWindow } from 'electron'
 import { app } from 'electron'
 import { join } from 'path'
 import { writeFileSync, existsSync, mkdirSync, copyFileSync } from 'fs'
@@ -94,6 +94,33 @@ export function registerDataHandlers(): void {
       return { ok: false, error: { code: 'RESET_ERROR', message: String(err) } }
     }
   })
+
+  ipcMain.handle(
+    'data:exportPdf',
+    async (_e, raw: { defaultName?: string }): Promise<IpcResponse<string>> => {
+      try {
+        const win = BrowserWindow.getFocusedWindow()
+        if (!win) {
+          return { ok: false, error: { code: 'NO_WINDOW', message: 'No focused window found.' } }
+        }
+        const result = await dialog.showSaveDialog(win, {
+          title: 'Save PDF',
+          defaultPath: join(app.getPath('documents'), raw?.defaultName ?? 'cairn-export.pdf'),
+          filters: [{ name: 'PDF', extensions: ['pdf'] }],
+        })
+        if (result.canceled || !result.filePath) return { ok: true, data: '' }
+        const pdfBuffer = await win.webContents.printToPDF({
+          printBackground: true,
+          pageSize: 'A4',
+          landscape: true,
+        })
+        writeFileSync(result.filePath, pdfBuffer)
+        return { ok: true, data: result.filePath }
+      } catch (err) {
+        return { ok: false, error: { code: 'PDF_ERROR', message: String(err) } }
+      }
+    },
+  )
 
   ipcMain.handle('accounts:stats', (): IpcResponse<AccountStats[]> => {
     try {

@@ -39,11 +39,15 @@ function setSetting(key: string, value: string): void {
 }
 
 function getBackupSettings(): BackupSettings {
+  const folderVal = getSetting('backup_folder')
+  const scheduleVal = getSetting('backup_schedule')
+  const dailyTimeVal = getSetting('backup_daily_time')
+  const backupOnCloseVal = getSetting('backup_on_close')
   return {
-    folder: getSetting('backup_folder') ? JSON.parse(getSetting('backup_folder')!) as string : null,
-    schedule: (getSetting('backup_schedule') ? JSON.parse(getSetting('backup_schedule')!) : 'manual') as BackupSettings['schedule'],
-    dailyTime: (getSetting('backup_daily_time') ? JSON.parse(getSetting('backup_daily_time')!) : '02:00') as string,
-    backupOnClose: getSetting('backup_on_close') ? (JSON.parse(getSetting('backup_on_close')!) as boolean) : false,
+    folder: folderVal ? JSON.parse(folderVal) as string : null,
+    schedule: (scheduleVal ? JSON.parse(scheduleVal) : 'manual') as BackupSettings['schedule'],
+    dailyTime: (dailyTimeVal ? JSON.parse(dailyTimeVal) : '02:00') as string,
+    backupOnClose: backupOnCloseVal ? (JSON.parse(backupOnCloseVal) as boolean) : false,
   }
 }
 
@@ -73,8 +77,9 @@ export function registerBackupHandlers(): void {
   // ── backup:pickFolder ───────────────────────────────────────────────────────
   ipcMain.handle('backup:pickFolder', async (): Promise<IpcResponse<string | null>> => {
     const result = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] })
-    if (result.canceled || result.filePaths.length === 0) return { ok: true, data: null }
-    return { ok: true, data: result.filePaths[0]! }
+    const [pickedFolder] = result.filePaths
+    if (result.canceled || !pickedFolder) return { ok: true, data: null }
+    return { ok: true, data: pickedFolder }
   })
 
   // ── backup:now ─────────────────────────────────────────────────────────────
@@ -97,10 +102,11 @@ export function registerBackupHandlers(): void {
   ipcMain.handle('backup:nowToFolder', async (): Promise<IpcResponse<BackupResult>> => {
     try {
       const result = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] })
-      if (result.canceled || result.filePaths.length === 0) {
+      const [pickedDir] = result.filePaths
+      if (result.canceled || !pickedDir) {
         return { ok: false, error: { code: 'CANCELLED', message: 'No folder selected.' } }
       }
-      const destDir = result.filePaths[0]!
+      const destDir = pickedDir
       const backupResult = createBackup('manual', destDir)
       void shell.openPath(destDir)
       return { ok: true, data: backupResult }
@@ -127,10 +133,11 @@ export function registerBackupHandlers(): void {
         filters: [{ name: 'Cairn Backup', extensions: ['zip'] }],
         properties: ['openFile'],
       })
-      if (result.canceled || result.filePaths.length === 0) {
+      const [zipFile] = result.filePaths
+      if (result.canceled || !zipFile) {
         return { ok: false, error: { code: 'CANCELLED', message: 'No file selected.' } }
       }
-      const zipPath = result.filePaths[0]!
+      const zipPath = zipFile
       if (!existsSync(zipPath)) {
         return { ok: false, error: { code: 'NOT_FOUND', message: 'File not found.' } }
       }
