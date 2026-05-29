@@ -7,7 +7,7 @@ import { useSessionStore } from '../../stores/session-store'
 import { useSettingsStore } from '../../stores/settings-store'
 import { useLastTradeContextStore, getRecentContext } from '../../stores/last-trade-context'
 import { INVALIDATION_CHIPS, INVALIDATION_MIN_CHARS } from './constants/invalidation-chips'
-import { STATE_PRESETS } from './constants/state-presets'
+import { EMOTION_PRESETS } from './constants/emotion-presets'
 import { useToast } from '../../components/ui'
 import { Button, Select, Checkbox, Modal } from '../../components/ui'
 import { calculateLotSizeFromRisk, calculateRR, calcRiskCentsFromPct } from '../../lib/calculators'
@@ -163,6 +163,8 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
   const [pendingCharts, setPendingCharts] = useState<string[]>([])
   /** Id of the currently selected emotional-state preset, or null if manually adjusted. */
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null)
+  /** Whether the advanced slider row is expanded. */
+  const [showAdvanced, setShowAdvanced] = useState(false)
   /** Id of the currently selected quick-chip, or null if free-text / none. */
   const [selectedChipId, setSelectedChipId] = useState<string | null>(null)
   /** Whether the free-text textarea is visible (always visible when Custom is active). */
@@ -242,6 +244,7 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
       setPendingCharts([])
       setInheritedFields(new Set())
       setSelectedPresetId(null)
+      setShowAdvanced(false)
       setSelectedChipId(null)
       setShowCustom(false)
     }
@@ -795,7 +798,7 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
               <section className="space-y-3">
                 <p className="text-caption font-medium text-text-secondary">Pre-trade state</p>
                 <div className="grid grid-cols-3 gap-1.5">
-                  {STATE_PRESETS.map((p) => (
+                  {EMOTION_PRESETS.map((p) => (
                     <button
                       key={p.id}
                       type="button"
@@ -818,9 +821,21 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
                     </button>
                   ))}
                 </div>
-                <Slider label="Calm (1=scattered, 10=focused)" value={form.calmScore} onChange={(v) => { setSelectedPresetId(null); setForm((f) => ({ ...f, calmScore: v })) }} />
-                <Slider label="Urgency (1=patient, 10=chasing)" value={form.urgencyScore} onChange={(v) => { setSelectedPresetId(null); setForm((f) => ({ ...f, urgencyScore: v })) }} />
-                <Slider label="Need to win (1=detached, 10=desperate)" value={form.needScore} onChange={(v) => { setSelectedPresetId(null); setForm((f) => ({ ...f, needScore: v })) }} />
+                <button
+                  type="button"
+                  onClick={() => setShowAdvanced((v) => !v)}
+                  className="flex items-center gap-1 text-caption text-text-muted hover:text-text-secondary transition-colors"
+                >
+                  <span className={cn('transition-transform', showAdvanced ? 'rotate-90' : 'rotate-0')}>›</span>
+                  Advanced (set scores manually)
+                </button>
+                {showAdvanced && (
+                  <div className="space-y-3">
+                    <Slider label="Calm (1=scattered, 10=focused)" value={form.calmScore} onChange={(v) => { setSelectedPresetId(null); setForm((f) => ({ ...f, calmScore: v })) }} />
+                    <Slider label="Urgency (1=patient, 10=chasing)" value={form.urgencyScore} onChange={(v) => { setSelectedPresetId(null); setForm((f) => ({ ...f, urgencyScore: v })) }} />
+                    <Slider label="Need to win (1=detached, 10=desperate)" value={form.needScore} onChange={(v) => { setSelectedPresetId(null); setForm((f) => ({ ...f, needScore: v })) }} />
+                  </div>
+                )}
               </section>
 
               {/* H — Rule evaluation */}
