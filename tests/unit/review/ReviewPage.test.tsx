@@ -1,4 +1,4 @@
-// ReviewPage render tests — jsdom environment (default; no @vitest-environment override)
+// ReviewPage render tests — jsdom environment (default; no per-file environment directive)
 //
 // These tests verify that:
 // (a) every empty-state message renders when the API returns no data
