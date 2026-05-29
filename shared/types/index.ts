@@ -760,6 +760,7 @@ export interface DailyPnlCell {
   date: string // YYYY-MM-DD UTC
   pnlCents: number
   tradeCount: number
+  winCount: number
 }
 
 export interface PerformanceStats {

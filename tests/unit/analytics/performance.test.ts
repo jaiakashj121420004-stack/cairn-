@@ -147,6 +147,39 @@ describe('performance.getDailyHeatmap', () => {
     expect(total).toBe(EXPECTED.netPnlCents)
     expect(tradeSum).toBe(EXPECTED.tradeCount)
   })
+
+  it('winCount per day matches wins from TRADES_12', () => {
+    const { db, ids } = makeTestDb()
+    seedAnalyticsFixtures(db, ids)
+    const cells = getDailyHeatmap(db, BASE_FILTER)
+
+    // dayIdx 0 has T1 (win) + T2 (loss) → winCount 1
+    const day0 = cells.find((c) => c.date.endsWith('-20'))
+    expect(day0?.winCount).toBe(1)
+
+    // dayIdx 1 has T3 (win only) → winCount 1
+    const day1 = cells.find((c) => c.date.endsWith('-21'))
+    expect(day1?.winCount).toBe(1)
+
+    // dayIdx 2 has T4 (loss) + T5 (win) → winCount 1
+    const day2 = cells.find((c) => c.date.endsWith('-22'))
+    expect(day2?.winCount).toBe(1)
+
+    // total winCount across all days must equal EXPECTED.winCount
+    const totalWins = cells.reduce((s, c) => s + c.winCount, 0)
+    expect(totalWins).toBe(EXPECTED.winCount)
+  })
+
+  it('each cell has the winCount field', () => {
+    const { db, ids } = makeTestDb()
+    seedAnalyticsFixtures(db, ids)
+    const cells = getDailyHeatmap(db, BASE_FILTER)
+    for (const c of cells) {
+      expect(typeof c.winCount).toBe('number')
+      expect(c.winCount).toBeGreaterThanOrEqual(0)
+      expect(c.winCount).toBeLessThanOrEqual(c.tradeCount)
+    }
+  })
 })
 
 describe('performance.getMaxDrawdownCents', () => {

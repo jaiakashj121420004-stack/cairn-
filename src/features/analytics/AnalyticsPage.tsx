@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Download } from 'lucide-react'
 import { Tabs } from '../../components/ui/tabs'
 import { Button } from '../../components/ui'
@@ -11,6 +12,7 @@ import { SetupPerformanceTab } from './tabs/SetupPerformanceTab'
 import { BehavioralTab } from './tabs/BehavioralTab'
 import { AccountsPhasesTab } from './tabs/AccountsPhasesTab'
 import { ReviewTab } from './tabs/ReviewTab'
+import { CalendarTab } from './tabs/CalendarTab'
 
 const TABS = [
   { id: 'performance', label: 'Performance' },
@@ -19,11 +21,21 @@ const TABS = [
   { id: 'behavioral', label: 'Behavioral' },
   { id: 'phases', label: 'Accounts & Phases' },
   { id: 'review', label: 'Review' },
+  { id: 'calendar', label: 'Calendar' },
 ]
+
+const TAB_IDS = new Set(TABS.map((t) => t.id))
 
 export function AnalyticsPage() {
   const [active, setActive] = useState('performance')
+  const [searchParams] = useSearchParams()
   const toast = useToast()
+
+  // Allow deep-linking: /analytics?tab=calendar
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab && TAB_IDS.has(tab)) setActive(tab)
+  }, [searchParams])
 
   async function handleExportPdf() {
     const res = await ipc.data.exportPdf('cairn-analytics.pdf')
@@ -57,6 +69,7 @@ export function AnalyticsPage() {
       {active === 'behavioral' && <BehavioralTab />}
       {active === 'phases' && <AccountsPhasesTab />}
       {active === 'review' && <ReviewTab />}
+      {active === 'calendar' && <CalendarTab />}
     </div>
   )
 }

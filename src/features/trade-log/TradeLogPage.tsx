@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   ChevronUp,
   ChevronDown,
@@ -122,6 +123,7 @@ function StatusBadge({ status }: { status: TradeStatus }) {
 export function TradeLogPage() {
   const toast = useToast()
   const { selectedAccountId } = useSessionStore()
+  const [searchParams] = useSearchParams()
 
   const [trades, setTrades] = useState<TradeListItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -142,6 +144,19 @@ export function TradeLogPage() {
   const [filterClean, setFilterClean] = useState<'clean' | 'dirty' | ''>('')
   const [filterDateFrom, setFilterDateFrom] = useState('')
   const [filterDateTo, setFilterDateTo] = useState('')
+
+  // Pre-fill date filter from ?date=YYYY-MM-DD (calendar click-through)
+  const dateParamApplied = useRef(false)
+  useEffect(() => {
+    if (dateParamApplied.current) return
+    const date = searchParams.get('date')
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      setFilterDateFrom(date)
+      setFilterDateTo(date)
+      setFiltersOpen(true)
+      dateParamApplied.current = true
+    }
+  }, [searchParams])
 
   const load = useCallback(() => {
     if (!selectedAccountId) return

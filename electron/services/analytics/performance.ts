@@ -171,6 +171,7 @@ export function getDailyHeatmap(db: CairnDb, filter: AnalyticsFilter): DailyPnlC
       date: sql<string>`strftime('%Y-%m-%d', ${trades.updatedAt}/1000, 'unixepoch')`,
       pnlCents: sql<number>`COALESCE(SUM(${trades.pnlCents}), 0)`,
       tradeCount: sql<number>`COUNT(*)`,
+      winCount: sql<number>`SUM(CASE WHEN ${trades.pnlR} > 0 THEN 1 ELSE 0 END)`,
     })
     .from(trades)
     .where(and(...where))
@@ -181,6 +182,7 @@ export function getDailyHeatmap(db: CairnDb, filter: AnalyticsFilter): DailyPnlC
     date: String(r.date),
     pnlCents: Number(r.pnlCents ?? 0),
     tradeCount: Number(r.tradeCount ?? 0),
+    winCount: Number(r.winCount ?? 0),
   }))
 }
 

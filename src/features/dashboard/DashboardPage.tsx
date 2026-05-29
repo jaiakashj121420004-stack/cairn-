@@ -29,6 +29,7 @@ import { useUiStore } from '../../stores/ui-store'
 import { SessionBiasModal } from '../session-bias/SessionBiasModal'
 import { PreTradePanel } from '../pre-trade/PreTradePanel'
 import { DisciplineRing } from './DisciplineRing'
+import { CalendarWidget } from './CalendarWidget'
 import type { DashboardStats, DailyBias, TradeDirection, TradeStatus, TradeListItem } from '@shared/types/index'
 
 /* ──────────────────────────────────────────────────────────────────
@@ -695,10 +696,10 @@ export function DashboardPage() {
           </Panel>
         )}
 
-        {/* ── Bottom row: Recent trades + Week adherence ── */}
-        <div className="grid grid-cols-3 gap-4">
+        {/* ── Bottom row: Recent trades + Week adherence + Calendar ── */}
+        <div className="grid grid-cols-4 gap-4">
 
-          {/* Recent trades — 2/3 */}
+          {/* Recent trades — 2/4 */}
           <Panel className="col-span-2" delay={0.54}>
             <PanelHeader>Recent Trades</PanelHeader>
 
@@ -777,7 +778,7 @@ export function DashboardPage() {
             )}
           </Panel>
 
-          {/* Week adherence — 1/3 */}
+          {/* Week adherence — 1/4 */}
           <Panel className="col-span-1" delay={0.58}>
             <PanelHeader>This Week</PanelHeader>
 
@@ -847,6 +848,14 @@ export function DashboardPage() {
                 </ul>
               </div>
             )}
+          </Panel>
+
+          {/* Calendar — 1/4 */}
+          <Panel className="col-span-1" delay={0.62}>
+            <PanelHeader>This Month</PanelHeader>
+            <div className="p-4">
+              <CalendarWidget />
+            </div>
           </Panel>
         </div>
       </div>
