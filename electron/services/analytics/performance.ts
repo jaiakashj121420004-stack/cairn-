@@ -79,13 +79,13 @@ export function getEquityCurve(db: CairnDb, filter: AnalyticsFilter): EquityPoin
   const where = buildTradeWhereClauses(filter)
   const rows = db
     .select({
-      t: trades.updatedAt,
+      t: trades.exitTime,
       pnlCents: trades.pnlCents,
       pnlR: trades.pnlR,
     })
     .from(trades)
     .where(and(...where))
-    .orderBy(asc(trades.updatedAt))
+    .orderBy(asc(trades.exitTime))
     .all()
 
   let cumCents = 0
@@ -93,7 +93,7 @@ export function getEquityCurve(db: CairnDb, filter: AnalyticsFilter): EquityPoin
   return rows.map((r) => {
     cumCents += r.pnlCents ?? 0
     cumR += r.pnlR ?? 0
-    return { t: r.t, cumCents, cumR }
+    return { t: r.t ?? 0, cumCents, cumR }
   })
 }
 

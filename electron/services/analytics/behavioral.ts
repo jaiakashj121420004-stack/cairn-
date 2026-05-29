@@ -84,12 +84,13 @@ function subFrom(n: number, wins: number, sumR: number, sumPnl: number): SubTota
 export function getPostLossBehavior(db: CairnDb, filter: AnalyticsFilter): PostLossBehavior {
   const rows = rowsFor(db, filter)
 
-  let f = { n: 0, wins: 0, sumR: 0, sumPnl: 0 } // first after loss
-  let s = { n: 0, wins: 0, sumR: 0, sumPnl: 0 } // second after loss
-  let rv = { n: 0, wins: 0, sumR: 0, sumPnl: 0 } // revenge
+  const f = { n: 0, wins: 0, sumR: 0, sumPnl: 0 } // first after loss
+  const s = { n: 0, wins: 0, sumR: 0, sumPnl: 0 } // second after loss
+  const rv = { n: 0, wins: 0, sumR: 0, sumPnl: 0 } // revenge
 
   for (let i = 0; i < rows.length; i++) {
-    const cur = rows[i]!
+    const cur = rows[i]
+    if (!cur) continue
     const prev1 = i >= 1 ? rows[i - 1] : null
     const prev2 = i >= 2 ? rows[i - 2] : null
 
@@ -157,7 +158,7 @@ export function getTradeNumOfDay(db: CairnDb, filter: AnalyticsFilter): TradeNum
     for (let i = 0; i < arr.length; i++) {
       const b: 1 | 2 | 3 = i === 0 ? 1 : i === 1 ? 2 : 3
       buckets[b].n++
-      const v = arr[i]!.pnlR ?? 0
+      const v = (arr[i]?.pnlR) ?? 0
       if (v > 0) buckets[b].wins++
       buckets[b].sumR += v
     }
@@ -206,8 +207,9 @@ export function getRecoveryPattern(db: CairnDb, filter: AnalyticsFilter): Recove
   let recovery = 0
   let cleanRecovery = 0
   for (let i = 1; i < rows.length; i++) {
-    const prev = rows[i - 1]!
-    const cur = rows[i]!
+    const prev = rows[i - 1]
+    const cur = rows[i]
+    if (!prev || !cur) continue
     if ((prev.pnlR ?? 0) < 0 && (cur.pnlR ?? 0) > 0) {
       recovery++
       if (cur.isClean === 1) cleanRecovery++

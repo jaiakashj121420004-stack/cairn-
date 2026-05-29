@@ -151,7 +151,7 @@ export function getDaysToFailureHistogram(db: CairnDb): DaysToFailureBucket[] {
     const days = Math.max(0, Math.floor((Number(r.end) - Number(r.start)) / 86_400_000))
     const key =
       days <= 3 ? '0-3' : days <= 7 ? '4-7' : days <= 14 ? '8-14' : days <= 30 ? '15-30' : '31+'
-    buckets[key]!++
+    buckets[key] = (buckets[key] ?? 0) + 1
   }
   return Object.entries(buckets).map(([bucket, count]) => ({ bucket, count }))
 }
@@ -240,7 +240,7 @@ const CANDIDATES: Candidate[] = [
       for (const arr of groups.values()) {
         arr.sort((a, b) => a.t - b.t)
         for (let i = 0; i < arr.length; i++) {
-          const v = arr[i]!.pnlR ?? 0
+          const v = (arr[i]?.pnlR) ?? 0
           if (i === 0) {
             firstSumR += v
             firstN++
