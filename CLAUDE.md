@@ -1,7 +1,7 @@
 # CLAUDE.md — CAIRN
 
 **Project:** Cairn — A Discipline-First Trading Journal
-**Version:** 1.1 Specification
+**Version:** 2.0 Specification (extends v1.1)
 **Author of spec:** Trading coach collaboration
 **App creator credit:** Designed & built by Jai Akash
 **Intended build tool:** Claude Code (Anthropic)
@@ -12,11 +12,13 @@
 
 This is the slim root spec for Cairn. Full detail lives in `/docs/*.md` sub-files. Load only the sub-files relevant to your current task — don't load all of them at once.
 
-**This document is the single source of truth for §1, §2, §3, §14, §15, and §16. When it conflicts with any assumption, prior message, or intuition — follow this document.**
+**This document is the single source of truth for §1, §2, §3, §14, §15, §16, §18, §19, and §20. When it conflicts with any assumption, prior message, or intuition — follow this document.**
 
 **Navigation map:** See §4 below for a pointer to every sub-file and what it covers.
 
-**Current version:** v1.1. See §17 for what changed from v1.0.
+**Current version:** v2.0. See §17 for the v1.1 delta and §18 for the v2.0 cloud / sync / subscription roadmap. v1.1's "local-only" language is preserved for context but is **amended** by §2.4 (revised), §3 (extended), §18, §19, and §20 below.
+
+**Reading order for any new contributor (human or AI):** §1 (why) → §2 (principles, including the new §2.12–2.14) → §3 (stack, including backend + web + payments) → §18 (v2.0 architecture & roadmap) → §19 (engineering quality, no slop) → §20 (subscription-readiness) → relevant `docs/*.md` sub-files.
 
 ---
 
@@ -62,7 +64,7 @@ If a feature doesn't serve one of these three jobs, it doesn't belong in v1.
 - Cairn is not a social platform. There is no sharing, no feeds, no comparisons to other traders.
 - Cairn is not a coach. It doesn't give advice during trades. It enforces the user's own pre-committed rules.
 - Cairn is not tied to any specific prop firm. It is neutral and configurable.
-- Cairn is not cloud-first. It is a private, local, personal tool.
+- **Cairn is not cloud-first.** It is local-first. The desktop app stays fully usable offline forever. In v2.0, optional end-to-end-encrypted sync is available to paid users — but the server is **architecturally incapable** of reading user content. See §2.4 (revised) and §18.
 
 ### 1.5 Voice and Tone (For UI Copy)
 
@@ -92,14 +94,23 @@ Logging a trade must be fast (under ~90 seconds total round-trip). Breaking a ru
 ### 2.3 Honesty Forcing Functions
 Fields that require self-awareness (invalidation, emotional state, rules-broken) must be structured so that skipping them is either impossible or explicitly acknowledged. Never default these to "N/A."
 
-### 2.4 Local-First, Privacy-First
-All data is the user's. It lives on their machine. No telemetry. No analytics sent anywhere. No account required. No network calls except for optional cloud-folder backup (which uses existing desktop sync tools, not APIs).
+### 2.4 Local-First, Privacy-First (revised in v2.0)
+All data is the user's. The desktop app stays fully usable offline forever; the local SQLite database is the canonical store on the user's machine. No telemetry is collected by default — any telemetry (e.g. Sentry crash reports) is **opt-in** and the opt-in defaults to **off**.
+
+In v2.0, Cairn adds **optional end-to-end-encrypted cloud sync** for paid users. The privacy contract is non-negotiable:
+- Data is encrypted on the client *before* it leaves the device using a data key wrapped by a key-encryption key (KEK).
+- The KEK is derived from the user's password via Argon2id; the KEK never leaves the client.
+- The server stores **only ciphertext** and the wrapped data key. The server is architecturally incapable of reading trades, accounts, journals, or any user content.
+- Free users never have any vault data on the server — only an account record exists if they signed up at all, and even signing up is optional for the desktop app.
+- Cancelling a subscription stops sync but never deletes the user's local data.
+
+See §18 for the v2.0 architecture and `docs/security.md` for the full threat model.
 
 ### 2.5 Data Integrity is Sacred
-This is a financial app. Money-adjacent calculations must be correct to the cent/pip. All arithmetic uses appropriate decimal types, never floats. All P&L math is tested. All database writes are transactional.
+This is a financial app. Money-adjacent calculations must be correct to the cent/pip. All arithmetic uses appropriate decimal types (`decimal.js` or `big.js`), never floats. All P&L math is tested with property-based tests. All database writes are transactional. All migrations are tested forward and backward.
 
 ### 2.6 Extensibility Without Rework
-The user will add v2 features and MT5/cTrader integration later. Every architectural decision in v1 must accommodate v2 without requiring rewrites. Data model, component structure, and state management are all designed to be added to, never ripped up.
+The user will add v2 features (broker adapters), v2.0 cloud sync, and future subscription tiers. Every architectural decision must accommodate the next layer without requiring rewrites. The data model, component structure, state management, and transport layer are all designed to be added to, never ripped up.
 
 ### 2.7 The App is a Cockpit, Not a Notebook
 The trader should trade **through** Cairn — lot size calculator, rule-checker, target validator — not log in Cairn **after** trading elsewhere.
@@ -116,11 +127,51 @@ The founding document above exists for context. The user's history must never ap
 ### 2.11 Everything User-Configurable is User-Configurable
 Any behavioral preference — timezone, leverage, risk %, daily trade limit, loss circuit breaker, R-target alerts, default pairs — must be configurable in Settings. Defaults are sensible starting points, not constraints.
 
+### 2.12 No Slop. Ever. (NEW in v2.0)
+Cairn is built to be put in front of strangers in many countries. **Slop coding is banned.** The full standard is in §19. Headlines:
+
+- TypeScript strict mode. No `any`. No `// @ts-ignore` without a linked issue. No `eslint-disable` without an inline reason.
+- Every input validated at every boundary (IPC, HTTP, DB-read-back). Zod schemas, no exceptions.
+- Every async path awaited or explicitly `void`-ed; no floating promises.
+- Every error typed. The result type `{ ok: true, data } | { ok: false, error }` extends from IPC to HTTP to internal services.
+- Every monetary or pip calculation uses decimal types, never floats. Tested with property-based tests.
+- Every migration is idempotent and tested forward + backward.
+- Every dependency is pinned, audited weekly, license-checked. GPL/AGPL transitives fail CI.
+- Every PR is reviewed (by a human or by Claude Opus in code-review mode). Nothing merges from a single voice.
+- Every secret is in env vars or a secret manager. Never in source. `gitleaks` runs in CI.
+- Every public surface has tests. Coverage gate ratchets up, never down.
+
+If a change cannot meet this bar, it does not ship. Time pressure does not lower the bar.
+
+### 2.13 Security-First (NEW in v2.0)
+Cairn touches a person's trading psychology and (with subscriptions) their payment information. The security posture matches:
+
+- Threat model lives in `docs/threat-model.md` and is reviewed every quarter.
+- End-to-end encryption for all synced user content. The server stores ciphertext only.
+- Argon2id for password hashing, with a server-side pepper from env. Bcrypt and SHA variants are banned.
+- Auth uses short-lived JWT access tokens (≤ 15 min) + opaque rotating refresh tokens, with refresh-reuse detection (a token used twice means session compromise — all tokens for that family are immediately revoked).
+- Rate limiting on every auth endpoint (per IP and per identifier).
+- All HTTP responses use `helmet` headers, strict CSP, `__Host-` cookies with `SameSite=Strict + Secure + HttpOnly`.
+- All webhook receivers verify signatures and dedupe via an idempotency table.
+- Dependencies scanned in CI (`npm audit`, `trivy`, `gitleaks`, optionally `socket.dev`). High/critical findings block release.
+- OWASP ASVS Level 2 checklist tracked in `docs/asvs-checklist.md`.
+
+### 2.14 Subscription-Ready by Design (NEW in v2.0)
+The codebase is designed from day one so that turning subscriptions on is a configuration change, not a refactor. This is true even before a single paid feature exists. See §20 for the full contract. Headlines:
+
+- All paid-feature gates pass through one `EntitlementService.canUse(userId, feature)` call. No `if (user.plan === 'pro')` scattered through the codebase.
+- Payment integration sits behind a `BillingProvider` interface. Stripe is provider #1, Razorpay is provider #2; adding Paddle / LemonSqueezy later is a class, not a rewrite.
+- Webhook handlers are idempotent (idempotency-key table) and signature-verified.
+- Subscription state has a single canonical source (the `subscription` table in Postgres, synced from provider webhooks). Never read directly off the provider's API in hot paths.
+- Trial, grace period (soft + hard), dunning, and cancellation flows are first-class state transitions, not afterthoughts.
+
 ---
 
 ## 3. TECH STACK & ARCHITECTURE
 
 ### 3.1 Stack
+
+#### 3.1a Desktop client (v1.x — already scaffolded)
 
 | Layer | Choice | Rationale |
 |---|---|---|
@@ -131,35 +182,84 @@ Any behavioral preference — timezone, leverage, risk %, daily trade limit, los
 | Components | shadcn/ui (customized) + custom | Polished baseline, full control |
 | Animation | Framer Motion | Physics-based motion, declarative |
 | State | Zustand | Simple, boilerplate-free, TypeScript-native |
-| Database | SQLite via better-sqlite3 | Fast, synchronous, zero-config |
-| ORM / Migrations | Drizzle ORM | Type-safe queries, migration system |
+| Database (local) | SQLite via better-sqlite3 | Fast, synchronous, zero-config |
+| ORM / Migrations | Drizzle ORM | Type-safe queries; same ORM on server enables shared types |
 | Charts | Recharts | React-native, customizable, good defaults |
 | Forms | React Hook Form + Zod | Validation + type inference |
 | Date/Time | date-fns + date-fns-tz | Timezone-critical for killzones |
+| Money | decimal.js or big.js | Never use floats for currency or pips |
+| Crypto (client) | libsodium-wrappers / @stablelib | Argon2id KDF + XChaCha20-Poly1305 AEAD |
+| OS keychain | keytar | Cache unwrapped data key at rest |
 | Icons | Lucide React | Clean, consistent |
 | Fonts | Inter (UI), JetBrains Mono (numbers) | Pro-trader convention for numbers |
-| Packaging | electron-builder | NSIS installer, DMG, AppImage |
+| Packaging | electron-builder | NSIS installer, DMG, AppImage, signed + notarized |
+
+#### 3.1b Backend API (v2.0 — NEW)
+
+| Layer | Choice | Rationale |
+|---|---|---|
+| Runtime | Node.js LTS + TypeScript strict | Same language and types end-to-end |
+| Framework | Fastify | Fast, schema-first, mature TS support |
+| Database | Postgres (managed: Supabase or Neon) | ACID, JSONB for vault blobs, PITR backups, multi-region |
+| ORM / Migrations | Drizzle ORM | Same as client; types shared via workspace package |
+| Validation | Zod | Same as client; one schema definition reused at IPC + HTTP |
+| Auth — hashing | @node-rs/argon2 (Argon2id + pepper) | Industry-leading password hashing |
+| Auth — tokens | JWT access (≤ 15 min) + opaque rotating refresh | Refresh-reuse detection |
+| Email | Resend or Postmark | Transactional only, no marketing |
+| Cache / queues | Redis (managed: Upstash) | Rate-limit data, entitlement cache, job queue |
+| Logging | pino + request-id propagation | Structured, PII-scrubbed |
+| Error tracking | Sentry (opt-in for client, always-on for server) | Both processes |
+| Tracing | OpenTelemetry → Grafana Tempo / Honeycomb | API → DB spans |
+| Rate limiting | @fastify/rate-limit + Redis | Per-IP and per-identifier |
+| Security headers | @fastify/helmet, strict CSP, CORS allowlist | Default-deny |
+| Hosting (API) | Fly.io / Railway / Render (managed) | Multi-region capable, low ops |
+| Hosting (DB) | Supabase or Neon | PITR backups, managed |
+| Container | Docker (multi-stage build, distroless final) | Reproducible, minimal attack surface |
+
+#### 3.1c Web client (v2.0 — NEW)
+
+| Layer | Choice | Rationale |
+|---|---|---|
+| Build | Vite (separate config from desktop) | Same React UI, different transport |
+| Transport | `Transport` interface; `HttpTransport` impl | Mirrors `ElectronTransport` on desktop |
+| Local cache | IndexedDB (via idb-keyval or Dexie) | Decrypted vault held in-browser only |
+| Offline | Service Worker (read-only offline) | PWA-lite |
+| Hosting | Cloudflare Pages or Vercel | Edge static + functions for auth callbacks |
+| Cookies | `__Host-` prefix, `SameSite=Strict`, `Secure`, `HttpOnly` (refresh) | Access token in memory only |
+
+#### 3.1d Payments (v2.0 — NEW)
+
+| Layer | Choice | Rationale |
+|---|---|---|
+| Provider abstraction | `BillingProvider` interface in `apps/server/src/billing/` | Adding new providers later is a class, not a rewrite |
+| Provider #1 | Stripe (global) + Stripe Tax | Industry default, best primitives |
+| Provider #2 | Razorpay (India: UPI, INR cards) + GST handling | Indian-market friction reducer |
+| Entitlements | `EntitlementService` (Postgres + Redis cache) | Single source of truth for "is user X entitled to feature Y" |
+| Webhooks | Signature verify + idempotency table | Reject replays, dedupe deliveries |
 
 ### 3.2 Package Manager & Node Version
 - Use `pnpm` (faster, disk-efficient, strict).
 - Node version pinned via `.nvmrc` (latest LTS at time of build).
-- `engines` field in `package.json` enforces Node version.
+- `engines` field in each `package.json` enforces Node version.
+- v2.0: repo becomes a **pnpm workspace monorepo** (see §3.3 below).
 
 ### 3.3 File Structure
+
+**v1.x layout (current — preserved as-is during the v2.0 monorepo move):**
 
 ```
 cairn/
 ├── CLAUDE.md
 ├── docs/
 │   ├── philosophy.md
-│   ├── design-system.md          # v1.1: updated for glassmorphism design language
-│   ├── data-model.md             # v1.1: leverage field, partial close, screenshot attachment
-│   ├── features-v1.md            # v1.1: risk calculator, draft activation, pairs list, new features
+│   ├── design-system.md          # v1.1: glassmorphism design language
+│   ├── data-model.md             # v1.1: leverage, partial close, screenshot
+│   ├── features-v1.md            # v1.1: risk calculator, draft activation, pairs list
 │   ├── features-v2.md
-│   ├── rules-engine.md           # v1.1: daily trade limit rule, max daily loss circuit breaker
+│   ├── rules-engine.md           # v1.1: daily trade limit, max daily loss circuit breaker
 │   ├── analytics.md
 │   ├── ui-flows.md
-│   ├── customization.md          # v1.1: timezone setting, leverage, R-target alerts
+│   ├── customization.md          # v1.1: timezone, leverage, R-target alerts
 │   ├── integrations-future.md
 │   ├── testing.md
 │   └── conventions.md
@@ -167,119 +267,136 @@ cairn/
 │   ├── main.ts
 │   ├── preload.ts
 │   ├── ipc/
-│   │   ├── trades.ts
-│   │   ├── accounts.ts
-│   │   ├── rules.ts
-│   │   ├── backup.ts
-│   │   └── settings.ts
 │   ├── db/
-│   │   ├── index.ts
-│   │   ├── schema.ts
-│   │   ├── migrations/
-│   │   └── seed.ts
 │   ├── services/
-│   │   ├── rules-engine.ts
-│   │   ├── pnl-calculator.ts
-│   │   ├── backup-service.ts
-│   │   ├── import-adapters/
-│   │   │   └── manual.ts
-│   │   └── export-service.ts
 │   └── utils/
 ├── src/
-│   ├── main.tsx
-│   ├── App.tsx
-│   ├── router.tsx
-│   ├── assets/
-│   │   ├── fonts/
-│   │   └── icons/
 │   ├── components/
-│   │   ├── ui/
-│   │   ├── layout/
-│   │   │   ├── Sidebar.tsx
-│   │   │   ├── TopBar.tsx
-│   │   │   └── Shell.tsx
-│   │   ├── dashboard/
-│   │   ├── trade-entry/
-│   │   ├── trade-log/
-│   │   ├── analytics/
-│   │   ├── accounts/
-│   │   ├── settings/
-│   │   └── shared/
 │   ├── features/
-│   │   ├── dashboard/
-│   │   ├── pre-trade/
-│   │   ├── post-trade/
-│   │   ├── analytics/
-│   │   ├── accounts/
-│   │   ├── settings/
-│   │   └── review/
 │   ├── stores/
-│   │   ├── session-store.ts
-│   │   ├── settings-store.ts
-│   │   └── ui-store.ts
 │   ├── hooks/
 │   ├── lib/
-│   │   ├── ipc.ts
-│   │   ├── formatters.ts
-│   │   ├── calculators.ts        # v1.1: lot size from risk % or risk $, leverage-aware
-│   │   └── cn.ts
-│   ├── styles/
-│   │   └── globals.css
 │   └── types/
-│       └── index.ts
-├── shared/
-│   └── types/
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── e2e/
+├── shared/types/
+├── tests/{unit,integration,e2e}/
 ├── scripts/
-├── .nvmrc
-├── package.json
-├── pnpm-lock.yaml
-├── tsconfig.json
-├── tsconfig.node.json
-├── vite.config.ts
-├── electron-builder.yml
-├── tailwind.config.ts
-├── postcss.config.js
+├── .nvmrc · package.json · pnpm-lock.yaml
+├── tsconfig.json · tsconfig.node.json
+├── vite.config.ts · electron-builder.yml
+├── tailwind.config.ts · postcss.config.js
 └── .env.example
 ```
 
-### 3.4 Process Architecture
+**v2.0 monorepo layout (extends the v1.x layout above; the existing `electron/` and `src/` move under `apps/desktop/` via `git mv`):**
 
-- **Main process** owns: database, file system, OS integration, backup service, window management.
-- **Renderer process** owns: UI, transient UI state, user interactions.
-- **Communication:** typed IPC only. No `remote` module. Context isolation enabled.
-- **Preload script** exposes a narrow, typed API surface to the renderer.
+```
+cairn/
+├── pnpm-workspace.yaml           # v2.0: workspace root
+├── apps/
+│   ├── desktop/                  # existing electron/ + src/ moved here
+│   │   ├── electron/
+│   │   └── src/
+│   ├── web/                      # v2.0 NEW — same React UI via HttpTransport
+│   │   ├── src/
+│   │   ├── public/
+│   │   └── vite.config.ts
+│   └── server/                   # v2.0 NEW — Fastify API
+│       ├── src/
+│       │   ├── auth/             # signup, login, JWT, refresh rotation
+│       │   ├── billing/          # BillingProvider, Stripe/Razorpay, entitlements
+│       │   ├── vault/            # ciphertext push/pull endpoints
+│       │   ├── devices/
+│       │   ├── webhooks/
+│       │   └── db/               # Drizzle schema for server tables
+│       ├── tests/
+│       └── Dockerfile
+├── packages/
+│   ├── shared-types/             # types used by desktop + web + server
+│   ├── shared-zod/               # Zod schemas reused across boundaries
+│   ├── sync-protocol/            # vector-clock + op-log types
+│   └── billing-types/            # plan + entitlement matrix
+├── ops/
+│   ├── dashboards/               # Grafana JSON
+│   └── runbooks/
+└── docs/                         # extended in v2.0 — see §4
+```
 
-### 3.5 Typed IPC Pattern
+The monorepo move is mechanical (a `git mv` plus import-path rewrites) and is the first task in Stage 1 of §18. Git history is preserved.
 
-Every IPC handler:
-1. Has a defined input Zod schema and output type.
-2. Is registered in a handler map in `electron/ipc/index.ts`.
-3. Is accessed from the renderer through a typed wrapper in `src/lib/ipc.ts`.
-4. Returns `{ ok: true, data } | { ok: false, error }` — never throws across the bridge.
+### 3.4 Process & Service Architecture
+
+- **Desktop main process** owns: local SQLite, file system, OS integration, backup service, window management, **sync runner** (v2.0), **OS keychain access** (v2.0).
+- **Desktop renderer process** owns: UI, transient UI state, user interactions.
+- **Desktop communication:** typed IPC only. No `remote` module. Context isolation enabled. Preload exposes a narrow, typed API.
+- **Web client** (v2.0): same renderer code, but the `Transport` interface is fulfilled by `HttpTransport` instead of `ElectronTransport`. Client-side decryption happens in-browser; plaintext never traverses the network.
+- **Server** (v2.0): single Fastify app, stateless (except Redis cache + rate-limit data), behind a load balancer. Postgres is the source of truth. The server never decrypts user vault content.
+
+### 3.5 Typed IPC / HTTP Pattern
+
+Every boundary call — IPC on desktop, HTTP on web — follows the same shape:
+
+1. Has a defined input Zod schema and output type, **sourced from `packages/shared-zod/`** so desktop and web share one definition.
+2. Is registered in a handler map: `electron/ipc/index.ts` (desktop) or `apps/server/src/routes/index.ts` (server).
+3. Is accessed from the UI through the typed `Transport` interface — never directly.
+
+### 3.6 Transport Abstraction (v2.0)
+
+```ts
+// packages/shared-types/src/transport.ts
+export interface Transport {
+  call<K extends keyof Procedures>(
+    name: K,
+    input: Procedures[K]['input']
+  ): Promise<Result<Procedures[K]['output']>>;
+}
+```
+
+`ElectronTransport` (desktop) forwards over IPC. `HttpTransport` (web) forwards over `fetch`. Renderer code depends only on `Transport`, so adding new surfaces in the future (e.g. a CLI or a future mobile app) is just a new implementation.
+
+### 3.7 Result Contract (universal)
+
+```ts
+// packages/shared-types/src/result.ts
+export type Result<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: string; message: string; details?: unknown } };
+```
+
+Error codes are enumerated in `packages/shared-types/src/error-codes.ts`. UI maps codes to copy; never displays raw error strings from the server.
 
 ---
 
 ## 4. DOCS NAVIGATION MAP
 
-Load sub-files only as needed. Each is self-contained. Files marked **[v1.1 updated]** have new sections appended at the bottom under `## v1.1 Additions`.
+Load sub-files only as needed. Each is self-contained. Files marked **[v1.1 updated]** have new sections appended at the bottom under `## v1.1 Additions`. Files marked **[v2.0 NEW]** are created during the relevant stage in §18.
 
 | File | Contents |
 |---|---|
 | `docs/philosophy.md` | §1 full text — why Cairn exists, design philosophy, three jobs, voice & tone. |
-| `docs/design-system.md` | Colors, typography, spacing, motion, component aesthetics, Discipline Ring. **[v1.1 updated]** — glassmorphism design language, new dark/light palettes, text contrast requirements, animation spec. |
-| `docs/data-model.md` | All SQLite tables, columns, types, indexes, migration strategy, seed data. **[v1.1 updated]** — leverage column, partial_closes table, screenshot_path column, trade duration fix. |
-| `docs/rules-engine.md` | Rule/RuleContext/RuleEvaluation interfaces, all built-in rules, evaluation flow, cooldown system, override system, hard locks, session lock state. **[v1.1 updated]** — daily trade limit rule, max daily loss circuit breaker rule. |
-| `docs/features-v1.md` | Full feature specs: onboarding, dashboard, session bias, new trade panel, post-trade log, trade log, accounts, settings, playbook. **[v1.1 updated]** — risk calculator in trade entry, draft activation flow, partial close flow, screenshot attachment (optional), win/loss streak on dashboard, keyboard shortcuts, PDF export, trade duration fix. |
+| `docs/design-system.md` | Colors, typography, spacing, motion, component aesthetics, Discipline Ring. **[v1.1 updated]** — glassmorphism design language, dark/light palettes, text contrast requirements, animation spec. |
+| `docs/data-model.md` | All SQLite tables, columns, types, indexes, migration strategy, seed data. **[v1.1 updated]** — leverage column, partial_closes table, screenshot_path column, trade duration fix. **[v2.0]** — sync columns (UUIDv7, updated_at, deleted_at, device_id, version, dirty), vault_meta, sync_queue tables. |
+| `docs/rules-engine.md` | Rule/RuleContext/RuleEvaluation interfaces, all built-in rules, evaluation flow, cooldown system, override system, hard locks, session lock state. **[v1.1 updated]** — daily trade limit, max daily loss circuit breaker. |
+| `docs/features-v1.md` | Full feature specs: onboarding, dashboard, session bias, new trade panel, post-trade log, trade log, accounts, settings, playbook. **[v1.1 updated]** — risk calculator, draft activation, partial close, screenshot, win/loss streak, keyboard shortcuts, PDF export, trade duration fix. |
 | `docs/analytics.md` | All 6 analytics tabs in detail, filter bar, chart standards. |
 | `docs/ui-flows.md` | Key user journeys: happy path, rule-block path, tilt flow, backup flow, migration-fail state. |
-| `docs/customization.md` | What's customizable globally vs per-account, custom pair/setup forms. **[v1.1 updated]** — timezone (default: America/New_York), leverage (default: 100:1), default pairs list, daily trade limit, max daily loss %, R-target alert levels, all user-configurable. |
+| `docs/customization.md` | What's customizable globally vs per-account, custom pair/setup forms. **[v1.1 updated]** — timezone (default America/New_York), leverage (default 100:1), default pairs, daily trade limit, max daily loss %, R-target alert levels. |
 | `docs/integrations-future.md` | v2 broker adapter interface, adapter list, never-features. |
 | `docs/testing.md` | Unit, integration, E2E test requirements, manual QA checklist. |
 | `docs/conventions.md` | Code style, naming, commits, branching, git hooks, error handling, logging, performance budgets, accessibility, self-healing practices, build order. |
+| `docs/backend-architecture.md` | **[v2.0 NEW]** — Fastify API design, endpoint surface, deployment topology, multi-region considerations. |
+| `docs/sync-protocol.md` | **[v2.0 NEW]** — Vector clocks, push/pull protocol, conflict resolution, op-log shape, device enrollment, recovery phrase. |
+| `docs/security.md` | **[v2.0 NEW]** — Crypto primitives, KDF params, data-key wrap/unwrap, recovery phrase, KEK rotation, OS keychain usage. |
+| `docs/threat-model.md` | **[v2.0 NEW]** — STRIDE per component, attacker classes, mitigations matrix mapped to code. |
+| `docs/asvs-checklist.md` | **[v2.0 NEW]** — OWASP ASVS Level 2 row-by-row tracking with evidence links. |
+| `docs/billing.md` | **[v2.0 NEW]** — Plan/feature matrix, entitlement service contract, grace period policy, how to add a new BillingProvider. |
+| `docs/runbook.md` | **[v2.0 NEW]** — Incident response, key rotation, GDPR/DPDP export & deletion procedures, backup restore drill. |
+| `docs/adr/` | **[v2.0 NEW]** — Architecture Decision Records. ADR-0001 is the local-first + E2E sync decision. |
+| `docs/roadmap-v1.2.md` | **[v1.2 NEW]** — Friction-reduction & free-parity roadmap that sits between v1.1 and v2.0. Five-wave plan (Foundation → Friction quick-wins → Automations → File import + two-phase logging → Live broker integration), automation deployment schedule, TradeZella positioning, and v1.2 end-state criteria. Source of truth for §17.5 and §16.c below. |
+| `docs/glossary.md` | Extracted §15 — ICT/SMC terms plus v2.0 crypto/billing vocabulary. |
+| `docs/end-state.md` | Extracted §16 — full "done" checklists for v1.1 (§16.a), v2.0 (§16.b), v1.2 (§16.c). |
+| `docs/roadmap-v2.0.md` | Extracted §18 — eight-stage cloud/sync/billing delivery plan with per-stage prompts and model table. |
+| `docs/engineering-quality.md` | Extracted §19 — the binding "no slop" engineering standard. |
+| `docs/subscription-contract.md` | Extracted §20 — subscription-readiness contract (entitlements, billing provider, webhook/state machine). |
 
 ---
 
@@ -289,74 +406,57 @@ The following decisions are **locked** and should not be revisited without expli
 
 1. Electron, not Tauri.
 2. Manual entry in v1, broker adapters in v2.
-3. Local SQLite, no cloud database.
-4. Cloud backup via existing desktop sync services (user points to a synced folder), not via cloud APIs.
+3. Local SQLite remains the canonical store on every desktop install.
+4. Cloud backup via existing desktop sync services (user points to a synced folder), not via cloud APIs. **In v2.0, additionally:** optional end-to-end-encrypted cloud sync via Cairn's own backend.
 5. No news integration, ever (per user direction).
 6. No prop firm names hardcoded in UI.
 7. No user-history references in UI (founding document context only).
 8. App name: **Cairn**.
 9. Attribution: "Designed & built by Jai Akash" in sidebar bottom-left, nowhere else.
-10. Color palette: Glassmorphism dark (deep graphite base with frosted glass surfaces) / Glassmorphism light (warm bone base with frosted white surfaces). Zero purple/cyan as primary colors.
+10. Color palette: Glassmorphism dark / Glassmorphism light. Zero purple/cyan as primary colors.
 11. Fonts: Inter + JetBrains Mono.
-12. v1 feature scope as listed in §7 (plus v1.1 additions in §17). v2 additions in §11.
+12. v1 feature scope as listed in §7 (plus v1.1 additions in §17). v2 additions in §11. v2.0 cloud/sync/billing scope in §18.
 13. Rule-gating is blocking by default; overrides require typed acknowledgment; hard locks cannot be overridden.
 14. Prevention over detection is the app's north star.
 15. Screenshot attachment on trade entry is **always optional** — never required, never blocks trade submission.
 16. Default timezone is **America/New_York**. User can change it in Settings.
 17. All behavioral preferences (timezone, leverage, daily trade limit, max loss %, R-target alerts, default pairs) are user-configurable in Settings.
 
----
+### v2.0 additions to locked decisions
+
+18. **Local-first remains canonical.** The desktop app works fully offline forever, with or without an account.
+19. **Cloud sync is end-to-end encrypted.** Server is incapable of reading user content. No "admin override," no backdoor.
+20. **Surfaces in v2.0:** desktop (Electron) and web (browser). No mobile in v2.0.
+21. **Backend stack:** Node.js LTS + TypeScript strict + Fastify + Postgres (managed: Supabase or Neon) + Drizzle. Same ORM as the client.
+22. **Auth stack:** Argon2id + pepper, JWT access ≤ 15 min + opaque rotating refresh, refresh-reuse detection, email verification required for sync, magic-link supported, OAuth (Apple/Google) stubbed.
+23. **Payments:** Stripe (global) + Razorpay (India) behind a generic `BillingProvider` interface.
+24. **Entitlements:** single source of truth via `EntitlementService`. No scattered plan checks.
+25. **No slop. Ever.** §19 is binding. TypeScript strict, no `any`, every input validated, every promise awaited, money in decimal types, every migration tested, every secret out of source.
+26. **Security baseline:** OWASP ASVS Level 2. `gitleaks`, `trivy`, `npm audit` in CI. Threat model in `docs/threat-model.md`, refreshed quarterly.
+27. **Telemetry is opt-in and defaults to off.** Crash reports, usage analytics — all opt-in. The server logs its own operation, never user content.
+28. **Cancellation never deletes local data.** A user who cancels Cairn Pro keeps everything on their machine, indefinitely.
+29. **No mobile in v2.0.** Mobile is explicitly out of scope. If added later, it gets its own version.
+
+### v1.2 additions to locked decisions
+
+30. **Strategic positioning vs TradeZella.** Cairn does not chase TradeZella feature-for-feature on reports, replay, backtesting and education. The moat is **real-time, broker-aware prevention** — the rule engine, hard locks, circuit breakers, and (eventually) live broker detection of SL widening / over-trading. TradeZella, by their own positioning, does not prevent trades or enforce rules in real time. That is the gap Cairn is built into.
+31. **The v1.2 cycle is local-only and zero new infra cost.** It sits between v1.1 (now) and the v2.0 cloud/sync/billing rebuild in §18, and is delivered in five waves: Foundation → Friction quick-wins → Automations → File import + two-phase logging → Live broker integration. Detail in `docs/roadmap-v1.2.md`.
+32. **Two-phase logging is the structural pattern for trade entry/close.** The pre-trade *gate* stays in the moment (rule check is non-negotiable, target ≤ 20 s). The post-trade *journal* is deferred into a batched reflection queue surfaced on the Review screen. The gate protects discipline; the queue captures honest reflection without front-loading it onto the close click. Hard locks and override-acknowledgement remain unchanged.
+33. **File-based statement import (free) is the first import path, not live broker API (paid).** MT5 / cTrader / TradingView all export HTML/CSV statements at no cost. A file-parsing adapter eliminates most double-entry friction without paid data or connector fees. Live broker integration is Wave 4 and is optional; the project must remain useful even if Wave 4 never ships.
+34. **The "local insight engine" is local heuristics, not an LLM call.** Wave 2's insight surfacing — "win-rate ↓ when urgency > 7", tilt-cycle detection, expectancy-by-setup callouts — runs as deterministic statistical rules on-device. No paid model, no network round-trip, no telemetry. Preserves the privacy-first posture from §2.4.
+35. **Review screen completion is a foundation deliverable, not an enhancement.** It is the home for Wave 2 insights and Wave 3's deferred-reflection queue. v1.2 cannot be called done while it remains a stub.
+36. **The two partial-close tables (`trade_partials` integer, `partial_closes` real) must be reconciled to a single integer-encoded table before any Wave 2 analytics work.** Storing money or pips as `real`/`float` contradicts §2.5 and §19.5 and will surface as silent disagreement between reports.
+
 
 ## 15. GLOSSARY
 
-- **ICT** — Inner Circle Trader methodology.
-- **SMC** — Smart Money Concepts.
-- **BOS** — Break of Structure.
-- **CHoCH** — Change of Character.
-- **MSS** — Market Structure Shift (synonym of CHoCH in common usage).
-- **FVG** — Fair Value Gap.
-- **OB** — Order Block.
-- **OTE** — Optimal Trade Entry.
-- **PD Array** — Premium/Discount Array.
-- **SMT** — Smart Money Technique (divergence between correlated pairs).
-- **Killzone** — Time window with historically high volume/volatility.
-- **Judas Swing** — Initial manipulation move against the eventual true direction.
-- **Silver Bullet** — Specific 1-hour killzone within NY or London.
-- **DD** — Drawdown.
-- **RR** — Risk-to-Reward ratio.
-- **R / R-multiple** — Profit or loss expressed as multiple of initial risk.
-- **MAE** — Maximum Adverse Excursion.
-- **MFE** — Maximum Favorable Excursion.
-- **Clean trade** — Trade with zero rules broken and plan followed exactly.
-- **Dirty trade** — Trade with any rule broken or plan deviation.
-- **DXY** — US Dollar Index.
-- **Partial close** — Closing a portion of an open position while leaving the remainder running.
-- **Circuit breaker** — Automatic session lock triggered when max daily loss % is hit.
-- **Leverage** — Account leverage ratio (e.g. 100:1). Used in lot size calculations.
+Moved to [`docs/glossary.md`](docs/glossary.md). All ICT/SMC terms and v2.0 crypto/billing vocabulary live there. Load on demand.
 
 ---
 
-## 16. END STATE DEFINITION (WHAT "V1.1 DONE" MEANS)
+## 16. END STATE DEFINITION
 
-v1.1 is complete when all v1.0 criteria are met PLUS:
-
-16. Design is glassmorphism — frosted glass cards, depth layers, smooth animations. Text contrast passes WCAG AA in both dark and light modes.
-17. Dashboard shows correct discipline score, current account balance, and today's P&L after every trade.
-18. P&L calculates correctly in trade log, dashboard, and analytics using actual exit price, lot size, leverage, and pip value.
-19. Trade entry panel includes risk calculator: user inputs risk $ or risk %, lot size auto-calculates from account size, leverage, entry, and SL.
-20. Leverage is configurable per account in Settings and used in all calculations.
-21. Draft trades can be re-opened and activated (placed) from the trade log.
-22. Partial close is available when closing a trade — user can close X% of position and leave remainder open.
-23. Screenshot attachment field exists on trade entry and post-trade review — optional, never blocks submission.
-24. Default pairs seed includes: EURUSD, GBPUSD, XAUUSD, XAGUSD, NZDUSD, AUDNZD, GBPJPY, AUDUSD, USDJPY, USDCAD, USDCHF, EURGBP, EURJPY, GBPCAD, GBPAUD, BTCUSD, US30, NAS100, SPX500.
-25. Daily trade limit rule is implemented and configurable per account.
-26. Max daily loss circuit breaker is implemented and configurable per account.
-27. R-target alerts (configurable levels, e.g. 1R, 2R) provide a visual indicator on open trades.
-28. Trade duration shows correct elapsed time from entry time to exit time.
-29. Win streak and loss streak are displayed on the dashboard.
-30. PDF export of trade review is available from the Review section.
-31. Keyboard shortcuts are implemented for core actions (configurable, documented in Settings).
-32. Timezone defaults to America/New_York and is user-configurable in Settings.
+Moved to [`docs/end-state.md`](docs/end-state.md). Contains the full "v1.1 done" (§16.a), "v2.0 done" (§16.b), and "v1.2 done" (§16.c) checklists. Load when verifying completion criteria.
 
 ---
 
@@ -389,6 +489,60 @@ These items were added in v1.1. For full detail, see the `## v1.1 Additions` sec
 - **PDF export**: trade review report from Review section
 - **Keyboard shortcuts**: core actions, configurable, listed in Settings help panel
 - **Timezone setting**: defaults to America/New_York, configurable in Settings (see `docs/customization.md § v1.1`)
+
+---
+
+## 17.5 V1.2 CHANGE LOG — FRICTION REDUCTION & FREE PARITY
+
+v1.2 is the cycle between v1.1 (now) and the v2.0 cloud/sync/billing rebuild in §18. It is **local-only, zero new infra cost**. The full plan, automation deployment schedule and end-state criteria live in `docs/roadmap-v1.2.md`; this section is the headline summary and exists so a contributor reading CLAUDE.md top-to-bottom sees the cycle exists.
+
+### Why v1.2 exists
+
+A complete trade currently costs a trader roughly 3–5 minutes of data entry inside Cairn because v1 has no broker connection — every price, lot, time and exit is typed twice. v1.2 attacks that *bad* friction (double entry, re-selection, self-reporting violations the engine already knows about) while protecting the *good* friction (rule blocks, override acknowledgement, the invalidation honesty gate).
+
+In parallel, v1.2 closes the obvious feature gaps vs TradeZella that cost **nothing** to add — calendar view, notebook, playbooks, expanded reports, a local insight engine, file-based statement import — so users don't feel they need a $29–49/month cloud journal alongside Cairn.
+
+### The five waves (zero-cost through Wave 3)
+
+| Wave | What | Cost | Rough timing |
+|---|---|---|---|
+| 0 | Foundation: commit v1.1, build Review screen, reconcile partial-close tables, smoke E2E | Free | ~Wk 1 |
+| 1 | Friction quick-wins: remember last trade, invalidation chips, one-tap emotion, clean-close, ⌘K, calendar view | Free | ~Wk 2–4 |
+| 2 | Automations: auto-refresh, derived analytics, local insight engine, auto-detect rules broken, composite score, A–F grade, Notebook | Free | ~Wk 4–7 |
+| 3 | File import (MT5 / cTrader / TradingView statements) + two-phase logging + playbooks | Free | ~Wk 7–11 |
+| 4 | Live broker integration (MT5 bridge), live SL-move detection, auto-import of fills | **Paid** (broker bridge work; optional) | Later |
+
+Timings are planning estimates for a solo build, not commitments. Waves 0–3 ship continuous value with no data or infrastructure cost. Wave 4 is isolated so the project stays useful even if it never ships.
+
+### Decisions locked in v1.2
+
+See §14 #30–#36 above for the binding decisions: TradeZella positioning (own real-time prevention, don't chase reports/replay/AI), the five-wave structure, two-phase logging as the structural pattern for trade entry/close, file-based import before live API, local heuristics not LLM for the insight engine, Review screen completion as a foundation deliverable, and reconciling the two partial-close tables before any Wave 2 analytics work.
+
+### End-state criteria for v1.2
+
+See §16.c above (items #49–#56) and `docs/roadmap-v1.2.md` §6 (the binding list).
+
+### Source rationale
+
+The friction analysis, automation schedule and competitive comparison that motivate this cycle are documented in `Cairn_Report_Working_Friction_vs_TradeZella.html` in the project root. That report is the long-form rationale; `docs/roadmap-v1.2.md` is the binding plan; this section is the index.
+
+---
+
+## 18. V2.0 ROADMAP — CLOUD, SYNC, SUBSCRIPTIONS, WEB
+
+Moved to [`docs/roadmap-v2.0.md`](docs/roadmap-v2.0.md). The eight-stage delivery plan (Stage 0 quality baseline → Stage 7 launch), per-stage Claude prompts, model-selection table, and the one-paragraph architecture summary. Load when working on any v2.0 cloud/sync/billing stage.
+
+---
+
+## 19. ENGINEERING QUALITY STANDARD — "NO SLOP"
+
+Moved to [`docs/engineering-quality.md`](docs/engineering-quality.md). Binding standard for type safety, boundary validation, async/error handling, money/time, migrations, deps, secrets, logging, tests, reviews, perf budgets, and the definition of "done". Referenced by §2.12 and locked in §14 #25. Load before writing or reviewing code.
+
+---
+
+## 20. SUBSCRIPTION-READINESS CONTRACT
+
+Moved to [`docs/subscription-contract.md`](docs/subscription-contract.md). The `EntitlementService`/`BillingProvider` abstractions, plan-feature matrix, webhook + state-machine contracts, tax/refund/local-data guarantees. Binding from Stage 18.5 onward. Load when working on billing or entitlements.
 
 ---
 
