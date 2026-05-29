@@ -184,11 +184,13 @@ Sequencing logic: automations are ordered by cost and dependency, not flashiness
 
 v1.2 is complete when all v1.1 criteria (CLAUDE.md §16.a) are met, the v1.1 branch is committed and tests green, and the following are true. (CLAUDE.md §16.c references this list.)
 
+**v1.2 Wave 0 — DONE 2026-05-29**
+
 **Foundation (Wave 0)**
-1. The `feat/rules-engine` branch is committed; `pnpm typecheck && pnpm test` are green on `main`.
-2. The Review screen renders (not a stub) and is the home for the insight engine and the deferred-reflection queue.
-3. Schema has one partial-close table, integer-encoded; no monetary or pip column is `real`/`float`.
-4. `tests/e2e/` contains a smoke E2E covering onboard → log bias → place trade → close trade → analytics.
+1. ✅ The `feat/rules-engine` branch is committed; `pnpm typecheck && pnpm test` are green on `main`.
+2. ✅ The Review screen renders (not a stub) and is the home for the insight engine and the deferred-reflection queue.
+3. ✅ Schema has one partial-close table, integer-encoded; no monetary or pip column is `real`/`float`.
+4. ✅ `tests/e2e/` contains a smoke E2E covering onboard → log bias → place trade → close trade → analytics.
 
 **Friction quick-wins (Wave 1)**
 5. New Trade panel remembers last pair/setup/mode for the session.
