@@ -478,7 +478,7 @@ export function registerTradeHandlers(): void {
         pipValuePerStandardLotCents: pair.pipValuePerStandardLotCents,
         accountSizeCents: account.accountSizeCents,
       })
-      const pnlUsd = pnlCents / 100
+      // pnlR is already integer-encoded (R × 100) to match trades.pnl_r.
       const pnlR = trade.slPips > 0
         ? Math.round(
             ((raw.exitPrice - trade.entryPrice) *
@@ -487,20 +487,21 @@ export function registerTradeHandlers(): void {
               trade.slPips,
           )
         : null
-      const closePercent = (raw.closeLots / trade.lotSize) * 100
+      // close fraction as integer basis points (50% → 5000), never a float.
+      const closePercentBps = Math.round((raw.closeLots / trade.lotSize) * 10000)
       const newLotSize = trade.lotSize - raw.closeLots
 
       db.transaction(() => {
-        db.insert(schema.partialCloses)
+        db.insert(schema.tradePartials)
           .values({
             id: uuidv7(),
             tradeId: raw.tradeId,
-            closePercent,
+            closePercentBps,
             closeLots: raw.closeLots,
             exitPrice: raw.exitPrice,
             exitTime: raw.exitTime,
-            pnlR: pnlR !== null ? pnlR / 100 : null,
-            pnlUsd,
+            pnlR,
+            pnlCents,
             notes: raw.notes ?? null,
             createdAt: now,
           })
@@ -689,20 +690,20 @@ export function registerTradeHandlers(): void {
 
       const partialCloseRows = db
         .select()
-        .from(schema.partialCloses)
-        .where(eq(schema.partialCloses.tradeId, tradeId))
-        .orderBy(schema.partialCloses.createdAt)
+        .from(schema.tradePartials)
+        .where(eq(schema.tradePartials.tradeId, tradeId))
+        .orderBy(schema.tradePartials.createdAt)
         .all()
 
       const partialCloses: PartialCloseRecord[] = partialCloseRows.map((pc) => ({
         id: pc.id,
         tradeId: pc.tradeId,
-        closePercent: pc.closePercent,
+        closePercentBps: pc.closePercentBps,
         closeLots: pc.closeLots ?? null,
         exitPrice: pc.exitPrice,
         exitTime: pc.exitTime,
         pnlR: pc.pnlR ?? null,
-        pnlUsd: pc.pnlUsd ?? null,
+        pnlCents: pc.pnlCents ?? null,
         notes: pc.notes ?? null,
         createdAt: pc.createdAt,
       }))

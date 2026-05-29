@@ -528,12 +528,12 @@ export interface PartialCloseInput {
 export interface PartialCloseRecord {
   id: string
   tradeId: string
-  closePercent: number
-  closeLots: number | null
-  exitPrice: number
-  exitTime: number
-  pnlR: number | null
-  pnlUsd: number | null
+  closePercentBps: number // basis points (50% → 5000)
+  closeLots: number | null // lots × 100
+  exitPrice: number // price tick, round(realPrice × 10^(pipDecimal+1))
+  exitTime: number // UTC ms
+  pnlR: number | null // R × 100 (1.5R → 150)
+  pnlCents: number | null // integer cents
   notes: string | null
   createdAt: number
 }

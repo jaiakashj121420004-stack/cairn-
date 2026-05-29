@@ -246,30 +246,25 @@ export const tradeScreenshots = sqliteTable('trade_screenshots', {
   createdAt: integer('created_at').notNull(),
 })
 
+// The single canonical partial-close table (migration 0004 consolidated the
+// former float `partial_closes` into this one). All money/pip columns are
+// integer-encoded per CLAUDE.md §2.5/§19.5:
+//   close_percent_bps : basis points (50.0% → 5000)
+//   close_lots        : lots × 100
+//   exit_price        : price tick, round(realPrice × 10^(pipDecimal+1))
+//   pnl_r             : R × 100 (1.5R → 150)
+//   pnl_cents         : integer cents
 export const tradePartials = sqliteTable('trade_partials', {
   id: text('id').primaryKey(),
   tradeId: text('trade_id')
     .notNull()
     .references(() => trades.id),
-  price: integer('price').notNull(),
-  lotsClosed: integer('lots_closed').notNull(),
-  pnlCents: integer('pnl_cents').notNull(),
-  reason: text('reason'),
-  closedAt: integer('closed_at').notNull(),
-})
-
-// v1.1: percentage-based partial exits (used by the Close Trade UI flow)
-export const partialCloses = sqliteTable('partial_closes', {
-  id: text('id').primaryKey(),
-  tradeId: text('trade_id')
-    .notNull()
-    .references(() => trades.id),
-  closePercent: real('close_percent').notNull(),
+  closePercentBps: integer('close_percent_bps').notNull(),
   closeLots: integer('close_lots'),
-  exitPrice: real('exit_price').notNull(),
+  exitPrice: integer('exit_price').notNull(),
   exitTime: integer('exit_time').notNull(),
-  pnlR: real('pnl_r'),
-  pnlUsd: real('pnl_usd'),
+  pnlR: integer('pnl_r'),
+  pnlCents: integer('pnl_cents'),
   notes: text('notes'),
   createdAt: integer('created_at').notNull(),
 })

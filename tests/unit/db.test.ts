@@ -21,6 +21,7 @@ const MIGRATIONS = [
   readFileSync(join(__dirname, '../../electron/db/migrations/0001_initial.sql'), 'utf-8'),
   readFileSync(join(__dirname, '../../electron/db/migrations/0002_v11.sql'), 'utf-8'),
   readFileSync(join(__dirname, '../../electron/db/migrations/0003_opened_at.sql'), 'utf-8'),
+  readFileSync(join(__dirname, '../../electron/db/migrations/0004_consolidate_partials.sql'), 'utf-8'),
 ]
 
 let SQL: Awaited<ReturnType<typeof initSqlJs>>
@@ -64,7 +65,7 @@ function getIndexNames(sqlite: SqlJsDatabase): string[] {
 }
 
 describe('schema: migration SQL executes without errors', () => {
-  it('creates all 17 tables successfully', () => {
+  it('creates all 16 tables successfully', () => {
     const { sqlite } = createTestDb()
     const tableNames = getTableNames(sqlite)
 
@@ -80,11 +81,13 @@ describe('schema: migration SQL executes without errors', () => {
     expect(tableNames).toContain('trades')
     expect(tableNames).toContain('trade_screenshots')
     expect(tableNames).toContain('trade_partials')
-    expect(tableNames).toContain('partial_closes')
     expect(tableNames).toContain('rule_violations')
     expect(tableNames).toContain('reviews')
     expect(tableNames).toContain('cooldowns')
     expect(tableNames).toContain('backup_log')
+    // Migration 0004 consolidated the float `partial_closes` into `trade_partials`.
+    expect(tableNames).not.toContain('partial_closes')
+    expect(tableNames.length).toBe(16)
   })
 
   it('creates all 9 indexes', () => {
@@ -99,7 +102,9 @@ describe('schema: migration SQL executes without errors', () => {
     expect(indexNames).toContain('idx_rule_violations_account')
     expect(indexNames).toContain('idx_sessions_account_date')
     expect(indexNames).toContain('idx_cooldowns_active')
-    expect(indexNames).toContain('idx_partial_closes_trade')
+    // 0004 dropped idx_partial_closes_trade with its table and added this one.
+    expect(indexNames).toContain('idx_trade_partials_trade')
+    expect(indexNames).not.toContain('idx_partial_closes_trade')
   })
 })
 

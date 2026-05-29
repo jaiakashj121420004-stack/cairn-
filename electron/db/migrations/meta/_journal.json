@@ -15,6 +15,20 @@
       "when": 1777420800000,
       "tag": "0002_v11",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777507200000,
+      "tag": "0003_opened_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777593600000,
+      "tag": "0004_consolidate_partials",
+      "breakpoints": true
     }
   ]
 }

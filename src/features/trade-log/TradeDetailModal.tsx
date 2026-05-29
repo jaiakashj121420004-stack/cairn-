@@ -500,7 +500,7 @@ export function TradeDetailModal({ tradeId, onClose, onTradeUpdated }: Props) {
                               <div>
                                 <p className="text-text-muted">Lots</p>
                                 <p className="font-mono text-text-primary">
-                                  {pc.closeLots !== null ? (pc.closeLots / 100).toFixed(2) : `${pc.closePercent.toFixed(0)}%`}
+                                  {pc.closeLots !== null ? (pc.closeLots / 100).toFixed(2) : `${(pc.closePercentBps / 100).toFixed(0)}%`}
                                 </p>
                               </div>
                               <div>
@@ -509,8 +509,8 @@ export function TradeDetailModal({ tradeId, onClose, onTradeUpdated }: Props) {
                               </div>
                               <div>
                                 <p className="text-text-muted">P&L</p>
-                                <p className={cn('font-mono font-semibold', (pc.pnlUsd ?? 0) >= 0 ? 'text-accent-a' : 'text-danger')}>
-                                  {pc.pnlUsd !== null ? formatCents(Math.round(pc.pnlUsd * 100)) : '—'}
+                                <p className={cn('font-mono font-semibold', (pc.pnlCents ?? 0) >= 0 ? 'text-accent-a' : 'text-danger')}>
+                                  {pc.pnlCents !== null ? formatCents(pc.pnlCents) : '—'}
                                 </p>
                               </div>
                               <div>
