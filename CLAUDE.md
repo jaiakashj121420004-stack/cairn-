@@ -528,6 +528,60 @@ The friction analysis, automation schedule and competitive comparison that motiv
 
 ---
 
+## 17.6 BUILD & VERIFICATION STATUS (progress log)
+
+Tracks what is actually built/verified vs planned. Last reviewed **2026-05-31** (Wave 1.5 remediation: all §17.6 issues resolved, five gates green). Update at the end of every wave.
+
+### Implemented & committed (in git history)
+
+- **v1.1** — committed (glassmorphism UI, risk calculator, R-alerts, shortcuts, leverage, screenshots, partial-close, daily-trade-limit + max-daily-loss rules).
+- **v1.2 Wave 0 (Foundation)** — committed: partial-close tables reconciled to integer-encoded `trade_partials`; Review-screen shell; smoke E2E + CI (`.github/workflows/ci.yml`: typecheck+lint, unit, build, smoke-e2e jobs on windows-latest, `pnpm install --frozen-lockfile`).
+- **v1.2 Wave 1 (Friction quick-wins)** — all six features implemented, committed, AND wired into the UI (verified by source inspection):
+  1. Remember last trade — `src/stores/last-trade-context.ts` (session-scoped, not persisted, 6h window); consumed in `PreTradePanel` via `getRecentContext`.
+  2. Invalidation quick-chips — `src/features/pre-trade/constants/invalidation-chips.ts` (8 ICT chips, all ≥20 chars) + free-text path preserved; rendered in `PreTradePanel`.
+  3. One-tap emotion — `src/features/pre-trade/constants/emotion-presets.ts` (Focused/Neutral/Tilted; Tilted = urgency 8/need 7 trips the emotional-state gate); sliders behind Advanced.
+  4. Clean-close TP/SL — `CloseTradeModal.applyCleanClose`; disabled when `hasFlaggedViolations`; never auto-submits.
+  5. Command palette (⌘K) — `src/features/command-palette/` (registry + CommandPalette); mounted in `Shell.tsx`, opened from `TopBar`.
+  6. Calendar — `CalendarTab` (Analytics tab) + `CalendarWidget` (Dashboard) + `getDailyHeatmap` rollup in `electron/services/analytics/performance.ts`.
+- Test files for every Wave 1 feature exist and are well-formed (37 unit/integration test files total; the six Wave 1 test files were checked individually — no duplicated imports or top-level redeclarations).
+- Honesty gates verified intact: chips are all ≥20 chars; clean-close is disabled on flagged trades and requires a manual Submit; emotion presets don't change the schema; last-trade pre-fill carries only pair/setup/mode/account, never emotional fields.
+
+### Five quality gates — GREEN on 2026-05-31
+
+The 2026-05-30 review could not execute the gates (the Linux review sandbox could not resolve the repo's Windows-symlinked `node_modules`). They were run locally on **2026-05-31** and all pass:
+
+| Gate | Result |
+|---|---|
+| `pnpm typecheck` | clean |
+| `pnpm lint` (`--max-warnings 0`) | clean |
+| `pnpm test:unit` | 37 files, 254 tests passed |
+| `pnpm build` | success |
+| `pnpm test:e2e` (smoke) | passed, stable across 4 consecutive runs |
+
+### Issues found during review — RESOLVED (commit `f82a0d6`, 2026-05-31)
+
+All six issues from the 2026-05-30 review are fixed and covered by the now-green gates.
+
+1. **Calendar day-bucketing ignored the configured timezone — FIXED.** `getDailyHeatmap` now buckets in the user's configured timezone via a shared `electron/services/time/trading-day.ts` module, reused by both the calendar and the rules engine (`engine.ts`, `session-state.ts`), so calendar day == rules-engine day. Covered by `tests/unit/analytics/calendar/CalendarTab.test.tsx` and the `getDailyHeatmap` cases in `performance.test.ts` (near-local-midnight + agrees-with-rules-engine).
+2. **Calendar bucketed by `updated_at` — FIXED.** Closed trades now bucket by `exit_time`; null-`exit_time` rows are excluded (no phantom days). Covered by the edit-stability and null-exit_time tests in `performance.test.ts`.
+3. **Two floating promises — FIXED.** `CommandPalette.tsx` and `CloseTradeModal.tsx` now `void` the promise and surface rejection (`.catch` → toast / non-fatal).
+4. **Clean-close test drift — FIXED.** Prefill logic extracted to the pure module `src/features/post-trade/clean-close-prefill.ts` (`buildCleanClosePrefill` + `dbToDisplayPrice`); both `CloseTradeModal` and `close-clean-prefill.test.ts` import it — drift is now structurally impossible.
+5. **Minor — FIXED.** `last-trade-context.ts` JSDoc reconciled to placed-only; a comment documents why `matchCommand` stays substring (shadcn `<Command>` supplies its own filtering).
+6. **Duplicated import lines — FIXED.** Cleaned up in the analytics tests.
+
+> Also landed in this commit while hardening the smoke E2E: trade `mode` is threaded through the rules pipeline so sim/backtest trades skip live-only timing rules (`require_killzone`, `weekend_holding_blocked`); the app sets `MotionGlobalConfig.skipAnimations` under `prefers-reduced-motion` so modal flows are deterministic under Playwright; and `Modal` stabilises `onClose` so inline parent callbacks no longer churn the focus-trap effect.
+
+### Repo hygiene (2026-05-30)
+
+- The working tree contained 12 truncated/corrupted uncommitted files from an interrupted earlier session (e.g. `ui-store.ts` ended mid-token at `setSetti`). They were restored to their committed HEAD content — **the corrupt edits were discarded, no committed work was lost.**
+- `.git/index` was corrupted during review (filesystem-permission quirk on the Windows mount). **Resolved 2026-05-31:** removed `.git/index` + stale `.git/index.lock` / `.git/index.stash.*` and ran `git reset` to rebuild the index from HEAD. Committed history was always intact; no work was lost. The uncommitted prior-session timezone work (`trading-day` module + calendar fixes) was recovered and is included in commit `f82a0d6`.
+
+### Wave 2 readiness verdict
+
+**Wave 1 DONE — gates green on 2026-05-31, Wave 2 unblocked.** All six §17.6 issues are resolved (commit `f82a0d6`) and all five quality gates pass (typecheck, lint at `--max-warnings 0`, 254 unit tests, build, stable smoke E2E). The calendar and rules engine now share one timezone-aware day definition, floating promises are handled, and the clean-close test can no longer drift from the component. Wave 2 (Automations) may begin.
+
+---
+
 ## 18. V2.0 ROADMAP — CLOUD, SYNC, SUBSCRIPTIONS, WEB
 
 Moved to [`docs/roadmap-v2.0.md`](docs/roadmap-v2.0.md). The eight-stage delivery plan (Stage 0 quality baseline → Stage 7 launch), per-stage Claude prompts, model-selection table, and the one-paragraph architecture summary. Load when working on any v2.0 cloud/sync/billing stage.

@@ -192,13 +192,13 @@ v1.2 is complete when all v1.1 criteria (CLAUDE.md §16.a) are met, the v1.1 bra
 3. ✅ Schema has one partial-close table, integer-encoded; no monetary or pip column is `real`/`float`.
 4. ✅ `tests/e2e/` contains a smoke E2E covering onboard → log bias → place trade → close trade → analytics.
 
-**Friction quick-wins (Wave 1)**
-5. New Trade panel remembers last pair/setup/mode for the session.
-6. Invalidation field offers ICT-native quick-chips that satisfy the 20-char requirement in one tap; free text remains available.
-7. Emotional state defaults to a one-tap selector (Focused / Neutral / Tilted); the three sliders are an advanced disclosure.
-8. Close Trade modal has a "Closed clean at TP/SL" one-click path that fills the honesty section.
-9. ⌘K command palette is implemented and listed in Settings shortcuts.
-10. Calendar view exists, coloured by daily P&L, with click-through to a day's trades.
+**Friction quick-wins (Wave 1) — DONE 2026-05-31** (all features implemented + wired; Wave 1.5 remediation closed the §17.6 gaps and all five gates are green — commit `f82a0d6`)
+5. ✅ New Trade panel remembers last pair/setup/mode for the session.
+6. ✅ Invalidation field offers ICT-native quick-chips that satisfy the 20-char requirement in one tap; free text remains available.
+7. ✅ Emotional state defaults to a one-tap selector (Focused / Neutral / Tilted); the three sliders are an advanced disclosure.
+8. ✅ Close Trade modal has a "Closed clean at TP/SL" one-click path that fills the honesty section.
+9. ✅ ⌘K command palette is implemented and listed in Settings shortcuts.
+10. ✅ Calendar view exists, coloured by daily P&L, with click-through to a day's trades (bucketed by `exit_time` in the configured timezone, agreeing with the rules engine).
 
 **Automations (Wave 2)**
 11. Dashboard updates instantly on every close (no manual refresh).
