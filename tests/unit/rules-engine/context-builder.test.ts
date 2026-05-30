@@ -86,7 +86,7 @@ describe('buildContext', () => {
     expect(ctx.tradesToday.length).toBe(1)
   })
 
-  it('filters tradesToday by UTC day window and excludes soft-deleted', () => {
+  it('filters tradesToday by the configured-timezone day window and excludes soft-deleted', () => {
     const { db, ids } = bundle
     const dayStart = Date.UTC(2026, 3, 20, 0, 0)
     // Trade from yesterday
@@ -160,6 +160,51 @@ describe('buildContext', () => {
 
     const ctx = buildContext(db, ids.accountId, { now: dayStart + 8 * 60 * 60_000 })
     expect(ctx.tradesToday.length).toBe(0)
+  })
+
+  it('buckets tradesToday by the New York day, including a trade already "tomorrow" in UTC', () => {
+    const { db, ids } = bundle
+    // Apr 21 02:00 UTC == Apr 20 22:00 America/New_York (EDT). A UTC-based
+    // window would file this under the 21st and drop it from the 20th; the
+    // timezone-aware window keeps it on the (local) 20th.
+    const ts = Date.UTC(2026, 3, 21, 2, 0)
+    db.insert(schema.trades)
+      .values({
+        id: uuidv7(),
+        accountId: ids.accountId,
+        sessionId: ids.sessionId,
+        pairId: ids.pairId,
+        setupId: ids.setupId,
+        killzoneId: ids.killzoneId,
+        mode: 'live',
+        direction: 'long',
+        status: 'closed',
+        entryPrice: 1,
+        stopLossPrice: 1,
+        takeProfitPrice: 1,
+        slPips: 1,
+        rrRatio: 100,
+        lotSize: 1,
+        riskAmountCents: 0,
+        riskPctBps: 0,
+        plannedInvalidation: 'x',
+        mssConfirmed: 1,
+        htfBiasAligned: 1,
+        dxyAligned: null,
+        smtConfirmed: null,
+        correlatedPairUsed: null,
+        preCalmScore: 5,
+        preUrgencyScore: 5,
+        preNeedScore: 5,
+        createdAt: ts,
+        updatedAt: ts,
+        deletedAt: null,
+      } as typeof schema.trades.$inferInsert)
+      .run()
+
+    const ctx = buildContext(db, ids.accountId, { now: ts })
+    expect(ctx.timeZone).toBe('America/New_York')
+    expect(ctx.tradesToday.length).toBe(1)
   })
 
   it('loads currentSession when one exists for today', () => {

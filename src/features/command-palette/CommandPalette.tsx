@@ -47,8 +47,10 @@ export function CommandPalette() {
     if (!commandPaletteOpen) return
     setQuery('')
     setActiveIndex(0)
-    ipc.accounts.list().then((res) => {
+    void ipc.accounts.list().then((res) => {
       if (res.ok) setAccounts(res.data.filter((a) => a.deletedAt === null))
+    }).catch(() => {
+      // palette opened before accounts loaded — show empty list, non-fatal
     })
     // Focus input after paint
     requestAnimationFrame(() => inputRef.current?.focus())

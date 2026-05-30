@@ -1,6 +1,7 @@
-import { and, asc, sql } from 'drizzle-orm'
+import { and, asc, isNotNull, sql } from 'drizzle-orm'
 import { trades } from '../../db/schema'
 import type { CairnDb } from '../../db/index'
+import { tradingDayKey } from '../time/trading-day'
 import type {
   AnalyticsFilter,
   AnalyticsTotals,
@@ -164,26 +165,57 @@ export function getStreaks(db: CairnDb, filter: AnalyticsFilter): StreakInfo {
   return { currentKind: curKind, currentLen: curLen, longestWin, longestLoss }
 }
 
-export function getDailyHeatmap(db: CairnDb, filter: AnalyticsFilter): DailyPnlCell[] {
+/**
+ * Per-day P&L heatmap.
+ *
+ * Closed trades are bucketed by their **exit_time**, grouped into calendar days
+ * in the user's configured `timeZone` (NOT UTC, and NOT by `updated_at`). This
+ * keeps a trade's calendar cell:
+ *   - stable when the trade is later edited (an edit bumps `updated_at`, never
+ *     `exit_time`), and
+ *   - in agreement with the rules engine, which buckets the same trade's day in
+ *     the same timezone (see `services/time/trading-day.ts`).
+ *
+ * Trades with a null `exit_time` (open / draft / planned, or legacy rows that
+ * never recorded an exit) are excluded so they cannot create a phantom day. The
+ * `status = 'closed'` clause from the shared filter already excludes non-closed
+ * trades; the explicit null guard additionally protects against bad data.
+ *
+ * Grouping is done in JS rather than SQL `strftime` because SQLite has no
+ * IANA-timezone support — a fixed offset would be wrong across DST.
+ */
+export function getDailyHeatmap(
+  db: CairnDb,
+  filter: AnalyticsFilter,
+  timeZone: string,
+): DailyPnlCell[] {
   const where = buildTradeWhereClauses(filter)
+  where.push(isNotNull(trades.exitTime))
+
   const rows = db
     .select({
-      date: sql<string>`strftime('%Y-%m-%d', ${trades.updatedAt}/1000, 'unixepoch')`,
-      pnlCents: sql<number>`COALESCE(SUM(${trades.pnlCents}), 0)`,
-      tradeCount: sql<number>`COUNT(*)`,
-      winCount: sql<number>`SUM(CASE WHEN ${trades.pnlR} > 0 THEN 1 ELSE 0 END)`,
+      exitTime: trades.exitTime,
+      pnlCents: trades.pnlCents,
+      pnlR: trades.pnlR,
     })
     .from(trades)
     .where(and(...where))
-    .groupBy(sql`strftime('%Y-%m-%d', ${trades.updatedAt}/1000, 'unixepoch')`)
     .all()
 
-  return rows.map((r) => ({
-    date: String(r.date),
-    pnlCents: Number(r.pnlCents ?? 0),
-    tradeCount: Number(r.tradeCount ?? 0),
-    winCount: Number(r.winCount ?? 0),
-  }))
+  const byDay = new Map<string, DailyPnlCell>()
+  for (const r of rows) {
+    if (r.exitTime == null) continue
+    const date = tradingDayKey(r.exitTime, timeZone)
+    const cell = byDay.get(date) ?? { date, pnlCents: 0, tradeCount: 0, winCount: 0 }
+    cell.pnlCents += r.pnlCents ?? 0
+    cell.tradeCount += 1
+    if ((r.pnlR ?? 0) > 0) cell.winCount += 1
+    byDay.set(date, cell)
+  }
+
+  return Array.from(byDay.values()).sort((a, b) =>
+    a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
+  )
 }
 
 export function getMaxDrawdownCents(equity: EquityPoint[]): number {

@@ -1,47 +1,11 @@
 /**
- * Tests for the "Closed clean at TP / SL" quick-close logic in CloseTradeModal.
+ * Tests for the "Closed clean at TP / SL" quick-close logic.
  *
- * We test the pure helpers extracted from the component rather than rendering
- * the full modal (which requires Electron IPC stubs) — keeps tests fast and
- * focused on the behaviour that matters.
+ * Imports directly from the pure module so the test and component share one
+ * implementation and can never silently drift apart.
  */
 import { describe, it, expect } from 'vitest'
-
-// ─── Helpers under test (duplicated from component to keep them pure) ─────────
-// These mirror the exact functions in CloseTradeModal.tsx so that if the
-// component logic changes and diverges from the tests the tests catch it.
-
-function dbToDisplayPrice(dbInt: number, pipDecimal: number): string {
-  return (dbInt / Math.pow(10, pipDecimal + 1)).toFixed(pipDecimal + 1)
-}
-
-interface QuickCloseResult {
-  exitPriceStr: string
-  exitReason: 'tp' | 'sl'
-  followedPlan: boolean
-  slMoved: boolean
-  enteredBeforeMss: boolean
-  rulesBroken: string[]
-  whatRight: string
-}
-
-function applyCleanClose(
-  type: 'tp' | 'sl',
-  takeProfitPrice: number,
-  stopLossPrice: number,
-  pipDecimal: number,
-): QuickCloseResult {
-  const dbPrice = type === 'tp' ? takeProfitPrice : stopLossPrice
-  return {
-    exitPriceStr: dbToDisplayPrice(dbPrice, pipDecimal),
-    exitReason: type,
-    followedPlan: true,
-    slMoved: false,
-    enteredBeforeMss: false,
-    rulesBroken: [],
-    whatRight: type === 'tp' ? 'Closed clean at TP, plan followed' : 'Closed clean at SL, plan followed',
-  }
-}
+import { dbToDisplayPrice, buildCleanClosePrefill } from '../../../src/features/post-trade/clean-close-prefill'
 
 // ─── dbToDisplayPrice ─────────────────────────────────────────────────────────
 
@@ -65,69 +29,69 @@ describe('dbToDisplayPrice', () => {
   })
 })
 
-// ─── applyCleanClose — TP path ────────────────────────────────────────────────
+// ─── buildCleanClosePrefill — TP path ────────────────────────────────────────
 
-describe('applyCleanClose("tp")', () => {
+describe('buildCleanClosePrefill("tp")', () => {
   const tp = 108500  // 1.08500
   const sl = 107900  // 1.07900
   const pd = 4
 
   it('pre-fills exit price with TP price', () => {
-    const r = applyCleanClose('tp', tp, sl, pd)
+    const r = buildCleanClosePrefill('tp', tp, sl, pd)
     expect(r.exitPriceStr).toBe(dbToDisplayPrice(tp, pd))
   })
 
   it('sets exitReason to "tp"', () => {
-    expect(applyCleanClose('tp', tp, sl, pd).exitReason).toBe('tp')
+    expect(buildCleanClosePrefill('tp', tp, sl, pd).exitReason).toBe('tp')
   })
 
   it('marks plan followed = true', () => {
-    expect(applyCleanClose('tp', tp, sl, pd).followedPlan).toBe(true)
+    expect(buildCleanClosePrefill('tp', tp, sl, pd).followedPlan).toBe(true)
   })
 
   it('marks SL moved = false', () => {
-    expect(applyCleanClose('tp', tp, sl, pd).slMoved).toBe(false)
+    expect(buildCleanClosePrefill('tp', tp, sl, pd).slMoved).toBe(false)
   })
 
   it('marks entered before MSS = false', () => {
-    expect(applyCleanClose('tp', tp, sl, pd).enteredBeforeMss).toBe(false)
+    expect(buildCleanClosePrefill('tp', tp, sl, pd).enteredBeforeMss).toBe(false)
   })
 
   it('leaves rules-broken list empty', () => {
-    expect(applyCleanClose('tp', tp, sl, pd).rulesBroken).toHaveLength(0)
+    expect(buildCleanClosePrefill('tp', tp, sl, pd).rulesBroken).toHaveLength(0)
   })
 
   it('sets "what I did right" to the TP reflection text', () => {
-    expect(applyCleanClose('tp', tp, sl, pd).whatRight).toBe('Closed clean at TP, plan followed')
+    expect(buildCleanClosePrefill('tp', tp, sl, pd).whatRight).toBe('Closed clean at TP, plan followed')
   })
 })
 
-// ─── applyCleanClose — SL path ────────────────────────────────────────────────
+// ─── buildCleanClosePrefill — SL path ────────────────────────────────────────
 
-describe('applyCleanClose("sl")', () => {
+describe('buildCleanClosePrefill("sl")', () => {
   const tp = 108500
   const sl = 107900
   const pd = 4
 
   it('pre-fills exit price with SL price', () => {
-    const r = applyCleanClose('sl', tp, sl, pd)
+    const r = buildCleanClosePrefill('sl', tp, sl, pd)
     expect(r.exitPriceStr).toBe(dbToDisplayPrice(sl, pd))
   })
 
   it('sets exitReason to "sl"', () => {
-    expect(applyCleanClose('sl', tp, sl, pd).exitReason).toBe('sl')
+    expect(buildCleanClosePrefill('sl', tp, sl, pd).exitReason).toBe('sl')
   })
 
   it('marks plan followed = true', () => {
-    expect(applyCleanClose('sl', tp, sl, pd).followedPlan).toBe(true)
+    expect(buildCleanClosePrefill('sl', tp, sl, pd).followedPlan).toBe(true)
   })
 
   it('leaves rules-broken list empty', () => {
-    expect(applyCleanClose('sl', tp, sl, pd).rulesBroken).toHaveLength(0)
+    expect(buildCleanClosePrefill('sl', tp, sl, pd).rulesBroken).toHaveLength(0)
   })
 
   it('sets "what I did right" to the SL reflection text', () => {
-    expect(applyCleanClose('sl', tp, sl, pd).whatRight).toBe('Closed clean at SL, plan followed')
+    expect(buildCleanClosePrefill('sl', tp, sl, pd).whatRight).toBe('Closed clean at SL, plan followed')
   })
 })
 

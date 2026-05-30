@@ -2,7 +2,12 @@ import { and, eq, gte, isNull, lte } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import type { CairnDb } from '../../db/index'
 import { listActiveCooldowns } from './cooldowns'
-import { dayEndUtc, dayStartUtc } from './helpers'
+import {
+  getConfiguredTimeZone,
+  tradingDayEnd,
+  tradingDayKey,
+  tradingDayStart,
+} from '../time/trading-day'
 import type {
   AccountRuleConfig,
   DraftTrade,
@@ -25,6 +30,7 @@ export function buildContext(
   } = {},
 ): RuleContext {
   const now = opts.now ?? Date.now()
+  const timeZone = getConfiguredTimeZone(db)
 
   const account = db
     .select()
@@ -39,8 +45,8 @@ export function buildContext(
     .where(eq(schema.accountRules.accountId, accountId))
     .all() as AccountRuleConfig[]
 
-  const todayStart = dayStartUtc(now)
-  const todayEnd = dayEndUtc(now)
+  const todayStart = tradingDayStart(now, timeZone)
+  const todayEnd = tradingDayEnd(now, timeZone)
   const tradesToday = db
     .select()
     .from(schema.trades)
@@ -62,7 +68,7 @@ export function buildContext(
     .all()
     .slice(-20) as unknown as TradeRecord[]
 
-  const todayDateStr = new Date(todayStart).toISOString().slice(0, 10)
+  const todayDateStr = tradingDayKey(now, timeZone)
   const sessionRow = db
     .select()
     .from(schema.sessions)
@@ -120,11 +126,13 @@ export function buildContext(
     accountRules,
     currentSession,
     tradeInProgress: opts.draft,
+    mode: (opts.draft?.mode ?? 'live') as 'live' | 'sim' | 'backtest',
     tradeModification: opts.modification,
     tradeUnderModification,
     tradesToday,
     recentTrades,
     now,
+    timeZone,
     activeCooldowns,
     killzones,
   }

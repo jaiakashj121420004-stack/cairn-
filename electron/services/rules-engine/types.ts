@@ -96,6 +96,7 @@ export interface DraftTrade {
   setupId: string
   killzoneId: string | null
   direction: TradeDirection
+  mode: 'live' | 'sim' | 'backtest'
   entryPrice: number
   stopLossPrice: number
   takeProfitPrice: number
@@ -126,11 +127,17 @@ export interface RuleContext {
   accountRules: AccountRuleConfig[]
   currentSession: SessionRecord | null
   tradeInProgress?: DraftTrade
+  /** Mode of the trade being evaluated. Timing rules (killzone, weekend) skip for non-live. */
+  mode: 'live' | 'sim' | 'backtest'
   tradeModification?: TradeModification
   tradeUnderModification?: TradeRecord
   tradesToday: TradeRecord[]
   recentTrades: TradeRecord[]
   now: number
+  /** IANA timezone used to bucket "today" — the single day definition shared
+   *  with the calendar (see services/time/trading-day.ts). Default
+   *  America/New_York. */
+  timeZone: string
   activeCooldowns: CooldownRecord[]
   killzones: KillzoneRecord[]
   tradingDaysCount?: number

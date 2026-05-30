@@ -17,7 +17,12 @@ import {
   type SessionStateDTO,
   type TradeModification,
 } from './types'
-import { dayStartUtc, dayEndUtc } from './helpers'
+import {
+  getConfiguredTimeZone,
+  tradingDayEnd,
+  tradingDayKey,
+  tradingDayStart,
+} from '../time/trading-day'
 
 const SEVERITY_RANK: Record<RuleEvaluation['severity'], number> = {
   blocking: 0,
@@ -195,8 +200,9 @@ function checkAndLockSession(db: CairnDb, accountId: string, ts: number): void {
   const hasFixed = fixedCfg && fixedCfg.enabled === 1
   if (!hasPct && !hasFixed) return
 
-  const todayStart = dayStartUtc(ts)
-  const todayEnd = dayEndUtc(ts)
+  const timeZone = getConfiguredTimeZone(db)
+  const todayStart = tradingDayStart(ts, timeZone)
+  const todayEnd = tradingDayEnd(ts, timeZone)
   const tradesToday = db
     .select()
     .from(schema.trades)
@@ -240,7 +246,7 @@ function checkAndLockSession(db: CairnDb, accountId: string, ts: number): void {
 
   if (!shouldLock) return
 
-  const todayDateStr = new Date(todayStart).toISOString().slice(0, 10)
+  const todayDateStr = tradingDayKey(ts, timeZone)
   const session = db
     .select()
     .from(schema.sessions)

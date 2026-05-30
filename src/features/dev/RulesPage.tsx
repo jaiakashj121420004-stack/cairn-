@@ -31,6 +31,7 @@ function makeBlankDraft(accountId: string, pairId: string, setupId: string): Dra
     setupId,
     killzoneId: null,
     direction: 'long',
+    mode: 'live',
     entryPrice: 108000,
     stopLossPrice: 107900,
     takeProfitPrice: 108200,

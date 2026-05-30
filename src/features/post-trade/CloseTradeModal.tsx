@@ -6,6 +6,7 @@ import { cn } from '../../lib/cn'
 import { formatCents, formatRMultiple } from '../../lib/formatters'
 import { useSessionStore } from '../../stores/session-store'
 import { useRAlerts } from '../../hooks/useRAlerts'
+import { buildCleanClosePrefill } from './clean-close-prefill'
 import type { TradeListItem, ExitReason, ScreenshotKind, PartialCloseInput } from '@shared/types/index'
 
 interface Props {
@@ -36,10 +37,6 @@ function priceToDb(floatStr: string, pipDecimal: number): number {
   const n = parseFloat(floatStr)
   if (isNaN(n)) return 0
   return Math.round(n * Math.pow(10, pipDecimal + 1))
-}
-
-function dbToDisplayPrice(dbInt: number, pipDecimal: number): string {
-  return (dbInt / Math.pow(10, pipDecimal + 1)).toFixed(pipDecimal + 1)
 }
 
 function computePreview(
@@ -264,7 +261,7 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
     setHasFlaggedViolations(false)
 
     const tradeId = trade?.id
-    Promise.all([
+    void Promise.all([
       ipc.rules.listAvailable(),
       tradeId ? ipc.trades.get(tradeId) : Promise.resolve(null),
     ]).then(([rulesRes, tradeDetailRes]) => {
@@ -274,8 +271,10 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
       } else {
         setHasFlaggedViolations(false)
       }
+    }).catch(() => {
+      toast('Failed to load trade details.', 'error')
     })
-  }, [open, trade?.id])
+  }, [open, trade?.id, toast])
 
   // Auto-check rules based on honesty answers
   useEffect(() => {
@@ -321,19 +320,17 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
 
   function applyCleanClose(type: 'tp' | 'sl') {
     if (!trade) return
-    const now = new Date()
-    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-    const dbPrice = type === 'tp' ? trade.takeProfitPrice : trade.stopLossPrice
-    setExitPriceStr(dbToDisplayPrice(dbPrice, trade.pairPipDecimal))
-    setExitTimeStr(local.toISOString().slice(0, 16))
-    setExitReason(type === 'tp' ? 'tp' : 'sl')
-    setFollowedPlan(true)
-    setPlanChanges('')
-    setSlMoved(false)
-    setSlMovedReason('')
-    setEnteredBeforeMss(false)
-    setRulesBroken([])
-    setWhatRight(type === 'tp' ? 'Closed clean at TP, plan followed' : 'Closed clean at SL, plan followed')
+    const p = buildCleanClosePrefill(type, trade.takeProfitPrice, trade.stopLossPrice, trade.pairPipDecimal)
+    setExitPriceStr(p.exitPriceStr)
+    setExitTimeStr(p.exitTimeStr)
+    setExitReason(p.exitReason)
+    setFollowedPlan(p.followedPlan)
+    setPlanChanges(p.planChanges)
+    setSlMoved(p.slMoved)
+    setSlMovedReason(p.slMovedReason)
+    setEnteredBeforeMss(p.enteredBeforeMss)
+    setRulesBroken(p.rulesBroken)
+    setWhatRight(p.whatRight)
   }
 
   const handleAddScreenshots = useCallback(async () => {

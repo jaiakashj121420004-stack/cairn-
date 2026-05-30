@@ -88,11 +88,3 @@ export function activeCooldownsNow(
   return cooldowns.filter((c) => c.clearedAt === null && c.expiresAt > now)
 }
 
-export function dayStartUtc(ts: number): number {
-  const d = new Date(ts)
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
-}
-
-export function dayEndUtc(ts: number): number {
-  return dayStartUtc(ts) + 24 * 60 * MINUTE_MS
-}

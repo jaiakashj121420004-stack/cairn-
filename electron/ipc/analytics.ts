@@ -54,6 +54,7 @@ import {
   getPhaseTrend,
 } from '../services/analytics/phases'
 import { createReview, listReviews } from '../services/analytics/reviews'
+import { getConfiguredTimeZone } from '../services/time/trading-day'
 
 function err(e: unknown): IpcResponse<never> {
   return { ok: false, error: { code: 'ANALYTICS_ERROR', message: String(e) } }
@@ -71,7 +72,7 @@ export function registerAnalyticsHandlers(): void {
           equityCurve,
           distribution: getRDistribution(db, filter),
           streaks: getStreaks(db, filter),
-          dailyHeatmap: getDailyHeatmap(db, filter),
+          dailyHeatmap: getDailyHeatmap(db, filter, getConfiguredTimeZone(db)),
           maxDrawdownCents: getMaxDrawdownCents(equityCurve),
           ddLimitCents: null,
         }

@@ -7,33 +7,38 @@ describe('EMOTION_PRESETS', () => {
   })
 
   it('Focused preset values match spec', () => {
-    const p = EMOTION_PRESETS.find((x) => x.id === 'focused')!
+    const p = EMOTION_PRESETS.find((x) => x.id === 'focused')
+    if (!p) throw new Error('test: focused preset not found')
     expect(p.calmScore).toBe(8)
     expect(p.urgencyScore).toBe(3)
     expect(p.needScore).toBe(2)
   })
 
   it('Neutral preset values match spec', () => {
-    const p = EMOTION_PRESETS.find((x) => x.id === 'neutral')!
+    const p = EMOTION_PRESETS.find((x) => x.id === 'neutral')
+    if (!p) throw new Error('test: neutral preset not found')
     expect(p.calmScore).toBe(6)
     expect(p.urgencyScore).toBe(5)
     expect(p.needScore).toBe(4)
   })
 
   it('Tilted preset values match spec', () => {
-    const p = EMOTION_PRESETS.find((x) => x.id === 'tilted')!
+    const p = EMOTION_PRESETS.find((x) => x.id === 'tilted')
+    if (!p) throw new Error('test: tilted preset not found')
     expect(p.calmScore).toBe(4)
     expect(p.urgencyScore).toBe(8)
     expect(p.needScore).toBe(7)
   })
 
   it('Tilted urgencyScore exceeds the emotional_state_gate default maxUrgency of 7', () => {
-    const tilted = EMOTION_PRESETS.find((x) => x.id === 'tilted')!
+    const tilted = EMOTION_PRESETS.find((x) => x.id === 'tilted')
+    if (!tilted) throw new Error('test: tilted preset not found')
     expect(tilted.urgencyScore).toBeGreaterThan(7)
   })
 
   it('Tilted needScore exceeds the emotional_state_gate default maxNeed of 6', () => {
-    const tilted = EMOTION_PRESETS.find((x) => x.id === 'tilted')!
+    const tilted = EMOTION_PRESETS.find((x) => x.id === 'tilted')
+    if (!tilted) throw new Error('test: tilted preset not found')
     expect(tilted.needScore).toBeGreaterThan(6)
   })
 

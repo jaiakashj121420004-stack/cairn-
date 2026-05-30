@@ -222,7 +222,8 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
         setInheritedFields(inherited)
       }
     })
-  }, [open, selectedAccountId]) // lastCtx intentionally excluded — snapshot at open time
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- lastCtx is a snapshot: read once when panel opens, must not re-trigger on later changes
+  }, [open, selectedAccountId])
 
   // Auto-check HTF bias aligned when direction changes
   useEffect(() => {
@@ -308,6 +309,7 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
       setupId: form.setupId,
       killzoneId: form.killzoneId || null,
       direction: form.direction,
+      mode: form.mode,
       entryPrice: entryDb,
       stopLossPrice: slDb,
       takeProfitPrice: tpDb,
@@ -785,7 +787,6 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
                     }}
                     placeholder="Describe the exact conditions that would invalidate this trade…"
                     className="w-full rounded-[10px] border border-border bg-surface-elevated px-3 py-2 text-body-sm text-text-primary placeholder:text-text-muted resize-none focus:border-accent-a focus:outline-none"
-                    // eslint-disable-next-line jsx-a11y/no-autofocus
                     autoFocus={showCustom}
                   />
                 )}

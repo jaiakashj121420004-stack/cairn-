@@ -22,6 +22,7 @@ export interface DraftTradeInput {
   setupId: string
   killzoneId?: string | null
   direction: TradeDirection
+  mode: TradeMode
   entryPrice: number
   stopLossPrice: number
   takeProfitPrice: number

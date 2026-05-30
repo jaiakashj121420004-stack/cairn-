@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
@@ -35,8 +35,13 @@ export function Modal({
 }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const previousFocusRef = useRef<Element | null>(null)
+  // Stable ref so the focus-trap effect never needs to re-run when onClose changes.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => { onCloseRef.current = onClose })
 
-  // Focus trap + restore
+  // Focus trap + restore — depends only on `open` so inline onClose callbacks
+  // in parent components don't cause the overflow/focus cycle on every render.
+  const stableClose = useCallback(() => onCloseRef.current(), [])
   useEffect(() => {
     if (!open) return
 
@@ -51,7 +56,7 @@ export function Modal({
 
     function handleKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        onClose()
+        stableClose()
         return
       }
       if (e.key !== 'Tab') return
@@ -88,7 +93,7 @@ export function Modal({
       const prev = previousFocusRef.current
       if (prev instanceof HTMLElement) prev.focus()
     }
-  }, [open, onClose])
+  }, [open, stableClose])
 
   return createPortal(
     <AnimatePresence>

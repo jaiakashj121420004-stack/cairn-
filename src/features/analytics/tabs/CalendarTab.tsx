@@ -179,7 +179,7 @@ export function CalendarTab() {
 
                 const isToday = cell.date === todayStr
                 const hasTrades = cell.data !== null && cell.data.tradeCount > 0
-                const bgColor = hasTrades ? cellBackground(cell.data!.pnlCents, maxAbsPnl) : ''
+                const bgColor = hasTrades ? cellBackground(cell.data?.pnlCents ?? 0, maxAbsPnl) : ''
                 const isHovered = hoveredDate === cell.date
 
                 const winRatePct = cell.data && cell.data.tradeCount > 0
@@ -193,7 +193,7 @@ export function CalendarTab() {
                     tabIndex={hasTrades ? 0 : -1}
                     aria-label={
                       hasTrades
-                        ? `${cell.date}: ${cell.data!.tradeCount} trades, ${formatCents(cell.data!.pnlCents)}`
+                        ? `${cell.date}: ${cell.data?.tradeCount ?? 0} trades, ${formatCents(cell.data?.pnlCents ?? 0)}`
                         : cell.date
                     }
                     onClick={() => hasTrades && handleDayClick(cell.date)}
@@ -226,12 +226,12 @@ export function CalendarTab() {
                       <div className="mt-1 space-y-0.5">
                         <p className={cn(
                           'text-micro font-mono font-semibold',
-                          cell.data!.pnlCents >= 0 ? 'text-accent-a' : 'text-danger',
+                          (cell.data?.pnlCents ?? 0) >= 0 ? 'text-accent-a' : 'text-danger',
                         )}>
-                          {formatCents(cell.data!.pnlCents)}
+                          {formatCents(cell.data?.pnlCents ?? 0)}
                         </p>
                         <p className="text-micro text-text-muted">
-                          {cell.data!.tradeCount} trade{cell.data!.tradeCount !== 1 ? 's' : ''}
+                          {cell.data?.tradeCount ?? 0} trade{(cell.data?.tradeCount ?? 0) !== 1 ? 's' : ''}
                         </p>
                       </div>
                     )}
@@ -243,15 +243,15 @@ export function CalendarTab() {
                         className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-[8px] border border-border bg-surface-elevated px-3 py-2 shadow-lg text-caption"
                       >
                         <p className="font-semibold text-text-primary mb-1">{cell.date}</p>
-                        <p className="text-text-secondary">{cell.data!.tradeCount} trade{cell.data!.tradeCount !== 1 ? 's' : ''}</p>
+                        <p className="text-text-secondary">{cell.data?.tradeCount ?? 0} trade{(cell.data?.tradeCount ?? 0) !== 1 ? 's' : ''}</p>
                         {winRatePct !== null && (
                           <p className="text-text-secondary">Win rate: {winRatePct}%</p>
                         )}
                         <p className={cn(
                           'font-mono font-semibold',
-                          cell.data!.pnlCents >= 0 ? 'text-accent-a' : 'text-danger',
+                          (cell.data?.pnlCents ?? 0) >= 0 ? 'text-accent-a' : 'text-danger',
                         )}>
-                          {formatCents(cell.data!.pnlCents)}
+                          {formatCents(cell.data?.pnlCents ?? 0)}
                         </p>
                       </div>
                     )}

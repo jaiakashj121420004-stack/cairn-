@@ -3,11 +3,19 @@ import { eq, and } from 'drizzle-orm'
 import { z } from 'zod'
 import { v7 as uuidv7 } from 'uuid'
 import { getDb } from '../db/index'
+import type { CairnDb } from '../db/index'
 import * as schema from '../db/schema'
 import type { IpcResponse, Session, CreateSessionInput } from '../../shared/types/index'
+import { getConfiguredTimeZone, tradingDayKey } from '../services/time/trading-day'
 
-function todayUtc(): string {
-  return new Date().toISOString().slice(0, 10)
+/**
+ * The session date key for "today", bucketed in the user's configured timezone
+ * — the same day definition the rules engine and calendar use (see
+ * services/time/trading-day.ts). Keeping this consistent ensures the circuit
+ * breaker locks the same session row the UI created for the day.
+ */
+function sessionDateToday(db: CairnDb): string {
+  return tradingDayKey(Date.now(), getConfiguredTimeZone(db))
 }
 
 function mapRow(row: typeof schema.sessions.$inferSelect): Session {
@@ -59,7 +67,7 @@ export function registerSessionHandlers(): void {
         .where(
           and(
             eq(schema.sessions.accountId, raw.accountId),
-            eq(schema.sessions.sessionDate, todayUtc()),
+            eq(schema.sessions.sessionDate, sessionDateToday(db)),
           ),
         )
         .get()
@@ -76,7 +84,7 @@ export function registerSessionHandlers(): void {
     }
     try {
       const db = getDb()
-      const today = todayUtc()
+      const today = sessionDateToday(db)
 
       // Guard: return existing if already logged today
       const existing = db

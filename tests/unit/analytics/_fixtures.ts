@@ -357,7 +357,9 @@ export function seedTrades(
         actualEntryPrice: null,
         actualEntryTime: null,
         exitPrice: null,
-        exitTime: null,
+        // Closed trades carry an exit_time (the calendar buckets by it). Use the
+        // trade timestamp so day-rollups stay deterministic.
+        exitTime: t,
         exitReason: s.pnlR > 0 ? 'tp' : 'sl',
         pnlCents: s.pnlCents,
         pnlR: s.pnlR,
@@ -417,6 +419,89 @@ export function seedSingleTrade(db: CairnDb, ids: FixtureIds): string {
   const tradeIds = seedTrades(db, ids, [firstTrade], ids.accountId)
   const id = tradeIds[0]
   if (!id) throw new Error('test fixtures: seedTrades returned no ids')
+  return id
+}
+
+export interface SeedTradeRowOpts {
+  createdAt?: number
+  updatedAt?: number
+  /** `undefined` → defaults to createdAt; pass `null` explicitly for no exit. */
+  exitTime?: number | null
+  status?: 'planned' | 'open' | 'closed' | 'cancelled'
+  pnlCents?: number | null
+  pnlR?: number | null
+  accountId?: string
+}
+
+/**
+ * Insert a single trade with sensible defaults and targeted overrides. Used by
+ * timezone / exit_time bucketing tests that need precise timestamps rather than
+ * the day-indexed TRADES_12 fixture. Returns the new trade id.
+ */
+export function seedTradeRow(db: CairnDb, ids: FixtureIds, opts: SeedTradeRowOpts = {}): string {
+  const createdAt = opts.createdAt ?? BASE_DATE_MS
+  const id = uuidv7()
+  db.insert(schema.trades)
+    .values({
+      id,
+      accountId: opts.accountId ?? ids.accountId,
+      sessionId: null,
+      pairId: ids.pairId1,
+      setupId: ids.setupId1,
+      killzoneId: ids.killzoneId1,
+      mode: 'live',
+      direction: 'long',
+      status: opts.status ?? 'closed',
+      entryPrice: 10800,
+      stopLossPrice: 10790,
+      takeProfitPrice: 10820,
+      slPips: 100,
+      rrRatio: 200,
+      lotSize: 50,
+      riskAmountCents: 10000,
+      riskPctBps: 100,
+      plannedInvalidation: 'x',
+      mssConfirmed: 1,
+      htfBiasAligned: 1,
+      dxyAligned: null,
+      smtConfirmed: null,
+      correlatedPairUsed: null,
+      preCalmScore: 8,
+      preUrgencyScore: 3,
+      preNeedScore: 2,
+      actualEntryPrice: null,
+      actualEntryTime: null,
+      exitPrice: null,
+      exitTime: opts.exitTime === undefined ? createdAt : opts.exitTime,
+      exitReason: null,
+      pnlCents: opts.pnlCents === undefined ? 10000 : opts.pnlCents,
+      pnlR: opts.pnlR === undefined ? 100 : opts.pnlR,
+      pnlPctBps: null,
+      maxDrawdownDuringTradePctBps: null,
+      maePips: null,
+      mfePips: null,
+      durationMinutes: null,
+      followedPlanExactly: null,
+      planChangesDescription: null,
+      slMoved: 0,
+      slMovedReason: null,
+      tpMoved: 0,
+      enteredBeforeMss: 0,
+      revengeTradeFlag: 0,
+      rulesBroken: null,
+      isClean: null,
+      postCalmScore: null,
+      whatIDidRight: null,
+      whatIDidWrong: null,
+      tags: null,
+      brokerSource: null,
+      brokerTradeId: null,
+      importedAt: null,
+      createdAt,
+      updatedAt: opts.updatedAt ?? createdAt,
+      deletedAt: null,
+    })
+    .run()
   return id
 }
 

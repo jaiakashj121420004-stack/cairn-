@@ -18,6 +18,10 @@ function evaluate(ctx: RuleContext, configUnknown: unknown): RuleEvaluation {
       canOverride: false,
     }
   }
+  // Sim/backtest trades are not real positions — no weekend exposure risk.
+  if (ctx.mode !== 'live') {
+    return { ruleKey: rule.key, ruleLabel: rule.label, passed: true, severity: 'info', message: 'Weekend check skipped for non-live mode', canOverride: true }
+  }
   if (ctx.account.weekendHoldingAllowed === 1) {
     return {
       ruleKey: rule.key,

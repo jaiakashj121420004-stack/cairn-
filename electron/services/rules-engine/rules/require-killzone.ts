@@ -30,6 +30,10 @@ function evaluate(ctx: RuleContext, configUnknown: unknown): RuleEvaluation {
       canOverride: true,
     }
   }
+  // Sim/backtest trades have no live exposure — killzone timing is not enforced.
+  if (ctx.mode !== 'live') {
+    return { ruleKey: rule.key, ruleLabel: rule.label, passed: true, severity: 'info', message: 'Killzone check skipped for non-live mode', canOverride: true }
+  }
   const ts = draft.timestamp ?? ctx.now
   const current = findEnclosingKillzone(ctx.killzones, ts)
   const ids = parsed.data.zoneIds

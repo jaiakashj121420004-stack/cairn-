@@ -1,10 +1,12 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll } from 'vitest'
+import { eq } from 'drizzle-orm'
 import {
   ensureSqlJs,
   makeTestDb,
   seedAnalyticsFixtures,
   seedSingleTrade,
+  seedTradeRow,
   EXPECTED,
   TRADES_12,
 } from './_fixtures'
@@ -16,7 +18,13 @@ import {
   getDailyHeatmap,
   getMaxDrawdownCents,
 } from '../../../electron/services/analytics/performance'
+import { buildContext } from '../../../electron/services/rules-engine/context-builder'
+import { tradingDayKey } from '../../../electron/services/time/trading-day'
+import * as schema from '../../../electron/db/schema'
 import type { AnalyticsFilter } from '../../../shared/types/index'
+
+/** The app's default day-bucketing timezone (see CLAUDE.md §14 #16). */
+const NY = 'America/New_York'
 
 beforeAll(ensureSqlJs)
 
@@ -135,13 +143,13 @@ describe('performance.getStreaks', () => {
 describe('performance.getDailyHeatmap', () => {
   it('empty on empty', () => {
     const { db } = makeTestDb()
-    expect(getDailyHeatmap(db, BASE_FILTER)).toEqual([])
+    expect(getDailyHeatmap(db, BASE_FILTER, NY)).toEqual([])
   })
 
   it('aggregates per day, sums match totals', () => {
     const { db, ids } = makeTestDb()
     seedAnalyticsFixtures(db, ids)
-    const cells = getDailyHeatmap(db, BASE_FILTER)
+    const cells = getDailyHeatmap(db, BASE_FILTER, NY)
     const total = cells.reduce((s, c) => s + c.pnlCents, 0)
     const tradeSum = cells.reduce((s, c) => s + c.tradeCount, 0)
     expect(total).toBe(EXPECTED.netPnlCents)
@@ -151,7 +159,7 @@ describe('performance.getDailyHeatmap', () => {
   it('winCount per day matches wins from TRADES_12', () => {
     const { db, ids } = makeTestDb()
     seedAnalyticsFixtures(db, ids)
-    const cells = getDailyHeatmap(db, BASE_FILTER)
+    const cells = getDailyHeatmap(db, BASE_FILTER, NY)
 
     // dayIdx 0 has T1 (win) + T2 (loss) → winCount 1
     const day0 = cells.find((c) => c.date.endsWith('-20'))
@@ -173,12 +181,73 @@ describe('performance.getDailyHeatmap', () => {
   it('each cell has the winCount field', () => {
     const { db, ids } = makeTestDb()
     seedAnalyticsFixtures(db, ids)
-    const cells = getDailyHeatmap(db, BASE_FILTER)
+    const cells = getDailyHeatmap(db, BASE_FILTER, NY)
     for (const c of cells) {
       expect(typeof c.winCount).toBe('number')
       expect(c.winCount).toBeGreaterThanOrEqual(0)
       expect(c.winCount).toBeLessThanOrEqual(c.tradeCount)
     }
+  })
+
+  it('buckets a trade by exit_time in the configured timezone, not UTC (near local midnight)', () => {
+    const { db, ids } = makeTestDb()
+    // Apr 21 02:00 UTC == Apr 20 22:00 America/New_York (EDT, UTC-4).
+    const ts = Date.UTC(2026, 3, 21, 2, 0, 0)
+    seedTradeRow(db, ids, { createdAt: ts, exitTime: ts, pnlCents: -5000, pnlR: -100 })
+
+    const nyCells = getDailyHeatmap(db, BASE_FILTER, NY)
+    expect(nyCells.map((c) => c.date)).toEqual(['2026-04-20'])
+
+    // The same instant under UTC would fall on the 21st — proves the tz is honoured.
+    const utcCells = getDailyHeatmap(db, BASE_FILTER, 'UTC')
+    expect(utcCells.map((c) => c.date)).toEqual(['2026-04-21'])
+  })
+
+  it('keeps a trade in its exit_time cell when the row is later edited (updated_at bumped)', () => {
+    const { db, ids } = makeTestDb()
+    const exitTs = Date.UTC(2026, 3, 20, 18, 0, 0) // Apr 20 14:00 EDT → New York Apr 20
+    const id = seedTradeRow(db, ids, { createdAt: exitTs, updatedAt: exitTs, exitTime: exitTs })
+
+    const before = getDailyHeatmap(db, BASE_FILTER, NY)
+    expect(before.map((c) => c.date)).toEqual(['2026-04-20'])
+
+    // Simulate editing the trade five days later: only updated_at changes.
+    db.update(schema.trades)
+      .set({ updatedAt: Date.UTC(2026, 3, 25, 12, 0, 0) })
+      .where(eq(schema.trades.id, id))
+      .run()
+
+    const after = getDailyHeatmap(db, BASE_FILTER, NY)
+    expect(after.map((c) => c.date)).toEqual(['2026-04-20'])
+  })
+
+  it('agrees with the rules engine on which day a trade belongs to', () => {
+    const { db, ids } = makeTestDb()
+    // A trade that is "tomorrow" in UTC but "today" in New York.
+    const ts = Date.UTC(2026, 3, 21, 2, 0, 0)
+    seedTradeRow(db, ids, { createdAt: ts, exitTime: ts })
+
+    const cells = getDailyHeatmap(db, BASE_FILTER, NY)
+    expect(cells.length).toBe(1)
+    const cell = cells[0]
+    if (!cell) throw new Error('test: expected exactly one heatmap cell')
+
+    // The rules engine buckets the same trade into "today" for `now === ts`,
+    // using the same timezone-aware day key — calendar and rules engine agree.
+    const ctx = buildContext(db, ids.accountId, { now: ts })
+    expect(ctx.timeZone).toBe(NY)
+    expect(ctx.tradesToday.length).toBe(1)
+    expect(cell.date).toBe(tradingDayKey(ts, ctx.timeZone))
+  })
+
+  it('excludes trades with null exit_time so they never create a phantom day', () => {
+    const { db, ids } = makeTestDb()
+    const day = Date.UTC(2026, 3, 20, 15, 0, 0)
+    // An open trade (no exit yet) and a bad-data closed trade missing its exit_time.
+    seedTradeRow(db, ids, { createdAt: day, exitTime: null, status: 'open', pnlCents: null, pnlR: null })
+    seedTradeRow(db, ids, { createdAt: day, exitTime: null, status: 'closed' })
+
+    expect(getDailyHeatmap(db, BASE_FILTER, NY)).toEqual([])
   })
 })
 

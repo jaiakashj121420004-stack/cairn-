@@ -5,7 +5,7 @@ import { Button, Select, Modal, useToast } from '../../components/ui'
 import { StatCard } from '../../components/analytics/StatCard'
 import { ipc } from '../../lib/ipc'
 import { useSessionStore } from '../../stores/session-store'
-import { slideUp, staggerContainer, staggerItem, duration } from '../../lib/motion'
+import { staggerContainer, staggerItem, duration } from '../../lib/motion'
 import { formatCents, formatRMultiple, formatPercent } from '../../lib/formatters'
 import { cn } from '../../lib/cn'
 import type {

@@ -1,6 +1,7 @@
 import type { RuleContext, SessionStateDTO } from './types'
 import { getRule, listRules } from './registry'
-import { activeCooldownsNow, dayEndUtc } from './helpers'
+import { activeCooldownsNow } from './helpers'
+import { tradingDayEnd } from '../time/trading-day'
 
 export function deriveSessionState(ctx: RuleContext): SessionStateDTO {
   const active = activeCooldownsNow(ctx.activeCooldowns, ctx.now)
@@ -17,7 +18,7 @@ export function deriveSessionState(ctx: RuleContext): SessionStateDTO {
       return {
         state: 'locked',
         lockedReason: `${r.label}: ${result.message}`,
-        unlockAt: dayEndUtc(ctx.now),
+        unlockAt: tradingDayEnd(ctx.now, ctx.timeZone),
         activeCooldowns: active,
       }
     }

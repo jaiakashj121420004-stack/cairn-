@@ -26,6 +26,7 @@ const DraftTradeSchema = z.object({
   setupId: z.string().min(1),
   killzoneId: z.string().nullable().optional(),
   direction: z.enum(['long', 'short']),
+  mode: z.enum(['live', 'sim', 'backtest']).default('live'),
   entryPrice: z.number().int(),
   stopLossPrice: z.number().int(),
   takeProfitPrice: z.number().int(),

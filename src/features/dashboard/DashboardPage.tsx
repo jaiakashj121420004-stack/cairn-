@@ -293,6 +293,8 @@ export function DashboardPage() {
   const { newTradeRequested, biasRequested, setNewTradeRequested, setBiasRequested } = useUiStore()
   const [biasOpen, setBiasOpen] = useState(false)
   const [tradeOpen, setTradeOpen] = useState(false)
+  const handleBiasClose = useCallback(() => setBiasOpen(false), [])
+  const handleTradeClose = useCallback(() => setTradeOpen(false), [])
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(false)
   const [drafts, setDrafts] = useState<TradeListItem[]>([])
@@ -860,10 +862,10 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <SessionBiasModal open={biasOpen} onClose={() => setBiasOpen(false)} />
+      <SessionBiasModal open={biasOpen} onClose={handleBiasClose} />
       <PreTradePanel
         open={tradeOpen}
-        onClose={() => setTradeOpen(false)}
+        onClose={handleTradeClose}
         onTradeCreated={() => {
           void refresh()
           void loadStats()

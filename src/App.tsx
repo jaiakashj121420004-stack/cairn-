@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { MotionConfig } from 'framer-motion'
 import { ToastProvider } from './components/ui/toast'
 import { Router } from './router'
 import { OnboardingFlow } from './features/onboarding/OnboardingFlow'
@@ -24,12 +25,14 @@ export default function App() {
   }
 
   return (
-    <ToastProvider>
-      {appState === 'onboarding' ? (
-        <OnboardingFlow onComplete={() => setAppState('app')} />
-      ) : (
-        <Router />
-      )}
-    </ToastProvider>
+    <MotionConfig reducedMotion="user">
+      <ToastProvider>
+        {appState === 'onboarding' ? (
+          <OnboardingFlow onComplete={() => setAppState('app')} />
+        ) : (
+          <Router />
+        )}
+      </ToastProvider>
+    </MotionConfig>
   )
 }

@@ -253,6 +253,7 @@ export function SessionBiasModal({ open, onClose }: Props) {
 
   return (
     <Modal open={open} onClose={onClose} title={title} maxWidth="600px">
+      <div className="max-h-[70vh] overflow-y-auto pr-1">
       {locked && (
         <div className="mb-4 flex items-center gap-2 rounded-[10px] border border-border bg-surface px-3 py-2.5">
           <Lock className="h-3.5 w-3.5 shrink-0 text-text-muted" strokeWidth={1.5} />
@@ -334,9 +335,10 @@ export function SessionBiasModal({ open, onClose }: Props) {
           <KeyLevelsInput value={keyLevels} onChange={setKeyLevels} disabled={locked} />
         </div>
       </div>
+      </div>{/* end scroll wrapper */}
 
       {!locked && (
-        <div className="mt-6 flex justify-end gap-2">
+        <div className="mt-6 flex justify-end gap-2 border-t border-border pt-4">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <Button onClick={() => void handleSave()} loading={saving} disabled={!canSave}>
             {todaySession ? 'Update session' : 'Log session'}

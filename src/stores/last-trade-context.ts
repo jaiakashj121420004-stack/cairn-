@@ -20,7 +20,7 @@ export interface LastTradeContext {
 
 interface LastTradeContextStore {
   context: LastTradeContext | null
-  /** Call after a trade is successfully placed (status open) or saved as draft. */
+  /** Call after a trade is successfully placed (status open). Draft saves do not set context. */
   setContext: (ctx: Omit<LastTradeContext, 'timestamp'>) => void
   clear: () => void
 }

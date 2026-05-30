@@ -37,10 +37,7 @@ async function openSelect(page: import('@playwright/test').Page, placeholder: st
  *
  * HTML structure:
  *   <p>questionText</p>
- *   <div class="flex gap-2">
- *     <button>Yes</button>
- *     <button>No</button>
- *   </div>
+ *   <div class="flex gap-2"><button>Yes</button><button>No</button></div>
  */
 async function answerYesNo(
   page: import('@playwright/test').Page,
@@ -65,6 +62,10 @@ test('smoke: onboard → session bias → place trade → close trade → analyt
   })
 
   const page = await app.firstWindow()
+  // Reduced-motion makes the app set MotionGlobalConfig.skipAnimations = true, so all
+  // Framer Motion animations complete instantly. Without this, spring/AnimatePresence
+  // transitions leave modal elements perpetually "unstable" for Playwright in Electron.
+  await page.emulateMedia({ reducedMotion: 'reduce' })
   // Capture any renderer-process console errors during the run.
   page.on('pageerror', (err) => console.error('[renderer]', err))
 
@@ -77,7 +78,7 @@ test('smoke: onboard → session bias → place trade → close trade → analyt
 
     // Step 1 — Prop firm
     await expect(page.getByText('Name your prop firm.')).toBeVisible()
-    await page.getByLabel('Firm name').fill('Test Firm')
+    await page.getByPlaceholder('e.g. FTMO, My Forex Funds').fill('Test Firm')
     await page.getByRole('button', { name: 'Continue' }).click()
 
     // Step 2 — Template (skip)
@@ -85,8 +86,8 @@ test('smoke: onboard → session bias → place trade → close trade → analyt
     await page.getByRole('button', { name: 'Skip' }).click()
 
     // Step 3 — Account
-    await expect(page.getByText('Create your account.')).toBeVisible()
-    await page.getByLabel('Display name').fill('Smoke Account')
+    await expect(page.getByText('Create your first account.')).toBeVisible()
+    await page.getByPlaceholder('e.g. Phase 1 — Jan 2026').fill('Smoke Account')
     await page.getByRole('button', { name: 'Continue' }).click()
 
     // Step 4 — Review defaults
@@ -109,28 +110,30 @@ test('smoke: onboard → session bias → place trade → close trade → analyt
 
     // Wait for the dashboard heading and account name badge to confirm full load.
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
-    // The account name badge confirms selectedAccountId is set and stats are loaded.
-    await expect(page.getByText('Smoke Account')).toBeVisible()
+    // The account selector button shows the account name, confirming selectedAccountId is set.
+    await expect(page.getByRole('button', { name: 'Smoke Account' })).toBeVisible()
 
     // ── 3. LOG SESSION BIAS ───────────────────────────────────────────────────
 
     // Open the session bias modal via the header button.
     await page.getByRole('button', { name: 'Log Bias' }).first().click()
-    await expect(page.getByText('Log Session Bias')).toBeVisible()
+    const biasDialog = page.locator('[role="dialog"]')
+    await expect(biasDialog.getByText('Log Session Bias')).toBeVisible()
 
+    // "Bullish" appears for Daily / 4H / 1H / DXY — scope to the dialog and index by row.
     // Daily bias — Bullish
-    await page.getByRole('button', { name: 'Bullish' }).nth(0).click()
+    await biasDialog.getByRole('button', { name: 'Bullish' }).nth(0).click()
     await page.getByPlaceholder('Why daily bias is bullish').fill('London price action bullish')
 
     // 4H bias — Bullish
-    await page.getByRole('button', { name: 'Bullish' }).nth(1).click()
+    await biasDialog.getByRole('button', { name: 'Bullish' }).nth(1).click()
     await page.getByPlaceholder('Why 4h bias is bullish').fill('4H order block respected')
 
     // 1H bias — Bullish
-    await page.getByRole('button', { name: 'Bullish' }).nth(2).click()
+    await biasDialog.getByRole('button', { name: 'Bullish' }).nth(2).click()
     await page.getByPlaceholder('Why 1h bias is bullish').fill('1H structure trending up')
 
-    await page.getByRole('button', { name: 'Log session' }).click()
+    await biasDialog.getByRole('button', { name: 'Log session' }).click()
     await expect(page.getByText('Session bias logged.')).toBeVisible({ timeout: 8_000 })
 
     // ── 4. PLACE A TRADE ──────────────────────────────────────────────────────
@@ -148,6 +151,9 @@ test('smoke: onboard → session bias → place trade → close trade → analyt
     await openSelect(page, 'Select setup…')
     await page.getByRole('option', { name: 'FVG' }).click()
 
+    // Mode — Sim (avoids weekend/live-only rules during CI runs)
+    await page.getByRole('button', { name: 'Sim' }).click()
+
     // Direction — Long (auto-sets HTF bias aligned since daily = Bullish)
     await page.getByRole('button', { name: 'Long' }).click()
 
@@ -156,7 +162,12 @@ test('smoke: onboard → session bias → place trade → close trade → analyt
     await page.locator('label:text-is("Stop loss") + input').fill('1.08200')
     await page.locator('label:text-is("Take profit") + input').fill('1.09100')
 
-    // Invalidation — must be ≥ 20 characters
+    // MSS confirmed (required by require_mss_confirmation blocking rule).
+    // The input is sr-only; clicking its label toggles it.
+    await page.getByText('MSS confirmed').click()
+
+    // Invalidation — click Custom… to reveal the free-text textarea, then fill
+    await page.getByRole('button', { name: 'Custom…' }).click()
     await page
       .getByPlaceholder('Describe the exact conditions that would invalidate this trade…')
       .fill('If price closes back below the order block')
