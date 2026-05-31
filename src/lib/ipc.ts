@@ -43,6 +43,7 @@ import type {
   SetupPerformanceStats,
   BehavioralStats,
   AccountsPhaseStats,
+  DerivedStats,
   ReviewSummary,
   CreateReviewInput,
   BackupLogEntry,
@@ -161,6 +162,7 @@ declare global {
         setups: (filter: AnalyticsFilter) => Promise<IpcResponse<SetupPerformanceStats>>
         behavioral: (filter: AnalyticsFilter) => Promise<IpcResponse<BehavioralStats>>
         phases: () => Promise<IpcResponse<AccountsPhaseStats>>
+        derived: (filter: AnalyticsFilter) => Promise<IpcResponse<DerivedStats>>
         listReviews: (accountId?: string | null) => Promise<IpcResponse<ReviewSummary[]>>
         createReview: (input: CreateReviewInput) => Promise<IpcResponse<ReviewSummary>>
       }
@@ -342,6 +344,8 @@ export const ipc = {
     behavioral: (filter: AnalyticsFilter): Promise<IpcResponse<BehavioralStats>> =>
       window.api.analytics.behavioral(filter),
     phases: (): Promise<IpcResponse<AccountsPhaseStats>> => window.api.analytics.phases(),
+    derived: (filter: AnalyticsFilter): Promise<IpcResponse<DerivedStats>> =>
+      window.api.analytics.derived(filter),
     listReviews: (accountId?: string | null): Promise<IpcResponse<ReviewSummary[]>> =>
       window.api.analytics.listReviews(accountId ?? null),
     createReview: (input: CreateReviewInput): Promise<IpcResponse<ReviewSummary>> =>

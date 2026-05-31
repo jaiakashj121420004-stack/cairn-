@@ -29,6 +29,9 @@ importers:
       date-fns-tz:
         specifier: ^3.2.0
         version: 3.2.0(date-fns@4.1.0)
+      decimal.js:
+        specifier: ^10.6.0
+        version: 10.6.0
       drizzle-orm:
         specifier: ^0.38.0
         version: 0.38.4(@types/better-sqlite3@7.6.13)(@types/react@18.3.28)(@types/sql.js@1.4.11)(better-sqlite3@11.10.0)(react@18.3.1)(sql.js@1.14.1)

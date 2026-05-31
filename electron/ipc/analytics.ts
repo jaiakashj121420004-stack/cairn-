@@ -5,6 +5,7 @@ import type {
   AnalyticsFilter,
   BehavioralStats,
   CreateReviewInput,
+  DerivedStats,
   IpcResponse,
   PerformanceStats,
   ReviewSummary,
@@ -55,6 +56,16 @@ import {
 } from '../services/analytics/phases'
 import { createReview, listReviews } from '../services/analytics/reviews'
 import { getConfiguredTimeZone } from '../services/time/trading-day'
+import {
+  getDowSummary,
+  getExpectancyWithSpark,
+  getProfitFactorR,
+  getRDistributionPure,
+  getTimeOfDayHeatmap,
+} from '../services/analytics/derived'
+import { and, asc, isNotNull } from 'drizzle-orm'
+import { trades } from '../db/schema'
+import { buildTradeWhereClauses } from '../services/analytics/filter'
 
 function err(e: unknown): IpcResponse<never> {
   return { ok: false, error: { code: 'ANALYTICS_ERROR', message: String(e) } }
@@ -163,6 +174,42 @@ export function registerAnalyticsHandlers(): void {
           failureCauses: getFailureCauses(db),
           daysToFailure: getDaysToFailureHistogram(db),
           insights: getPatternInsights(db),
+        }
+        return { ok: true, data }
+      } catch (e) {
+        return err(e)
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'analytics:derived',
+    async (_e, { filter }: { filter: AnalyticsFilter }): Promise<IpcResponse<DerivedStats>> => {
+      try {
+        const db = getDb()
+        const tz = getConfiguredTimeZone(db)
+        const where = buildTradeWhereClauses(filter)
+        where.push(isNotNull(trades.exitTime))
+
+        const rows = db
+          .select({
+            pnlR: trades.pnlR,
+            pnlCents: trades.pnlCents,
+            exitTime: trades.exitTime,
+          })
+          .from(trades)
+          .where(and(...where))
+          .orderBy(asc(trades.exitTime))
+          .all()
+
+        const { expectancyR, spark } = getExpectancyWithSpark(rows)
+        const data: DerivedStats = {
+          expectancyR,
+          expectancySpark: spark,
+          profitFactor: getProfitFactorR(rows),
+          dowSummary: getDowSummary(rows, tz),
+          timeOfDayHeatmap: getTimeOfDayHeatmap(rows, tz),
+          rDistribution: getRDistributionPure(rows),
         }
         return { ok: true, data }
       } catch (e) {

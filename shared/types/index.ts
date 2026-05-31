@@ -965,6 +965,31 @@ export interface AccountsPhaseStats {
   insights: PatternInsight[]
 }
 
+// ── Derived analytics (Wave 2 item 2)
+export interface DowSummaryRow {
+  dow: number          // 0 = Sunday
+  n: number
+  winRateBps: number   // 0–10000
+  expectancyR: number  // R × 100, integer
+  netPnlCents: number  // integer cents
+}
+
+export interface ProfitFactorResult {
+  valueTimes100: number  // profit-factor × 100, integer; 0 when no trades/no winners
+  infinite: boolean      // true when grossLossR == 0 && grossWinR > 0
+  grossWinR: number      // sum of winning pnlR values (R × 100)
+  grossLossR: number     // sum of abs(losing pnlR) values (R × 100)
+}
+
+export interface DerivedStats {
+  expectancyR: number            // R × 100, integer (decimal.js result)
+  expectancySpark: number[]      // rolling 10-trade window over last 20, oldest first
+  profitFactor: ProfitFactorResult
+  dowSummary: DowSummaryRow[]
+  timeOfDayHeatmap: HourDayCell[]    // reuses existing type
+  rDistribution: RDistributionBucket[]  // reuses existing type
+}
+
 // ── Tab 6: Review
 export type ReviewPeriodType = 'weekly' | 'monthly'
 

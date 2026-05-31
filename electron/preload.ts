@@ -61,6 +61,7 @@ import type {
   SetupPerformanceStats,
   BehavioralStats,
   AccountsPhaseStats,
+  DerivedStats,
   ReviewSummary,
   CreateReviewInput,
 } from '../shared/types/index'
@@ -228,6 +229,8 @@ const api = {
       ipcRenderer.invoke('analytics:behavioral', { filter }),
     phases: (): Promise<IpcResponse<AccountsPhaseStats>> =>
       ipcRenderer.invoke('analytics:phases'),
+    derived: (filter: AnalyticsFilter): Promise<IpcResponse<DerivedStats>> =>
+      ipcRenderer.invoke('analytics:derived', { filter }),
     listReviews: (accountId?: string | null): Promise<IpcResponse<ReviewSummary[]>> =>
       ipcRenderer.invoke('analytics:listReviews', { accountId: accountId ?? null }),
     createReview: (input: CreateReviewInput): Promise<IpcResponse<ReviewSummary>> =>

@@ -13,12 +13,14 @@ import { BehavioralTab } from './tabs/BehavioralTab'
 import { AccountsPhasesTab } from './tabs/AccountsPhasesTab'
 import { ReviewTab } from './tabs/ReviewTab'
 import { CalendarTab } from './tabs/CalendarTab'
+import { DerivedTab } from './tabs/DerivedTab'
 
 const TABS = [
   { id: 'performance', label: 'Performance' },
   { id: 'adherence', label: 'Rule Adherence' },
   { id: 'setups', label: 'Setups' },
   { id: 'behavioral', label: 'Behavioral' },
+  { id: 'derived', label: 'Metrics' },
   { id: 'phases', label: 'Accounts & Phases' },
   { id: 'review', label: 'Review' },
   { id: 'calendar', label: 'Calendar' },
@@ -67,6 +69,7 @@ export function AnalyticsPage() {
       {active === 'adherence' && <RuleAdherenceTab />}
       {active === 'setups' && <SetupPerformanceTab />}
       {active === 'behavioral' && <BehavioralTab />}
+      {active === 'derived' && <DerivedTab />}
       {active === 'phases' && <AccountsPhasesTab />}
       {active === 'review' && <ReviewTab />}
       {active === 'calendar' && <CalendarTab />}
