@@ -311,6 +311,14 @@ export const cooldowns = sqliteTable('cooldowns', {
   acknowledgmentText: text('acknowledgment_text'),
 })
 
+export const dismissedInsights = sqliteTable('dismissed_insights', {
+  id: text('id').primaryKey(),
+  insightId: text('insight_id').notNull(),
+  accountId: text('account_id').references(() => accounts.id),
+  dismissedUntil: integer('dismissed_until').notNull(),
+  createdAt: integer('created_at').notNull(),
+})
+
 export const backupLog = sqliteTable('backup_log', {
   id: text('id').primaryKey(),
   kind: text('kind').notNull(),

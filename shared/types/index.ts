@@ -990,6 +990,17 @@ export interface DerivedStats {
   rDistribution: RDistributionBucket[]  // reuses existing type
 }
 
+// ── Local insight engine (Wave 2 item 3)
+export type InsightSeverity = 'high' | 'medium' | 'low'
+
+export interface Insight {
+  id: string                // slug, e.g. 'urgency-hurts' — stable, used for dismissal key
+  severity: InsightSeverity
+  title: string
+  body: string              // complete, ready-to-display copy
+  sampleSize: number        // number of trades the insight is based on
+}
+
 // ── Tab 6: Review
 export type ReviewPeriodType = 'weekly' | 'monthly'
 

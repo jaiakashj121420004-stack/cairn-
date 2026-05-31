@@ -62,6 +62,7 @@ import type {
   BehavioralStats,
   AccountsPhaseStats,
   DerivedStats,
+  Insight,
   ReviewSummary,
   CreateReviewInput,
 } from '../shared/types/index'
@@ -255,6 +256,13 @@ const api = {
       ipcRenderer.invoke('backup:restore', { path, ack }),
     reschedule: (): Promise<IpcResponse<void>> =>
       ipcRenderer.invoke('backup:reschedule'),
+  },
+
+  insights: {
+    list: (accountId: string): Promise<IpcResponse<Insight[]>> =>
+      ipcRenderer.invoke('insights:list', { accountId }),
+    dismiss: (accountId: string, insightId: string): Promise<IpcResponse<void>> =>
+      ipcRenderer.invoke('insights:dismiss', { accountId, insightId }),
   },
 
   events: {

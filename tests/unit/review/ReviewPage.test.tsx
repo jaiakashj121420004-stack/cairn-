@@ -14,6 +14,7 @@ import React from 'react'
 import { ReviewPage } from '../../../src/features/review/ReviewPage'
 import { ToastProvider } from '../../../src/components/ui/toast'
 import type {
+  Insight,
   PerformanceStats,
   RuleAdherenceStats,
   ReviewSummary,
@@ -179,6 +180,15 @@ interface MockApiOptions {
   adherence?: RuleAdherenceStats
   reviews?: ReviewSummary[]
   accounts?: Account[]
+  insights?: Insight[]
+}
+
+const MOCK_INSIGHT: Insight = {
+  id: 'urgency-hurts',
+  severity: 'medium',
+  title: 'High urgency hurts your win rate',
+  body: 'Your win-rate is 75% when urgency ≤ 5, but 40% when urgency ≥ 7. (20/15 trades each.)',
+  sampleSize: 35,
 }
 
 function buildMockApi(opts: MockApiOptions = {}) {
@@ -186,6 +196,7 @@ function buildMockApi(opts: MockApiOptions = {}) {
   const adherence = opts.adherence ?? EMPTY_ADHERENCE
   const reviews = opts.reviews ?? []
   const accounts = opts.accounts ?? []
+  const insights = opts.insights ?? []
 
   return {
     accounts: {
@@ -234,6 +245,10 @@ function buildMockApi(opts: MockApiOptions = {}) {
       getSettings: vi.fn(), setSettings: vi.fn(), pickFolder: vi.fn(),
       now: vi.fn(), nowToFolder: vi.fn(), getLog: vi.fn(),
       pickRestoreFile: vi.fn(), restore: vi.fn(), reschedule: vi.fn(),
+    },
+    insights: {
+      list: () => ok(insights),
+      dismiss: vi.fn().mockResolvedValue({ ok: true, data: undefined }),
     },
     settings: { get: vi.fn(), set: vi.fn() },
     events: {
@@ -370,6 +385,47 @@ describe('ReviewPage — period summary with seeded data', () => {
     withProviders(<ReviewPage />)
     await waitFor(() => {
       expect(screen.getByText(/Entered before MSS confirmation/)).toBeDefined()
+    })
+  })
+})
+
+describe('ReviewPage — insights section', () => {
+  beforeEach(() => {
+    // @ts-expect-error — global augmentation not available in test env
+    window.api = buildMockApi({
+      accounts: [MOCK_ACCOUNT],
+      insights: [MOCK_INSIGHT],
+    })
+  })
+
+  it('renders insights list when insights exist', async () => {
+    withProviders(<ReviewPage />)
+    await waitFor(() => {
+      expect(screen.getByTestId('insights-list')).toBeDefined()
+    })
+  })
+
+  it('renders insight title and body', async () => {
+    withProviders(<ReviewPage />)
+    await waitFor(() => {
+      expect(screen.getByText('High urgency hurts your win rate')).toBeDefined()
+      expect(screen.getByText(/75% when urgency/)).toBeDefined()
+    })
+  })
+
+  it('shows "Dismiss 7 d" button for each insight', async () => {
+    withProviders(<ReviewPage />)
+    await waitFor(() => {
+      expect(screen.getByText('Dismiss 7 d')).toBeDefined()
+    })
+  })
+
+  it('shows empty state when no insights', async () => {
+    // @ts-expect-error — global augmentation not available in test env
+    window.api = buildMockApi({ accounts: [MOCK_ACCOUNT], insights: [] })
+    withProviders(<ReviewPage />)
+    await waitFor(() => {
+      expect(screen.getByText(/No insights yet/)).toBeDefined()
     })
   })
 })

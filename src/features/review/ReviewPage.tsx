@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { Download, Lightbulb, Clock, ChevronRight, type LucideIcon } from 'lucide-react'
+import { Download, Lightbulb, Clock, ChevronRight, AlertTriangle, Info, type LucideIcon } from 'lucide-react'
 import { Button, Select, Modal, useToast } from '../../components/ui'
 import { StatCard } from '../../components/analytics/StatCard'
 import { ipc } from '../../lib/ipc'
@@ -10,6 +10,8 @@ import { formatCents, formatRMultiple, formatPercent } from '../../lib/formatter
 import { cn } from '../../lib/cn'
 import type {
   Account,
+  Insight,
+  InsightSeverity,
   PerformanceStats,
   RuleAdherenceStats,
   ReviewSummary,
@@ -154,6 +156,53 @@ function PeriodSummarySection({ data, loading }: { data: PeriodData | null; load
   )
 }
 
+// ─── Insight card ─────────────────────────────────────────────────────────────
+
+const SEVERITY_STYLES: Record<InsightSeverity, { border: string; icon: LucideIcon; iconClass: string }> = {
+  high:   { border: 'border-danger/30',   icon: AlertTriangle, iconClass: 'text-danger'  },
+  medium: { border: 'border-warning/30',  icon: Lightbulb,     iconClass: 'text-warning' },
+  low:    { border: 'border-border',      icon: Info,          iconClass: 'text-text-muted' },
+}
+
+function InsightCard({
+  insight,
+  onDismiss,
+  dismissing,
+}: {
+  insight: Insight
+  onDismiss: (id: string) => void
+  dismissing: boolean
+}) {
+  const { border, icon: Icon, iconClass } = SEVERITY_STYLES[insight.severity]
+  return (
+    <div
+      data-testid={`insight-${insight.id}`}
+      className={cn('glass rounded-[14px] p-4 border', border)}
+    >
+      <div className="flex items-start gap-3">
+        <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', iconClass)} strokeWidth={1.5} />
+        <div className="min-w-0 flex-1">
+          <p className="text-body-sm font-semibold text-text-primary mb-1">{insight.title}</p>
+          <p className="text-caption text-text-secondary leading-relaxed">{insight.body}</p>
+          <p className="mt-1.5 text-micro text-text-muted/50">
+            Based on {insight.sampleSize} trade{insight.sampleSize !== 1 ? 's' : ''}.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={dismissing}
+          onClick={() => onDismiss(insight.id)}
+          className="shrink-0 rounded-[7px] px-2.5 py-1 text-micro font-medium text-text-muted border border-border hover:bg-surface-elevated hover:text-text-secondary transition-colors disabled:opacity-50"
+        >
+          Dismiss 7 d
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Review item / modal ──────────────────────────────────────────────────────
+
 function ReviewItem({
   review,
   onClick,
@@ -279,8 +328,10 @@ export function ReviewPage() {
   const [preset, setPreset] = useState<DatePreset>('30d')
   const [periodData, setPeriodData] = useState<PeriodData | null>(null)
   const [reviews, setReviews] = useState<ReviewSummary[]>([])
+  const [insights, setInsights] = useState<Insight[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedReview, setSelectedReview] = useState<ReviewSummary | null>(null)
+  const [dismissing, setDismissing] = useState<string | null>(null)
 
   useEffect(() => {
     void ipc.accounts.list().then((r) => {
@@ -312,6 +363,17 @@ export function ReviewPage() {
     })
   }, [accountId, preset])
 
+  const loadInsights = useCallback(() => {
+    if (!accountId) return
+    void ipc.insights.list(accountId).then((r) => {
+      if (r.ok) setInsights(r.data)
+    })
+  }, [accountId])
+
+  useEffect(() => {
+    loadInsights()
+  }, [loadInsights])
+
   async function handleExportPdf() {
     const res = await ipc.data.exportPdf('cairn-review.pdf')
     if (res.ok && res.data) toast('PDF saved.', 'success')
@@ -319,6 +381,18 @@ export function ReviewPage() {
       /* cancelled */
     } else {
       toast('PDF export failed.', 'error')
+    }
+  }
+
+  async function handleDismiss(insightId: string) {
+    if (!accountId || dismissing) return
+    setDismissing(insightId)
+    const res = await ipc.insights.dismiss(accountId, insightId)
+    setDismissing(null)
+    if (res.ok) {
+      setInsights((prev) => prev.filter((i) => i.id !== insightId))
+    } else {
+      toast('Could not dismiss insight.', 'error')
     }
   }
 
@@ -376,10 +450,23 @@ export function ReviewPage() {
           <EmptyCard text="No trades awaiting reflection — you're caught up." />
         </motion.section>
 
-        {/* Insights */}
+        {/* Patterns (local insight engine) */}
         <motion.section variants={staggerItem} transition={{ duration: duration.base }}>
-          <SectionHeader title="Insights" icon={Lightbulb} />
-          <EmptyCard text="No insights yet. Cairn needs at least 20 closed trades to start surfacing patterns." />
+          <SectionHeader title="Patterns" icon={Lightbulb} />
+          {insights.length === 0 ? (
+            <EmptyCard text="No insights yet. Cairn needs at least 20 closed trades to start surfacing patterns." />
+          ) : (
+            <div className="space-y-3" data-testid="insights-list">
+              {insights.map((insight) => (
+                <InsightCard
+                  key={insight.id}
+                  insight={insight}
+                  onDismiss={(id) => void handleDismiss(id)}
+                  dismissing={dismissing === insight.id}
+                />
+              ))}
+            </div>
+          )}
         </motion.section>
 
         {/* Recent reviews */}

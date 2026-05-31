@@ -44,6 +44,7 @@ import type {
   BehavioralStats,
   AccountsPhaseStats,
   DerivedStats,
+  Insight,
   ReviewSummary,
   CreateReviewInput,
   BackupLogEntry,
@@ -176,6 +177,10 @@ declare global {
         pickRestoreFile: () => Promise<IpcResponse<RestoreInfo & { path: string }>>
         restore: (path: string, ack: string) => Promise<IpcResponse<void>>
         reschedule: () => Promise<IpcResponse<void>>
+      }
+      insights: {
+        list: (accountId: string) => Promise<IpcResponse<Insight[]>>
+        dismiss: (accountId: string, insightId: string) => Promise<IpcResponse<void>>
       }
       events: {
         on: (name: string, cb: (payload: unknown) => void) => () => void
@@ -350,6 +355,13 @@ export const ipc = {
       window.api.analytics.listReviews(accountId ?? null),
     createReview: (input: CreateReviewInput): Promise<IpcResponse<ReviewSummary>> =>
       window.api.analytics.createReview(input),
+  },
+
+  insights: {
+    list: (accountId: string): Promise<IpcResponse<Insight[]>> =>
+      window.api.insights.list(accountId),
+    dismiss: (accountId: string, insightId: string): Promise<IpcResponse<void>> =>
+      window.api.insights.dismiss(accountId, insightId),
   },
 
   backup: {
