@@ -175,6 +175,10 @@ declare global {
         restore: (path: string, ack: string) => Promise<IpcResponse<void>>
         reschedule: () => Promise<IpcResponse<void>>
       }
+      events: {
+        on: (name: string, cb: (payload: unknown) => void) => () => void
+        off: (name: string, cb: (payload: unknown) => void) => void
+      }
     }
   }
 }

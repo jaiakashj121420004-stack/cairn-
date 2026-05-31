@@ -26,6 +26,7 @@ import { ipc } from '../../lib/ipc'
 import { formatCents, formatRMultiple, formatDate } from '../../lib/formatters'
 import { useSessionStore } from '../../stores/session-store'
 import { useUiStore } from '../../stores/ui-store'
+import { eventBus } from '../../lib/event-bus'
 import { SessionBiasModal } from '../session-bias/SessionBiasModal'
 import { PreTradePanel } from '../pre-trade/PreTradePanel'
 import { DisciplineRing } from './DisciplineRing'
@@ -289,7 +290,7 @@ const STATUS_BADGE: Record<TradeStatus, { label: string }> = {
    MAIN DASHBOARD
 ───────────────────────────────────────────────────────────────── */
 export function DashboardPage() {
-  const { todaySession, sessionState, selectedAccountId, refresh, tradeVersion } = useSessionStore()
+  const { todaySession, sessionState, selectedAccountId, refresh } = useSessionStore()
   const { newTradeRequested, biasRequested, setNewTradeRequested, setBiasRequested } = useUiStore()
   const [biasOpen, setBiasOpen] = useState(false)
   const [tradeOpen, setTradeOpen] = useState(false)
@@ -328,7 +329,18 @@ export function DashboardPage() {
   }
 
   useEffect(() => { void refresh(); void loadStats() }, [selectedAccountId]) // eslint-disable-line
-  useEffect(() => { if (tradeVersion > 0) void loadStats() }, [tradeVersion]) // eslint-disable-line
+
+  // Subscribe to main-process push events so the dashboard refreshes the instant
+  // a trade mutates — no polling, no manual version-bumping required.
+  useEffect(() => {
+    const unsubs = [
+      eventBus.on('trade.placed',        () => { void loadStats(); void refresh() }),
+      eventBus.on('trade.closed',        () => { void loadStats(); void refresh() }),
+      eventBus.on('trade.partial-closed',() => void loadStats()),
+      eventBus.on('session.locked',      () => void refresh()),
+    ]
+    return () => { unsubs.forEach((u) => u()) }
+  }, [loadStats, refresh]) // eslint-disable-line
   useEffect(() => { if (newTradeRequested) { setNewTradeRequested(false); setTradeOpen(true) } }, [newTradeRequested, setNewTradeRequested])
   useEffect(() => { if (biasRequested) { setBiasRequested(false); setBiasOpen(true) } }, [biasRequested, setBiasRequested])
 

@@ -160,7 +160,7 @@ const TradeFilterSchema = z.object({
 
 export function registerTradeHandlers(): void {
   // ── trades:create ────────────────────────────────────────────────────────────
-  ipcMain.handle('trades:create', (_e, raw: CreateTradeInput): IpcResponse<Trade> => {
+  ipcMain.handle('trades:create', (e, raw: CreateTradeInput): IpcResponse<Trade> => {
     const parsed = CreateTradeSchema.safeParse(raw)
     if (!parsed.success) {
       return { ok: false, error: { code: 'VALIDATION_ERROR', message: parsed.error.message } }
@@ -248,6 +248,12 @@ export function registerTradeHandlers(): void {
 
       const row = db.select().from(schema.trades).where(eq(schema.trades.id, id)).get()
       if (!row) return { ok: false, error: { code: 'DB_ERROR', message: 'Insert failed' } }
+      if (!e.sender.isDestroyed()) {
+        e.sender.send('cairn:event', { name: 'trade.placed', payload: { tradeId: id, accountId: d.accountId } })
+        if (d.status === 'open' && d.sessionId) {
+          e.sender.send('cairn:event', { name: 'session.locked', payload: { accountId: d.accountId } })
+        }
+      }
       return { ok: true, data: mapRow(row) }
     } catch (err) {
       return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
@@ -257,7 +263,7 @@ export function registerTradeHandlers(): void {
   // ── trades:setOpen ───────────────────────────────────────────────────────────
   ipcMain.handle(
     'trades:setOpen',
-    (_e, raw: { tradeId: string; accountId: string }): IpcResponse<Trade> => {
+    (e, raw: { tradeId: string; accountId: string }): IpcResponse<Trade> => {
       try {
         const db = getDb()
         const now = Date.now()
@@ -289,6 +295,12 @@ export function registerTradeHandlers(): void {
 
         const row = db.select().from(schema.trades).where(eq(schema.trades.id, raw.tradeId)).get()
         if (!row) return { ok: false, error: { code: 'NOT_FOUND', message: 'Trade not found' } }
+        if (!e.sender.isDestroyed()) {
+          e.sender.send('cairn:event', { name: 'trade.placed', payload: { tradeId: raw.tradeId, accountId: raw.accountId } })
+          if (row.sessionId) {
+            e.sender.send('cairn:event', { name: 'session.locked', payload: { accountId: row.accountId } })
+          }
+        }
         return { ok: true, data: mapRow(row) }
       } catch (err) {
         return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
@@ -297,7 +309,7 @@ export function registerTradeHandlers(): void {
   )
 
   // ── trades:close ─────────────────────────────────────────────────────────────
-  ipcMain.handle('trades:close', (_e, raw: CloseTradeInput): IpcResponse<Trade> => {
+  ipcMain.handle('trades:close', (e, raw: CloseTradeInput): IpcResponse<Trade> => {
     const parsed = CloseTradeSchema.safeParse(raw)
     if (!parsed.success) {
       return { ok: false, error: { code: 'VALIDATION_ERROR', message: parsed.error.message } }
@@ -434,6 +446,12 @@ export function registerTradeHandlers(): void {
 
       const row = db.select().from(schema.trades).where(eq(schema.trades.id, d.tradeId)).get()
       if (!row) return { ok: false, error: { code: 'DB_ERROR', message: 'Close failed' } }
+      if (!e.sender.isDestroyed()) {
+        e.sender.send('cairn:event', { name: 'trade.closed', payload: { tradeId: d.tradeId, accountId: trade.accountId, pnlCents } })
+        for (const ruleKey of d.rulesBroken) {
+          e.sender.send('cairn:event', { name: 'rule.violated', payload: { accountId: trade.accountId, ruleKey, tradeId: d.tradeId } })
+        }
+      }
       return { ok: true, data: mapRow(row) }
     } catch (err) {
       return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
@@ -441,7 +459,7 @@ export function registerTradeHandlers(): void {
   })
 
   // ── trades:partialClose ──────────────────────────────────────────────────────
-  ipcMain.handle('trades:partialClose', (_e, raw: PartialCloseInput): IpcResponse<Trade> => {
+  ipcMain.handle('trades:partialClose', (e, raw: PartialCloseInput): IpcResponse<Trade> => {
     try {
       const db = getDb()
       const now = Date.now()
@@ -523,6 +541,9 @@ export function registerTradeHandlers(): void {
 
       const row = db.select().from(schema.trades).where(eq(schema.trades.id, raw.tradeId)).get()
       if (!row) return { ok: false, error: { code: 'DB_ERROR', message: 'Update failed' } }
+      if (!e.sender.isDestroyed()) {
+        e.sender.send('cairn:event', { name: 'trade.partial-closed', payload: { tradeId: raw.tradeId, accountId: trade.accountId } })
+      }
       return { ok: true, data: mapRow(row) }
     } catch (err) {
       return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }

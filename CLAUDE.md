@@ -530,7 +530,7 @@ The friction analysis, automation schedule and competitive comparison that motiv
 
 ## 17.6 BUILD & VERIFICATION STATUS (progress log)
 
-Tracks what is actually built/verified vs planned. Last reviewed **2026-05-31** (Wave 1.5 remediation: all §17.6 issues resolved, five gates green). Update at the end of every wave.
+Tracks what is actually built/verified vs planned. Last reviewed **2026-05-31** (Wave 1.5 remediation: all §17.6 issues resolved, five gates green; re-verified same date with Wave 2 event-bus work in working tree — all gates still green, 258 tests). Update at the end of every wave.
 
 ### Implemented & committed (in git history)
 
@@ -543,20 +543,20 @@ Tracks what is actually built/verified vs planned. Last reviewed **2026-05-31** 
   4. Clean-close TP/SL — `CloseTradeModal.applyCleanClose`; disabled when `hasFlaggedViolations`; never auto-submits.
   5. Command palette (⌘K) — `src/features/command-palette/` (registry + CommandPalette); mounted in `Shell.tsx`, opened from `TopBar`.
   6. Calendar — `CalendarTab` (Analytics tab) + `CalendarWidget` (Dashboard) + `getDailyHeatmap` rollup in `electron/services/analytics/performance.ts`.
-- Test files for every Wave 1 feature exist and are well-formed (37 unit/integration test files total; the six Wave 1 test files were checked individually — no duplicated imports or top-level redeclarations).
+- Test files for every Wave 1 feature exist and are well-formed (37 unit/integration test files total at Wave 1 commit; 38 files / 258 tests as of re-verification with Wave 2 `event-bus.test.ts` in working tree — the six Wave 1 test files were checked individually, no duplicated imports or top-level redeclarations).
 - Honesty gates verified intact: chips are all ≥20 chars; clean-close is disabled on flagged trades and requires a manual Submit; emotion presets don't change the schema; last-trade pre-fill carries only pair/setup/mode/account, never emotional fields.
 
-### Five quality gates — GREEN on 2026-05-31
+### Five quality gates — GREEN on 2026-05-31 (re-verified)
 
-The 2026-05-30 review could not execute the gates (the Linux review sandbox could not resolve the repo's Windows-symlinked `node_modules`). They were run locally on **2026-05-31** and all pass:
+The 2026-05-30 review could not execute the gates (the Linux review sandbox could not resolve the repo's Windows-symlinked `node_modules`). They were run locally on **2026-05-31** and all passed. Re-verified same date with Wave 2 event-bus changes in the working tree — all five still green:
 
-| Gate | Result |
-|---|---|
-| `pnpm typecheck` | clean |
-| `pnpm lint` (`--max-warnings 0`) | clean |
-| `pnpm test:unit` | 37 files, 254 tests passed |
-| `pnpm build` | success |
-| `pnpm test:e2e` (smoke) | passed, stable across 4 consecutive runs |
+| Gate | Wave 1 commit (`f82a0d6`) | Re-verified (Wave 2 WIP in tree) |
+|---|---|---|
+| `pnpm typecheck` | clean | clean |
+| `pnpm lint` (`--max-warnings 0`) | clean | clean |
+| `pnpm test:unit` | 37 files, 254 tests | 38 files, 258 tests |
+| `pnpm build` | success | success |
+| `pnpm test:e2e` (smoke) | passed, 4 consecutive runs | passed |
 
 ### Issues found during review — RESOLVED (commit `f82a0d6`, 2026-05-31)
 
@@ -578,7 +578,7 @@ All six issues from the 2026-05-30 review are fixed and covered by the now-green
 
 ### Wave 2 readiness verdict
 
-**Wave 1 DONE — gates green on 2026-05-31, Wave 2 unblocked.** All six §17.6 issues are resolved (commit `f82a0d6`) and all five quality gates pass (typecheck, lint at `--max-warnings 0`, 254 unit tests, build, stable smoke E2E). The calendar and rules engine now share one timezone-aware day definition, floating promises are handled, and the clean-close test can no longer drift from the component. Wave 2 (Automations) may begin.
+**Wave 1 DONE — gates green on 2026-05-31, Wave 2 unblocked.** All six §17.6 issues are resolved (commit `f82a0d6`) and all five quality gates pass (typecheck, lint at `--max-warnings 0`, 254 unit tests, build, stable smoke E2E). Re-verified same date with Wave 2 event-bus scaffolding in the working tree — 258 tests, all gates still green. The calendar and rules engine now share one timezone-aware day definition, floating promises are handled, and the clean-close test can no longer drift from the component. Wave 2 (Automations) may begin.
 
 ---
 

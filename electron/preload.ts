@@ -1,5 +1,15 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { IpcResponse } from '../shared/types/index'
+
+// ── cairn:event push channel ─────────────────────────────────────────────────
+// Main process sends { name, payload } after every DB-mutating trade operation.
+// Fan-out to per-name listener sets so renderer components subscribe without
+// coupling to specific IPC call-sites.
+const eventListeners = new Map<string, Set<(payload: unknown) => void>>()
+
+ipcRenderer.on('cairn:event', (_e, event: { name: string; payload: unknown }) => {
+  eventListeners.get(event.name)?.forEach((cb) => cb(event.payload))
+})
 import type { DbStatus } from './ipc/db'
 import type {
   BackupLogEntry,
@@ -242,6 +252,18 @@ const api = {
       ipcRenderer.invoke('backup:restore', { path, ack }),
     reschedule: (): Promise<IpcResponse<void>> =>
       ipcRenderer.invoke('backup:reschedule'),
+  },
+
+  events: {
+    on: (name: string, cb: (payload: unknown) => void): (() => void) => {
+      let set = eventListeners.get(name)
+      if (!set) { set = new Set(); eventListeners.set(name, set) }
+      set.add(cb)
+      return () => { eventListeners.get(name)?.delete(cb) }
+    },
+    off: (name: string, cb: (payload: unknown) => void): void => {
+      eventListeners.get(name)?.delete(cb)
+    },
   },
 } as const
 

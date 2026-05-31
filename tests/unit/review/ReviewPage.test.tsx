@@ -9,7 +9,7 @@
 // with no side-effects we need to neutralise.  The only global we stub is
 // window.api (the Electron IPC surface).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, cleanup } from '@testing-library/react'
 import React from 'react'
 import { ReviewPage } from '../../../src/features/review/ReviewPage'
 import { ToastProvider } from '../../../src/components/ui/toast'
@@ -236,6 +236,10 @@ function buildMockApi(opts: MockApiOptions = {}) {
       pickRestoreFile: vi.fn(), restore: vi.fn(), reschedule: vi.fn(),
     },
     settings: { get: vi.fn(), set: vi.fn() },
+    events: {
+      on: vi.fn().mockReturnValue(() => {}),
+      off: vi.fn(),
+    },
     ping: vi.fn(),
     dbStatus: vi.fn(),
   }
@@ -248,7 +252,10 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  // Clean up window.api so tests don't bleed
+  // Unmount all rendered components before removing window.api to prevent
+  // stale useEffect callbacks (triggered by accountId state changes) from
+  // firing after the mock is torn down — which causes flaky failures.
+  cleanup()
   // @ts-expect-error — global augmentation not available in test env
   delete window.api
 })
