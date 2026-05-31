@@ -1143,3 +1143,73 @@ export interface BackupSettings {
   dailyTime: string  // HH:MM UTC
   backupOnClose: boolean
 }
+
+// ── MT5 Statement Import (Wave 3 item 18) ─────────────────────────────────────
+
+/** One partial exit recorded in the Deals table for a given order. */
+export interface Mt5PartialExit {
+  externalRef: string   // e.g. "mt5_deal_10000004"
+  exitTime: number      // UTC ms
+  exitPrice: string     // raw float string from MT5
+  volumeLots: string    // raw lots string
+  pnlAmount: string     // profit for this deal (account currency)
+}
+
+/** A single trade candidate built from reconciling Deals + Orders tables. */
+export interface Mt5TradeCandidate {
+  externalRef: string             // e.g. "mt5_order_11111111"
+  symbol: string                  // raw MT5 symbol
+  pairId: string | null           // null = unresolved (no matching pair in Cairn)
+  direction: TradeDirection
+  entryTime: number               // UTC ms
+  entryPrice: string              // raw float
+  exitTime: number | null         // null = still open
+  exitPrice: string | null
+  stopLoss: string | null         // "0.00000" or "0" → not set
+  takeProfit: string | null
+  volumeLots: string              // entry lots (raw string)
+  pnlAmount: string               // total realized P&L in account currency
+  commission: string              // total commission for this trade
+  swap: string                    // total swap
+  status: 'open' | 'closed'
+  partialExits: Mt5PartialExit[]
+}
+
+/** A row that the parser could not fully parse. NOT silently dropped — surfaced in preview. */
+export interface Mt5ParseError {
+  section: 'deals' | 'orders' | 'unknown'
+  rowIndex: number
+  rawContent: string
+  reason: string
+}
+
+/** Result of `import:previewMt5`. */
+export interface Mt5ImportPreview {
+  candidates: Mt5TradeCandidate[]
+  skippedCount: number          // duplicates already in local DB
+  unresolvedSymbols: string[]   // MT5 symbols with no matching pair
+  parseErrors: Mt5ParseError[]
+}
+
+/** Input to `import:previewMt5`. */
+export interface Mt5PreviewInput {
+  html: string
+  accountId: string
+}
+
+/** Input to `import:commitMt5`. */
+export interface Mt5CommitInput {
+  html: string
+  accountId: string
+  /** MT5 symbol → Cairn pairId for every unresolved symbol in the preview. */
+  symbolMap: Record<string, string>
+  /** Setup to assign to all imported trades. Required. */
+  defaultSetupId: string
+}
+
+/** Result of `import:commitMt5`. */
+export interface Mt5CommitResult {
+  imported: number    // new trade rows inserted
+  partials: number    // new trade_partials rows inserted
+  skipped: number     // duplicates detected and skipped
+}

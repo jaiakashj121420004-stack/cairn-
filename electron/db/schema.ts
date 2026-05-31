@@ -225,10 +225,11 @@ export const trades = sqliteTable('trades', {
   screenshotPath: text('screenshot_path'),
   // v1.1: wall-clock timestamp when a planned trade was activated (planned → open)
   openedAt: integer('opened_at'),
-  // v2 prep
+  // import / broker
   brokerSource: text('broker_source'),
   brokerTradeId: text('broker_trade_id'),
   importedAt: integer('imported_at'),
+  externalRef: text('external_ref'),
   // Timestamps
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
@@ -266,6 +267,7 @@ export const tradePartials = sqliteTable('trade_partials', {
   pnlR: integer('pnl_r'),
   pnlCents: integer('pnl_cents'),
   notes: text('notes'),
+  externalRef: text('external_ref'),
   createdAt: integer('created_at').notNull(),
 })
 

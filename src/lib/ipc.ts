@@ -57,6 +57,10 @@ import type {
   BackupResult,
   RestoreInfo,
   BackupSettings,
+  Mt5ImportPreview,
+  Mt5CommitResult,
+  Mt5PreviewInput,
+  Mt5CommitInput,
 } from '@shared/types/index'
 
 export interface DbStatus {
@@ -196,6 +200,10 @@ declare global {
         create: (input: CreateNotebookEntryInput) => Promise<IpcResponse<NotebookEntry>>
         update: (input: UpdateNotebookEntryInput) => Promise<IpcResponse<NotebookEntry>>
         delete: (id: string) => Promise<IpcResponse<{ ok: true }>>
+      }
+      import: {
+        previewMt5: (input: Mt5PreviewInput) => Promise<IpcResponse<Mt5ImportPreview>>
+        commitMt5: (input: Mt5CommitInput) => Promise<IpcResponse<Mt5CommitResult>>
       }
       events: {
         on: (name: string, cb: (payload: unknown) => void) => () => void
@@ -391,6 +399,13 @@ export const ipc = {
     update: (input: UpdateNotebookEntryInput): Promise<IpcResponse<NotebookEntry>> =>
       window.api.notebook.update(input),
     delete: (id: string): Promise<IpcResponse<{ ok: true }>> => window.api.notebook.delete(id),
+  },
+
+  import: {
+    previewMt5: (input: Mt5PreviewInput): Promise<IpcResponse<Mt5ImportPreview>> =>
+      window.api.import.previewMt5(input),
+    commitMt5: (input: Mt5CommitInput): Promise<IpcResponse<Mt5CommitResult>> =>
+      window.api.import.commitMt5(input),
   },
 
   backup: {

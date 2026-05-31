@@ -75,6 +75,7 @@ describe('migration journal wiring', () => {
       '0005_dismissed_insights',
       '0006_notebook',
       '0007_notebook_account',
+      '0008_external_ref',
     ])
     // Every journaled tag must resolve to a non-empty .sql file.
     for (const tag of orderedTags()) {

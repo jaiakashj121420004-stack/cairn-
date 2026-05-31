@@ -16,6 +16,10 @@ import type {
   BackupResult,
   RestoreInfo,
   BackupSettings,
+  Mt5ImportPreview,
+  Mt5CommitResult,
+  Mt5PreviewInput,
+  Mt5CommitInput,
 } from '../shared/types/index'
 import type {
   PropFirm,
@@ -285,6 +289,13 @@ const api = {
       ipcRenderer.invoke('notebook:update', input),
     delete: (id: string): Promise<IpcResponse<{ ok: true }>> =>
       ipcRenderer.invoke('notebook:delete', { id }),
+  },
+
+  import: {
+    previewMt5: (input: Mt5PreviewInput): Promise<IpcResponse<Mt5ImportPreview>> =>
+      ipcRenderer.invoke('import:previewMt5', input),
+    commitMt5: (input: Mt5CommitInput): Promise<IpcResponse<Mt5CommitResult>> =>
+      ipcRenderer.invoke('import:commitMt5', input),
   },
 
   events: {

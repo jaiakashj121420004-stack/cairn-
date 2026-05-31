@@ -17,6 +17,7 @@ import { registerAnalyticsHandlers } from './analytics'
 import { registerInsightsHandlers } from './insights'
 import { registerNotebookHandlers } from './notebook'
 import { registerBackupHandlers } from './backup'
+import { registerImportHandlers } from './import'
 
 export function setupIpcHandlers(): void {
   registerPingHandler()
@@ -39,4 +40,5 @@ export function setupIpcHandlers(): void {
   registerInsightsHandlers()
   registerNotebookHandlers()
   registerBackupHandlers()
+  registerImportHandlers()
 }
