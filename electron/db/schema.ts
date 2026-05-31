@@ -319,6 +319,17 @@ export const dismissedInsights = sqliteTable('dismissed_insights', {
   createdAt: integer('created_at').notNull(),
 })
 
+export const notebookEntries = sqliteTable('notebook_entries', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  content: text('content').notNull().default(''),
+  template: text('template'),
+  pinned: integer('pinned').notNull().default(0),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+  deletedAt: integer('deleted_at'),
+})
+
 export const backupLog = sqliteTable('backup_log', {
   id: text('id').primaryKey(),
   kind: text('kind').notNull(),

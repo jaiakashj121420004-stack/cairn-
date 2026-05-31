@@ -6,6 +6,7 @@ import {
   BarChart3,
   Wallet,
   BookOpen,
+  NotebookPen,
   Settings2,
   PanelLeftClose,
   PanelLeftOpen,
@@ -30,6 +31,7 @@ const NAV_ITEMS: NavItemDef[] = [
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/accounts', label: 'Accounts', icon: Wallet },
   { to: '/review', label: 'Review', icon: BookOpen },
+  { to: '/notebook', label: 'Notebook', icon: NotebookPen },
   { to: '/settings', label: 'Settings', icon: Settings2 },
 ]
 

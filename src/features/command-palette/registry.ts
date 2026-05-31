@@ -81,6 +81,15 @@ export const STATIC_COMMANDS: readonly CommandDef[] = [
     },
   },
   {
+    id: 'open-notebook',
+    label: 'Open Notebook',
+    keywords: ['notebook', 'notes', 'plan', 'watchlist', 'journal', 'review'],
+    action: ({ navigate, closeCommandPalette }) => {
+      closeCommandPalette()
+      navigate('/notebook')
+    },
+  },
+  {
     id: 'export-pdf',
     label: 'Export trade review PDF',
     keywords: ['pdf', 'export', 'report', 'review', 'download'],

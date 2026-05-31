@@ -56,6 +56,11 @@ const router = createHashRouter([
           import('./features/review/ReviewPage').then((m) => ({ Component: m.ReviewPage })),
       },
       {
+        path: 'notebook',
+        lazy: () =>
+          import('./features/notebook/NotebookPage').then((m) => ({ Component: m.NotebookPage })),
+      },
+      {
         path: 'settings',
         lazy: () =>
           import('./features/settings/SettingsPage').then((m) => ({

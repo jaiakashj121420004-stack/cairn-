@@ -36,6 +36,13 @@
       "when": 1777680000000,
       "tag": "0005_dismissed_insights",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777766400000,
+      "tag": "0006_notebook",
+      "breakpoints": true
     }
   ]
 }

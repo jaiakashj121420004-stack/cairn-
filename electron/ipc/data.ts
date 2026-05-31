@@ -44,6 +44,8 @@ export function registerDataHandlers(): void {
         ruleViolations: db.select().from(schema.ruleViolations).all(),
         reviews: db.select().from(schema.reviews).all(),
         cooldowns: db.select().from(schema.cooldowns).all(),
+        notebookEntries: db.select().from(schema.notebookEntries).all(),
+        dismissedInsights: db.select().from(schema.dismissedInsights).all(),
       }
 
       writeFileSync(outPath, JSON.stringify(allTables, null, 2), 'utf-8')
@@ -69,6 +71,8 @@ export function registerDataHandlers(): void {
 
       // Delete all rows in dependency order (children first)
       db.transaction(() => {
+        db.delete(schema.notebookEntries).run()
+        db.delete(schema.dismissedInsights).run()
         db.delete(schema.ruleViolations).run()
         db.delete(schema.cooldowns).run()
         db.delete(schema.reviews).run()

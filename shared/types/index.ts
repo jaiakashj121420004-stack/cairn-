@@ -1059,6 +1059,39 @@ export interface CreateReviewInput {
   notes?: string | null
 }
 
+// ── Notebook (Wave 2 item 17) ─────────────────────────────────────────────────
+export interface NotebookEntry {
+  id: string
+  title: string
+  content: string        // markdown
+  template: string | null
+  pinned: number         // 0/1
+  createdAt: number
+  updatedAt: number
+}
+
+export interface NotebookEntrySummary {
+  id: string
+  title: string
+  template: string | null
+  pinned: number
+  updatedAt: number
+  preview: string        // short plain-text preview of the content
+}
+
+export interface CreateNotebookEntryInput {
+  title: string
+  content?: string
+  template?: string | null
+}
+
+export interface UpdateNotebookEntryInput {
+  id: string
+  title?: string
+  content?: string
+  pinned?: boolean
+}
+
 // ── Backup & Restore ──────────────────────────────────────────────────────────
 export interface BackupLogEntry {
   id: string

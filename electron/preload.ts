@@ -66,6 +66,10 @@ import type {
   Insight,
   ReviewSummary,
   CreateReviewInput,
+  NotebookEntry,
+  NotebookEntrySummary,
+  CreateNotebookEntryInput,
+  UpdateNotebookEntryInput,
 } from '../shared/types/index'
 
 const api = {
@@ -266,6 +270,18 @@ const api = {
       ipcRenderer.invoke('insights:list', { accountId }),
     dismiss: (accountId: string, insightId: string): Promise<IpcResponse<void>> =>
       ipcRenderer.invoke('insights:dismiss', { accountId, insightId }),
+  },
+
+  notebook: {
+    list: (): Promise<IpcResponse<NotebookEntrySummary[]>> => ipcRenderer.invoke('notebook:list'),
+    get: (id: string): Promise<IpcResponse<NotebookEntry>> =>
+      ipcRenderer.invoke('notebook:get', { id }),
+    create: (input: CreateNotebookEntryInput): Promise<IpcResponse<NotebookEntry>> =>
+      ipcRenderer.invoke('notebook:create', input),
+    update: (input: UpdateNotebookEntryInput): Promise<IpcResponse<NotebookEntry>> =>
+      ipcRenderer.invoke('notebook:update', input),
+    delete: (id: string): Promise<IpcResponse<{ ok: true }>> =>
+      ipcRenderer.invoke('notebook:delete', { id }),
   },
 
   events: {

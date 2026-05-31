@@ -48,6 +48,10 @@ import type {
   Insight,
   ReviewSummary,
   CreateReviewInput,
+  NotebookEntry,
+  NotebookEntrySummary,
+  CreateNotebookEntryInput,
+  UpdateNotebookEntryInput,
   BackupLogEntry,
   BackupResult,
   RestoreInfo,
@@ -183,6 +187,13 @@ declare global {
       insights: {
         list: (accountId: string) => Promise<IpcResponse<Insight[]>>
         dismiss: (accountId: string, insightId: string) => Promise<IpcResponse<void>>
+      }
+      notebook: {
+        list: () => Promise<IpcResponse<NotebookEntrySummary[]>>
+        get: (id: string) => Promise<IpcResponse<NotebookEntry>>
+        create: (input: CreateNotebookEntryInput) => Promise<IpcResponse<NotebookEntry>>
+        update: (input: UpdateNotebookEntryInput) => Promise<IpcResponse<NotebookEntry>>
+        delete: (id: string) => Promise<IpcResponse<{ ok: true }>>
       }
       events: {
         on: (name: string, cb: (payload: unknown) => void) => () => void
@@ -366,6 +377,16 @@ export const ipc = {
       window.api.insights.list(accountId),
     dismiss: (accountId: string, insightId: string): Promise<IpcResponse<void>> =>
       window.api.insights.dismiss(accountId, insightId),
+  },
+
+  notebook: {
+    list: (): Promise<IpcResponse<NotebookEntrySummary[]>> => window.api.notebook.list(),
+    get: (id: string): Promise<IpcResponse<NotebookEntry>> => window.api.notebook.get(id),
+    create: (input: CreateNotebookEntryInput): Promise<IpcResponse<NotebookEntry>> =>
+      window.api.notebook.create(input),
+    update: (input: UpdateNotebookEntryInput): Promise<IpcResponse<NotebookEntry>> =>
+      window.api.notebook.update(input),
+    delete: (id: string): Promise<IpcResponse<{ ok: true }>> => window.api.notebook.delete(id),
   },
 
   backup: {
