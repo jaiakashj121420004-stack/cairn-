@@ -16,6 +16,8 @@ import { formatCents, formatRMultiple, formatDate } from '../../lib/formatters'
 import { useSessionStore } from '../../stores/session-store'
 import { TradeDetailModal } from './TradeDetailModal'
 import { CloseTradeModal } from '../post-trade/CloseTradeModal'
+import { GradeBadge } from '../../components/shared/GradeBadge'
+import { gradeTrade, countRulesBroken } from '../../lib/trade-grade'
 import type { TradeListItem, TradeFilter, TradeMode, TradeDirection, TradeStatus } from '@shared/types/index'
 
 type SortKey =
@@ -37,7 +39,7 @@ function exportCsv(trades: TradeListItem[]) {
     'Date', 'Pair', 'Setup', 'Direction', 'Mode', 'Status',
     'Entry', 'SL', 'TP', 'SL pips', 'RR', 'Lot size',
     'Risk $', 'Risk %', 'P&L $', 'P&L R', 'P&L %',
-    'Duration (min)', 'Clean', 'Rules broken',
+    'Duration (min)', 'Clean', 'Grade', 'Rules broken',
   ]
   const rows = trades.map((t) => [
     new Date(t.createdAt).toISOString(),
@@ -59,6 +61,12 @@ function exportCsv(trades: TradeListItem[]) {
     t.pnlPctBps !== null ? (t.pnlPctBps / 100).toFixed(2) : '',
     t.durationMinutes ?? '',
     t.isClean === 1 ? 'yes' : t.isClean === 0 ? 'no' : '',
+    gradeTrade({
+      rrRatio: t.rrRatio,
+      followedPlanExactly: t.followedPlanExactly,
+      rulesBrokenCount: countRulesBroken(t.rulesBroken),
+      pnlR: t.pnlR,
+    })?.letter ?? '',
     t.rulesBroken ? JSON.parse(t.rulesBroken).join(';') : '',
   ])
   const csv = [headers, ...rows].map((r) => r.map((v) => `"${v}"`).join(',')).join('\n')
@@ -473,6 +481,9 @@ export function TradeLogPage() {
                 <Th col="isClean" sortKey={sortKey} sortDir={sortDir} onSort={handleSort}>
                   Clean
                 </Th>
+                <th className="px-3 py-2.5 text-left text-caption font-medium text-text-muted w-14">
+                  Grade
+                </th>
                 <th className="px-3 py-2.5 text-left text-caption font-medium text-text-muted w-16">
                   Actions
                 </th>
@@ -573,6 +584,21 @@ export function TradeLogPage() {
                       ) : (
                         <span className="text-text-muted text-caption">—</span>
                       )}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      {(() => {
+                        const g = gradeTrade({
+                          rrRatio: trade.rrRatio,
+                          followedPlanExactly: trade.followedPlanExactly,
+                          rulesBrokenCount: countRulesBroken(trade.rulesBroken),
+                          pnlR: trade.pnlR,
+                        })
+                        return g ? (
+                          <GradeBadge grade={g} />
+                        ) : (
+                          <span className="text-text-muted text-caption">—</span>
+                        )
+                      })()}
                     </td>
                     <td
                       className="px-3 py-2.5"
