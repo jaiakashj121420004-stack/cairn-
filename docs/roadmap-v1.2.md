@@ -202,7 +202,7 @@ v1.2 is complete when all v1.1 criteria (CLAUDE.md §16.a) are met, the v1.1 bra
 
 **Automations (Wave 2) — in progress**
 11. ✅ Dashboard updates instantly on every close (no manual refresh). — commit `14d8ced`, 2026-05-31
-12. Analytics includes time-of-day, day-of-week, expectancy, profit factor, R-multiple distribution.
+12. ✅ Analytics includes time-of-day, day-of-week, expectancy, profit factor, R-multiple distribution. — commit `f13cabd`, 2026-05-31
 13. The Review screen lists local insight-engine findings; at least 5 heuristics are wired and tested.
 14. Close Trade modal pre-ticks rules-broken from planned-vs-actual comparison; the trader confirms or unticks.
 15. A composite performance score is displayed alongside the Discipline Score.

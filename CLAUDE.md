@@ -578,6 +578,8 @@ All six issues from the 2026-05-30 review are fixed and covered by the now-green
 
 ### Wave 2 progress (in progress)
 
+**Wave 2 item 2 DONE — commit `f13cabd`, 2026-05-31.** Derived analytics: `electron/services/analytics/derived.ts` with five pure functions (`getTimeOfDayHeatmap`, `getDowSummary`, `getExpectancyWithSpark`, `getProfitFactorR`, `getRDistributionPure`), all taking `TradeRowForDerived[]`. Expectancy and profit factor use decimal.js exclusively — no float arithmetic. `analytics:derived` IPC channel + `DerivedTab` ("Metrics" tab) wired into Analytics page. 24 tests including two fast-check properties (constant-outcome expectancy, scale-invariant profit factor). decimal.js 10.6.0 added.
+
 **Wave 2 item 1 DONE — commit `14d8ced`, 2026-05-31.** Typed event bus implemented end-to-end:
 - `electron/ipc/trades.ts` emits `cairn:event` after every DB-committing trade mutation (`trade.placed`, `trade.closed`, `trade.partial-closed`, `session.locked`, `rule.violated`).
 - `electron/preload.ts` fans the IPC channel into per-name listener sets, exposed as `window.api.events.{on,off}`.
