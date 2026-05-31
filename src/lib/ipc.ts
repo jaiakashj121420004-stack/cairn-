@@ -52,6 +52,7 @@ import type {
   NotebookEntrySummary,
   CreateNotebookEntryInput,
   UpdateNotebookEntryInput,
+  NotebookSearchInput,
   BackupLogEntry,
   BackupResult,
   RestoreInfo,
@@ -190,6 +191,7 @@ declare global {
       }
       notebook: {
         list: () => Promise<IpcResponse<NotebookEntrySummary[]>>
+        search: (input: NotebookSearchInput) => Promise<IpcResponse<NotebookEntrySummary[]>>
         get: (id: string) => Promise<IpcResponse<NotebookEntry>>
         create: (input: CreateNotebookEntryInput) => Promise<IpcResponse<NotebookEntry>>
         update: (input: UpdateNotebookEntryInput) => Promise<IpcResponse<NotebookEntry>>
@@ -381,6 +383,8 @@ export const ipc = {
 
   notebook: {
     list: (): Promise<IpcResponse<NotebookEntrySummary[]>> => window.api.notebook.list(),
+    search: (input: NotebookSearchInput): Promise<IpcResponse<NotebookEntrySummary[]>> =>
+      window.api.notebook.search(input),
     get: (id: string): Promise<IpcResponse<NotebookEntry>> => window.api.notebook.get(id),
     create: (input: CreateNotebookEntryInput): Promise<IpcResponse<NotebookEntry>> =>
       window.api.notebook.create(input),

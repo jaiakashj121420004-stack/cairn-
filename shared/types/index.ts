@@ -1062,16 +1062,19 @@ export interface CreateReviewInput {
 // ── Notebook (Wave 2 item 17) ─────────────────────────────────────────────────
 export interface NotebookEntry {
   id: string
+  accountId: string | null
   title: string
   content: string        // markdown
   template: string | null
   pinned: number         // 0/1
+  version: number
   createdAt: number
   updatedAt: number
 }
 
 export interface NotebookEntrySummary {
   id: string
+  accountId: string | null
   title: string
   template: string | null
   pinned: number
@@ -1083,6 +1086,7 @@ export interface CreateNotebookEntryInput {
   title: string
   content?: string
   template?: string | null
+  accountId?: string | null
 }
 
 export interface UpdateNotebookEntryInput {
@@ -1090,6 +1094,12 @@ export interface UpdateNotebookEntryInput {
   title?: string
   content?: string
   pinned?: boolean
+  accountId?: string | null
+}
+
+export interface NotebookSearchInput {
+  query: string
+  accountId?: string | null
 }
 
 // ── Backup & Restore ──────────────────────────────────────────────────────────

@@ -74,6 +74,7 @@ describe('migration journal wiring', () => {
       '0004_consolidate_partials',
       '0005_dismissed_insights',
       '0006_notebook',
+      '0007_notebook_account',
     ])
     // Every journaled tag must resolve to a non-empty .sql file.
     for (const tag of orderedTags()) {
@@ -90,6 +91,15 @@ describe('migration journal wiring', () => {
     expect(tables).not.toContain('partial_closes')
     expect(tables).toContain('dismissed_insights')
     expect(tables).toContain('notebook_entries')
+
+    // 0007: notebook_entries gains account_id (nullable) and version (integer).
+    const nbInfo = sqlite.exec('PRAGMA table_info(`notebook_entries`)')
+    const nbCols = new Map(
+      (nbInfo[0]?.values ?? []).map((r) => [r[1] as string, (r[2] as string).toLowerCase()]),
+    )
+    expect(nbCols.has('account_id')).toBe(true)
+    expect(nbCols.has('version')).toBe(true)
+    expect(nbCols.get('version')).toBe('integer')
 
     // Declared types are integer; the float columns are gone.
     const info = sqlite.exec('PRAGMA table_info(`trade_partials`)')

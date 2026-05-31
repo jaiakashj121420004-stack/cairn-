@@ -70,6 +70,7 @@ import type {
   NotebookEntrySummary,
   CreateNotebookEntryInput,
   UpdateNotebookEntryInput,
+  NotebookSearchInput,
 } from '../shared/types/index'
 
 const api = {
@@ -274,6 +275,8 @@ const api = {
 
   notebook: {
     list: (): Promise<IpcResponse<NotebookEntrySummary[]>> => ipcRenderer.invoke('notebook:list'),
+    search: (input: NotebookSearchInput): Promise<IpcResponse<NotebookEntrySummary[]>> =>
+      ipcRenderer.invoke('notebook:search', input),
     get: (id: string): Promise<IpcResponse<NotebookEntry>> =>
       ipcRenderer.invoke('notebook:get', { id }),
     create: (input: CreateNotebookEntryInput): Promise<IpcResponse<NotebookEntry>> =>

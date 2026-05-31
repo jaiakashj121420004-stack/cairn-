@@ -90,6 +90,24 @@ export const STATIC_COMMANDS: readonly CommandDef[] = [
     },
   },
   {
+    id: 'new-notebook-entry',
+    label: 'New notebook entry',
+    keywords: ['notebook', 'note', 'new', 'create', 'write', 'add'],
+    action: ({ navigate, closeCommandPalette }) => {
+      closeCommandPalette()
+      navigate('/notebook?action=new')
+    },
+  },
+  {
+    id: 'search-notebook',
+    label: 'Search notebook',
+    keywords: ['notebook', 'search', 'find', 'notes', 'lookup'],
+    action: ({ navigate, closeCommandPalette }) => {
+      closeCommandPalette()
+      navigate('/notebook?action=search')
+    },
+  },
+  {
     id: 'export-pdf',
     label: 'Export trade review PDF',
     keywords: ['pdf', 'export', 'report', 'review', 'download'],

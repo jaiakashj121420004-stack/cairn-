@@ -36,6 +36,7 @@ const MIGRATIONS = [
   '0004_consolidate_partials',
   '0005_dismissed_insights',
   '0006_notebook',
+  '0007_notebook_account',
 ].map((t) => readFileSync(join(__dirname, `../../electron/db/migrations/${t}.sql`), 'utf-8'))
 
 let SQL: Awaited<ReturnType<typeof initSqlJs>>
@@ -133,5 +134,71 @@ describe('notebook IPC CRUD', () => {
     const res = call<NotebookEntry>('notebook:get', { id: '00000000-0000-0000-0000-000000000000' })
     expect(res.ok).toBe(false)
     if (!res.ok) expect(res.error.code).toBe('NOT_FOUND')
+  })
+
+  it('version starts at 1 and increments on content or title update', () => {
+    makeDb()
+    const created = unwrap(call<NotebookEntry>('notebook:create', { title: 'Versioned' }))
+    expect(created.version).toBe(1)
+    const afterTitle = unwrap(call<NotebookEntry>('notebook:update', { id: created.id, title: 'New Title' }))
+    expect(afterTitle.version).toBe(2)
+    // pinning alone must not bump the version
+    const afterPin = unwrap(call<NotebookEntry>('notebook:update', { id: created.id, pinned: true }))
+    expect(afterPin.version).toBe(2)
+  })
+
+  it('accountId defaults to null and can be set on create and update', () => {
+    makeDb()
+    const created = unwrap(call<NotebookEntry>('notebook:create', { title: 'Scoped' }))
+    expect(created.accountId).toBeNull()
+    const updated = unwrap(
+      call<NotebookEntry>('notebook:update', { id: created.id, accountId: null }),
+    )
+    expect(updated.accountId).toBeNull()
+  })
+})
+
+describe('notebook IPC search', () => {
+  it('finds entries by title substring', () => {
+    makeDb()
+    unwrap(call<NotebookEntry>('notebook:create', { title: 'My Trading Plan', content: 'morning session' }))
+    unwrap(call<NotebookEntry>('notebook:create', { title: 'Watchlist', content: 'EURUSD XAUUSD' }))
+
+    const results = unwrap(call<NotebookEntrySummary[]>('notebook:search', { query: 'Trading' }))
+    expect(results).toHaveLength(1)
+    expect(results[0]?.title).toBe('My Trading Plan')
+  })
+
+  it('finds entries by body content substring', () => {
+    makeDb()
+    unwrap(call<NotebookEntry>('notebook:create', { title: 'Plan A', content: 'London killzone entry' }))
+    unwrap(call<NotebookEntry>('notebook:create', { title: 'Plan B', content: 'NY session notes' }))
+
+    const results = unwrap(call<NotebookEntrySummary[]>('notebook:search', { query: 'killzone' }))
+    expect(results).toHaveLength(1)
+    expect(results[0]?.title).toBe('Plan A')
+  })
+
+  it('returns empty array when no entries match', () => {
+    makeDb()
+    unwrap(call<NotebookEntry>('notebook:create', { title: 'Watchlist' }))
+    const results = unwrap(call<NotebookEntrySummary[]>('notebook:search', { query: 'xyznotfound' }))
+    expect(results).toHaveLength(0)
+  })
+
+  it('rejects a search with an empty query', () => {
+    makeDb()
+    const res = call<NotebookEntrySummary[]>('notebook:search', { query: '' })
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.error.code).toBe('VALIDATION_ERROR')
+  })
+
+  it('excludes soft-deleted entries from search results', () => {
+    makeDb()
+    const entry = unwrap(call<NotebookEntry>('notebook:create', { title: 'Gone', content: 'deleted content' }))
+    unwrap(call<{ ok: true }>('notebook:delete', { id: entry.id }))
+
+    const results = unwrap(call<NotebookEntrySummary[]>('notebook:search', { query: 'deleted content' }))
+    expect(results).toHaveLength(0)
   })
 })

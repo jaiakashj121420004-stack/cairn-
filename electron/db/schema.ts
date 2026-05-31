@@ -321,10 +321,12 @@ export const dismissedInsights = sqliteTable('dismissed_insights', {
 
 export const notebookEntries = sqliteTable('notebook_entries', {
   id: text('id').primaryKey(),
+  accountId: text('account_id').references(() => accounts.id),
   title: text('title').notNull(),
   content: text('content').notNull().default(''),
   template: text('template'),
   pinned: integer('pinned').notNull().default(0),
+  version: integer('version').notNull().default(1),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
   deletedAt: integer('deleted_at'),

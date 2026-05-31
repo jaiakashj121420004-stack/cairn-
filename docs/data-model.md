@@ -430,3 +430,12 @@ Production applies migrations via Drizzle's **journal-driven** `migrate()`
 and 0002, so `0003_opened_at.sql` never ran in production. The journal now lists
 0001–0004, and `tests/integration/migrations.test.ts` asserts every migration
 file is journaled in order to prevent recurrence.
+
+### Notebook (migration 0006) and account-scoping (migration 0007)
+
+`notebook_entries` stores free-form markdown notes. Key design decisions:
+
+- **`account_id` (nullable FK → `accounts`)**: `NULL` means the note is global (not scoped to any account). Account-scoped notes are filtered when a specific account is active in a future UI enhancement.
+- **`version` (integer, default 1)**: Optimistic-concurrency version counter for the v2.0 sync layer. Bumped on every `title` or `content` update by the IPC handler; not bumped on `pinned` changes.
+- **Grade is a derived value, not a column**: The per-trade A–F grade is computed at read time in the IPC handler (`electron/services/trade-grade.ts`) and returned alongside each trade record. It is never persisted as a column. If performance demands later, a materialised view or a cached column may be added, but only after profiling shows it is warranted.
+- **Search is done with SQLite `LIKE`**: `notebook:search` runs a case-insensitive substring match across `title` and `content`. LIKE in SQLite is case-insensitive for ASCII by default. A full-text search index (`FTS5`) can be added as a future migration if needed.

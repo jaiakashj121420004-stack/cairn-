@@ -1,40 +1,43 @@
+import '@uiw/react-md-editor/markdown-editor.css'
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import MDEditor from '@uiw/react-md-editor'
 import { motion } from 'framer-motion'
-import { Plus, Pin, PinOff, Trash2, Eye, Pencil, FileText, ChevronDown } from 'lucide-react'
+import { Plus, Pin, PinOff, Trash2, FileText, ChevronDown, Search, X } from 'lucide-react'
 import { Button, Modal, useToast } from '../../components/ui'
 import { ipc } from '../../lib/ipc'
 import { cn } from '../../lib/cn'
 import { formatDate } from '../../lib/formatters'
-import { renderMarkdown } from '../../lib/markdown'
+import { useUiStore } from '../../stores/ui-store'
 import { NOTEBOOK_TEMPLATES } from './templates'
 import type { NotebookEntry, NotebookEntrySummary } from '@shared/types/index'
 
-const MD_CLASSES =
-  'text-body-sm text-text-secondary leading-relaxed ' +
-  '[&_h1]:text-h3 [&_h1]:font-bold [&_h1]:text-text-primary [&_h1]:mt-1 [&_h1]:mb-2 ' +
-  '[&_h2]:text-body [&_h2]:font-semibold [&_h2]:text-text-primary [&_h2]:mt-4 [&_h2]:mb-1.5 ' +
-  '[&_h3]:font-semibold [&_h3]:text-text-primary [&_h3]:mt-3 [&_h3]:mb-1 ' +
-  '[&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-1.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-1.5 [&_li]:my-0.5 ' +
-  '[&_p]:my-2 [&_a]:text-accent-a [&_a]:underline [&_code]:font-mono [&_code]:text-accent-b ' +
-  '[&_strong]:text-text-primary [&_strong]:font-semibold ' +
-  '[&_blockquote]:border-l-2 [&_blockquote]:border-accent-a/40 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-text-muted [&_blockquote]:my-2 ' +
-  '[&_hr]:border-border [&_hr]:my-3'
-
 export function NotebookPage() {
   const toast = useToast()
+  const resolvedTheme = useUiStore((s) => s.resolvedTheme)
+  const [searchParams, setSearchParams] = useSearchParams()
+
   const [list, setList] = useState<NotebookEntrySummary[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [entry, setEntry] = useState<NotebookEntry | null>(null)
   const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
-  const [mode, setMode] = useState<'edit' | 'preview'>('edit')
+  const [content, setContent] = useState<string>('')
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [templateMenu, setTemplateMenu] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<NotebookEntrySummary[] | null>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   const dirtyRef = useRef(dirty)
   dirtyRef.current = dirty
+  const contentRef = useRef<string>(content)
+  contentRef.current = content
+  const titleRef = useRef(title)
+  titleRef.current = title
+  const selectedIdRef = useRef(selectedId)
+  selectedIdRef.current = selectedId
 
   const loadList = useCallback(async () => {
     const res = await ipc.notebook.list()
@@ -45,6 +48,19 @@ export function NotebookPage() {
     void loadList()
   }, [loadList])
 
+  // Handle ?new and ?search URL params from command palette
+  useEffect(() => {
+    const action = searchParams.get('action')
+    if (action === 'new') {
+      setSearchParams({}, { replace: true })
+      void createEntry(null)
+    } else if (action === 'search') {
+      setSearchParams({}, { replace: true })
+      setTimeout(() => searchInputRef.current?.focus(), 50)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const openEntry = useCallback(async (id: string) => {
     const res = await ipc.notebook.get(id)
     if (res.ok) {
@@ -53,14 +69,18 @@ export function NotebookPage() {
       setTitle(res.data.title)
       setContent(res.data.content)
       setDirty(false)
-      setMode('edit')
     }
   }, [])
 
   async function persist(): Promise<boolean> {
-    if (!selectedId || !dirtyRef.current) return true
+    const id = selectedIdRef.current
+    if (!id || !dirtyRef.current) return true
     setSaving(true)
-    const res = await ipc.notebook.update({ id: selectedId, title: title.trim() || 'Untitled', content })
+    const res = await ipc.notebook.update({
+      id,
+      title: titleRef.current.trim() || 'Untitled',
+      content: contentRef.current ?? '',
+    })
     setSaving(false)
     if (!res.ok) {
       toast('Could not save the note.', 'error')
@@ -117,10 +137,41 @@ export function NotebookPage() {
     toast('Note deleted.', 'success')
   }
 
+  async function handleSearch(q: string) {
+    setSearchQuery(q)
+    if (!q.trim()) {
+      setSearchResults(null)
+      return
+    }
+    const res = await ipc.notebook.search({ query: q.trim() })
+    if (res.ok) setSearchResults(res.data)
+  }
+
+  function clearSearch() {
+    setSearchQuery('')
+    setSearchResults(null)
+    searchInputRef.current?.focus()
+  }
+
+  // Cmd+S / Ctrl+S to save
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault()
+        void persist()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  })
+
+  const displayList = searchResults ?? list
+
   return (
-    <div className="flex h-full">
+    <div className="flex h-full" data-color-mode={resolvedTheme}>
       {/* ── List column ─────────────────────────────────────── */}
       <div className="flex w-72 shrink-0 flex-col border-r" style={{ borderColor: 'var(--glass-border)' }}>
+        {/* Header row */}
         <div className="flex items-center justify-between gap-2 border-b px-4 py-3" style={{ borderColor: 'var(--glass-border)' }}>
           <h1 className="text-body font-semibold text-text-primary">Notebook</h1>
           <div className="relative">
@@ -139,9 +190,7 @@ export function NotebookPage() {
               </button>
             </div>
             {templateMenu && (
-              <div
-                className="absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-[10px] border border-border bg-surface-elevated shadow-lg"
-              >
+              <div className="absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-[10px] border border-border bg-surface-elevated shadow-lg">
                 {NOTEBOOK_TEMPLATES.map((t) => (
                   <button
                     key={t.id}
@@ -158,13 +207,34 @@ export function NotebookPage() {
           </div>
         </div>
 
+        {/* Search bar */}
+        <div className="border-b px-3 py-2" style={{ borderColor: 'var(--glass-border)' }}>
+          <div className="flex items-center gap-1.5 rounded-[8px] border border-border bg-surface px-2.5 py-1.5">
+            <Search className="h-3.5 w-3.5 shrink-0 text-text-muted" strokeWidth={1.5} />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => void handleSearch(e.target.value)}
+              placeholder="Search notes…"
+              className="flex-1 bg-transparent text-caption text-text-primary placeholder:text-text-muted focus:outline-none"
+            />
+            {searchQuery && (
+              <button type="button" onClick={clearSearch} className="text-text-muted hover:text-text-secondary">
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Entry list */}
         <div className="flex-1 overflow-y-auto">
-          {list.length === 0 ? (
+          {displayList.length === 0 ? (
             <p className="px-4 py-6 text-caption text-text-muted">
-              No notes yet. Start one, or pick a template.
+              {searchQuery ? 'No notes match your search.' : 'No notes yet. Start one, or pick a template.'}
             </p>
           ) : (
-            list.map((item) => (
+            displayList.map((item) => (
               <button
                 key={item.id}
                 type="button"
@@ -200,25 +270,19 @@ export function NotebookPage() {
       </div>
 
       {/* ── Editor column ───────────────────────────────────── */}
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col min-w-0">
         {entry ? (
           <>
             <div className="flex items-center gap-2 border-b px-5 py-3" style={{ borderColor: 'var(--glass-border)' }}>
               <input
                 value={title}
                 onChange={(e) => { setTitle(e.target.value); setDirty(true) }}
+                onBlur={() => void persist()}
                 placeholder="Untitled"
                 className="flex-1 bg-transparent text-body font-semibold text-text-primary placeholder:text-text-muted focus:outline-none"
               />
               <div className="flex shrink-0 items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setMode((m) => (m === 'edit' ? 'preview' : 'edit'))}
-                  className="flex items-center gap-1 rounded-[7px] border border-border px-2 py-1 text-caption text-text-secondary hover:bg-surface-elevated"
-                >
-                  {mode === 'edit' ? <Eye className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
-                  {mode === 'edit' ? 'Preview' : 'Edit'}
-                </button>
+                {saving && <span className="text-caption text-text-muted">Saving…</span>}
                 <button
                   type="button"
                   aria-label="Delete note"
@@ -227,30 +291,26 @@ export function NotebookPage() {
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
-                <Button size="sm" onClick={() => void persist()} loading={saving} disabled={!dirty}>
-                  Save
-                </Button>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-5 py-4">
-              {mode === 'edit' ? (
-                <textarea
-                  value={content}
-                  onChange={(e) => { setContent(e.target.value); setDirty(true) }}
-                  onBlur={() => void persist()}
-                  placeholder="Write in markdown… # heading, - bullet, **bold**, > quote"
-                  className="h-full min-h-[400px] w-full resize-none bg-transparent font-mono text-body-sm leading-relaxed text-text-primary placeholder:text-text-muted focus:outline-none"
-                />
-              ) : (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className={MD_CLASSES}
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
-                />
-              )}
-            </div>
+            <motion.div
+              key={entry.id}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex-1 overflow-hidden [&_.w-md-editor]:h-full [&_.w-md-editor]:!bg-transparent [&_.w-md-editor]:!border-0 [&_.w-md-editor-toolbar]:!border-b [&_.w-md-editor-toolbar]:!bg-transparent [&_.w-md-editor-text]:!font-mono"
+            >
+              <MDEditor
+                value={content}
+                onChange={(v) => { setContent(v ?? ''); setDirty(true) }}
+                onBlur={() => void persist()}
+                height="100%"
+                preview="live"
+                visibleDragbar={false}
+                hideToolbar={false}
+                data-color-mode={resolvedTheme}
+              />
+            </motion.div>
           </>
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center text-center">
@@ -263,7 +323,7 @@ export function NotebookPage() {
       {confirmDelete && (
         <Modal open onClose={() => setConfirmDelete(false)} title="Delete note?" maxWidth="380px">
           <p className="text-body-sm text-text-secondary">
-            This note will be removed from your notebook. This can’t be undone here.
+            This note will be removed from your notebook. This cannot be undone here.
           </p>
           <div className="mt-5 flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setConfirmDelete(false)}>Cancel</Button>

@@ -546,17 +546,17 @@ Tracks what is actually built/verified vs planned. Last reviewed **2026-05-31** 
 - Test files for every Wave 1 feature exist and are well-formed (37 unit/integration test files total at Wave 1 commit; 38 files / 258 tests as of re-verification with Wave 2 `event-bus.test.ts` in working tree — the six Wave 1 test files were checked individually, no duplicated imports or top-level redeclarations).
 - Honesty gates verified intact: chips are all ≥20 chars; clean-close is disabled on flagged trades and requires a manual Submit; emotion presets don't change the schema; last-trade pre-fill carries only pair/setup/mode/account, never emotional fields.
 
-### Five quality gates — GREEN on 2026-05-31 (re-verified)
+### Five quality gates — GREEN on 2026-05-31 (re-verified; Notebook enhancement re-checked)
 
-The 2026-05-30 review could not execute the gates (the Linux review sandbox could not resolve the repo's Windows-symlinked `node_modules`). They were run locally on **2026-05-31** and all passed. Re-verified same date with Wave 2 event-bus changes in the working tree — all five still green:
+The 2026-05-30 review could not execute the gates (the Linux review sandbox could not resolve the repo's Windows-symlinked `node_modules`). They were run locally on **2026-05-31** and all passed. Re-verified same date with Wave 2 event-bus changes in the working tree — all five still green. Re-verified again after Notebook enhancement (migration 0007, @uiw/react-md-editor, search, Cmd+K):
 
-| Gate | Wave 1 commit (`f82a0d6`) | Re-verified (Wave 2 WIP in tree) |
-|---|---|---|
-| `pnpm typecheck` | clean | clean |
-| `pnpm lint` (`--max-warnings 0`) | clean | clean |
-| `pnpm test:unit` | 37 files, 254 tests | 38 files, 258 tests |
-| `pnpm build` | success | success |
-| `pnpm test:e2e` (smoke) | passed, 4 consecutive runs | passed |
+| Gate | Wave 1 commit (`f82a0d6`) | Re-verified (Wave 2 WIP in tree) | Notebook enhancement |
+|---|---|---|---|
+| `pnpm typecheck` | clean | clean | clean |
+| `pnpm lint` (`--max-warnings 0`) | clean | clean | clean |
+| `pnpm test:unit` | 37 files, 254 tests | 38 files, 258 tests | 53 files, 424 tests |
+| `pnpm build` | success | success | success |
+| `pnpm test:e2e` (smoke) | passed, 4 consecutive runs | passed | passed |
 
 ### Issues found during review — RESOLVED (commit `f82a0d6`, 2026-05-31)
 
@@ -576,7 +576,9 @@ All six issues from the 2026-05-30 review are fixed and covered by the now-green
 - The working tree contained 12 truncated/corrupted uncommitted files from an interrupted earlier session (e.g. `ui-store.ts` ended mid-token at `setSetti`). They were restored to their committed HEAD content — **the corrupt edits were discarded, no committed work was lost.**
 - `.git/index` was corrupted during review (filesystem-permission quirk on the Windows mount). **Resolved 2026-05-31:** removed `.git/index` + stale `.git/index.lock` / `.git/index.stash.*` and ran `git reset` to rebuild the index from HEAD. Committed history was always intact; no work was lost. The uncommitted prior-session timezone work (`trading-day` module + calendar fixes) was recovered and is included in commit `f82a0d6`.
 
-### Wave 2 progress — DONE 2026-05-31 (items 11–17 complete; all five gates green, 413 unit tests)
+### Wave 2 progress — DONE 2026-05-31 (items 11–17 complete; all five gates green, 424 unit tests)
+
+**Wave 2 item 17 ENHANCED — Notebook rebuilt with @uiw/react-md-editor, account-scoping, and search.** Migration 0007 adds `account_id` (nullable FK) and `version` (integer, starts at 1, bumps on title/content change) to `notebook_entries`. `notebook:search` IPC does substring search across title + body via SQLite LIKE. `NotebookPage` rebuilt: the hand-rolled markdown renderer is replaced with `@uiw/react-md-editor` (live split-pane editor/preview, proper toolbar, dark/light via `data-color-mode`); search bar with instant results above the entry list; save-on-blur + Cmd+S; "New notebook entry" and "Search notebook" added to Cmd+K registry (navigating `/notebook?action=new|search`). +9 search and account/version tests (integration). 424 unit tests, all five gates green.
 
 **Wave 2 item 17 DONE — commit `eb7e52c`, 2026-05-31.** Notebook — local markdown notes with templates. Migration 0006 + `notebook_entries` table; CRUD IPC (`notebook:list/get/create/update/delete`, Zod-validated, soft delete, pinned-first list with markdown-stripped preview); `data.ts` export/reset now include it (reset also wipes `dismissed_insights`). `src/lib/markdown.ts` is a dependency-free, XSS-safe renderer (block structure parsed on the raw line, all text HTML-escaped before any tag, links limited to http/https/mailto). `NotebookPage` is a two-pane editor (list + markdown Edit/Preview) with New / New-from-template (trading plan, watchlist, weekly review), pin and soft-delete; new `/notebook` route, sidebar entry, and "Open Notebook" command. +21 tests (markdown subset + XSS, CRUD integration against a real sql.js DB, migrations journal/table updates, page smoke).
 

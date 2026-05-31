@@ -2,6 +2,7 @@
 // state shows until a note is selected.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, cleanup } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import React from 'react'
 import { NotebookPage } from '../../../src/features/notebook/NotebookPage'
 import { ToastProvider } from '../../../src/components/ui/toast'
@@ -12,14 +13,15 @@ function ok<T>(data: T) {
 }
 
 const ENTRIES: NotebookEntrySummary[] = [
-  { id: 'n1', title: 'My trading plan', template: 'trading_plan', pinned: 1, updatedAt: 1700000000000, preview: 'Markets and sessions' },
-  { id: 'n2', title: 'Watchlist', template: 'watchlist', pinned: 0, updatedAt: 1700000001000, preview: 'EURUSD XAUUSD' },
+  { id: 'n1', accountId: null, title: 'My trading plan', template: 'trading_plan', pinned: 1, updatedAt: 1700000000000, preview: 'Markets and sessions' },
+  { id: 'n2', accountId: null, title: 'Watchlist', template: 'watchlist', pinned: 0, updatedAt: 1700000001000, preview: 'EURUSD XAUUSD' },
 ]
 
 function buildMockApi(entries: NotebookEntrySummary[]) {
   return {
     notebook: {
       list: () => ok(entries),
+      search: vi.fn(),
       get: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
@@ -43,9 +45,11 @@ describe('NotebookPage', () => {
     // @ts-expect-error — partial mock is sufficient for what the page calls
     window.api = buildMockApi(ENTRIES)
     render(
-      <ToastProvider>
-        <NotebookPage />
-      </ToastProvider>,
+      <MemoryRouter>
+        <ToastProvider>
+          <NotebookPage />
+        </ToastProvider>
+      </MemoryRouter>,
     )
 
     await waitFor(() => {
@@ -59,9 +63,11 @@ describe('NotebookPage', () => {
     // @ts-expect-error — partial mock is sufficient for what the page calls
     window.api = buildMockApi([])
     render(
-      <ToastProvider>
-        <NotebookPage />
-      </ToastProvider>,
+      <MemoryRouter>
+        <ToastProvider>
+          <NotebookPage />
+        </ToastProvider>
+      </MemoryRouter>,
     )
 
     await waitFor(() => {
