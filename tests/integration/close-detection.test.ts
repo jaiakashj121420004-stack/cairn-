@@ -10,6 +10,7 @@ import { v7 as uuidv7 } from 'uuid'
 import { eq } from 'drizzle-orm'
 import { ensureSqlJs, createTestDb, insertAccountRule, schema } from '../unit/rules-engine/_db'
 import { detectCloseViolations } from '../../electron/services/rules-engine/close-detection'
+import { evaluateModification } from '../../electron/services/rules-engine/engine'
 import type { CairnDb } from '../../electron/db/index'
 
 // The seed killzone is London 07:00–10:00 UTC. 14:00 UTC is outside it but lands
@@ -215,5 +216,34 @@ describe('detectCloseViolations', () => {
   it('returns an empty list for an unknown trade id', () => {
     const { db } = bundle
     expect(detectCloseViolations(db, 'nope')).toEqual([])
+  })
+
+  it('end-to-end: a real-time lot-size modification is recorded and pre-ticked at close', () => {
+    const { db, ids } = bundle
+    insertAccountRule(db, ids.accountId, 'position_size_matches_plan', { tolerancePct: 5 })
+    const tradeId = uuidv7()
+    // Planned 50 lots / $100 risk.
+    insertTrade(db, ids, tradeId, { lotSize: 50, riskAmountCents: 10000 })
+
+    // Trader sizes up to 80 lots mid-trade and logs it through the modification
+    // gate. The engine evaluates it live (no UI mock needed) and records the
+    // violation with a { field: 'lot_size', proposed } snapshot.
+    evaluateModification(db, ids.accountId, tradeId, {
+      field: 'lot_size',
+      currentValue: 50,
+      newValue: 80,
+    })
+
+    const recorded = db
+      .select()
+      .from(schema.ruleViolations)
+      .all()
+      .filter((v) => v.tradeId === tradeId)
+    expect(recorded.some((v) => JSON.parse(v.contextJson).field === 'lot_size')).toBe(true)
+
+    // At close, the risk-increase detector picks the recorded modification up.
+    expect(detectCloseViolations(db, tradeId).map((d) => d.ruleKey)).toContain(
+      'position_size_matches_plan',
+    )
   })
 })
