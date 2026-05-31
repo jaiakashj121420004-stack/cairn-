@@ -655,9 +655,26 @@ export interface WeekDayStats {
   adherencePct: number  // 0-100, or -1 meaning no trades that day
 }
 
+// Composite performance score (Zella-Score style) — 0-100, alongside Discipline.
+export interface CompositeScoreComponents {
+  winRate: number       // 0-100 sub-score
+  profitFactor: number  // 0-100
+  avgWinLoss: number    // 0-100
+  consistency: number   // 0-100
+  discipline: number    // 0-100
+}
+
+export interface CompositeScore {
+  score: number         // 0-100 overall (integer)
+  components: CompositeScoreComponents
+  sampleSize: number
+  sufficient: boolean   // false when fewer than the minimum rated trades
+}
+
 export interface DashboardStats {
   disciplineScore: number
   disciplineWindow: number
+  compositeScore: CompositeScore
   ruleBreakdown: { ruleKey: string; count: number }[]
   rollingExpectancy: number       // avg pnlR ×100 of last 20 closed trades
   expectancySpark: number[]       // pnlR ×100 values, oldest first

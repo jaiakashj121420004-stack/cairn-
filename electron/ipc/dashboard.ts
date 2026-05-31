@@ -3,6 +3,7 @@ import { getDb } from '../db/index'
 import { trades, accounts, pairs, setups } from '../db/schema'
 import { eq, and, gte, lt, isNull, desc, sql } from 'drizzle-orm'
 import type { IpcResponse, DashboardStats, RecentTradeItem, WeekDayStats } from '../../shared/types/index'
+import { computeCompositeScore } from '../services/analytics/composite-score'
 
 function todayUtc(): string {
   return new Date().toISOString().slice(0, 10)
@@ -87,6 +88,26 @@ export function registerDashboardHandlers(): void {
           .sort((a, b) => b[1] - a[1])
           .slice(0, 5)
           .map(([ruleKey, count]) => ({ ruleKey, count }))
+
+        // ── Composite performance score over the last 50 closed trades ─────────
+        const last50 = db
+          .select({
+            pnlR: trades.pnlR,
+            pnlCents: trades.pnlCents,
+            isClean: trades.isClean,
+          })
+          .from(trades)
+          .where(
+            and(
+              eq(trades.accountId, accountId),
+              eq(trades.status, 'closed'),
+              isNull(trades.deletedAt),
+            ),
+          )
+          .orderBy(desc(trades.exitTime))
+          .limit(50)
+          .all()
+        const compositeScore = computeCompositeScore(last50)
 
         // Rolling expectancy over last 20 closed (pnlR ×100)
         const closedWithPnl = last20.filter((t) => t.pnlR !== null)
@@ -312,6 +333,7 @@ export function registerDashboardHandlers(): void {
         const result: DashboardStats = {
           disciplineScore,
           disciplineWindow,
+          compositeScore,
           ruleBreakdown,
           rollingExpectancy,
           expectancySpark,

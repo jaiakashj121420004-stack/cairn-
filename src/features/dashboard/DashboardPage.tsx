@@ -252,6 +252,61 @@ function CleanIcon({ isClean }: { isClean: number | null }) {
     : <XCircle className="h-3.5 w-3.5 text-danger" strokeWidth={1.75} />
 }
 
+/* Composite performance score — compact readout below the Discipline Ring.
+   Zella-Score-style 0–100 from win rate, profit factor, avg win/loss,
+   consistency and clean-trade quality. */
+const COMPOSITE_PARTS: { key: keyof DashboardStats['compositeScore']['components']; label: string }[] = [
+  { key: 'winRate', label: 'Win rate' },
+  { key: 'profitFactor', label: 'Profit factor' },
+  { key: 'avgWinLoss', label: 'Avg win/loss' },
+  { key: 'consistency', label: 'Consistency' },
+  { key: 'discipline', label: 'Quality' },
+]
+
+function CompositeReadout({ composite }: { composite: DashboardStats['compositeScore'] }) {
+  const { score, components, sufficient, sampleSize } = composite
+  const tone =
+    score >= 70 ? 'hsl(74,74%,59%)' : score >= 40 ? 'hsl(36,52%,57%)' : 'hsl(0,65%,63%)'
+  return (
+    <div className="mt-4 w-full px-5">
+      <div className="h-px w-full bg-white/[0.06]" />
+      <div className="mt-3 flex items-center justify-between">
+        <span className="text-micro font-semibold uppercase tracking-[0.10em] text-text-muted/70">
+          Performance
+        </span>
+        <span className="font-mono text-body-sm font-bold" style={{ color: sufficient ? tone : 'hsl(var(--text-muted))' }}>
+          {score}
+          <span className="text-text-muted/60">/100</span>
+        </span>
+      </div>
+      {sufficient ? (
+        <div className="mt-2 flex gap-1" aria-hidden>
+          {COMPOSITE_PARTS.map((p) => (
+            <div key={p.key} className="group relative flex-1" title={`${p.label}: ${components[p.key]}/100`}>
+              <div className="h-1 w-full overflow-hidden rounded-full bg-surface-elevated">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${components[p.key]}%`,
+                    background:
+                      components[p.key] >= 70 ? 'hsl(74,74%,59%)' : components[p.key] >= 40 ? 'hsl(36,52%,57%)' : 'hsl(0,65%,63%)',
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-1.5 text-micro text-text-muted/55">
+          {sampleSize === 0
+            ? 'No closed trades yet.'
+            : `Builds with more data — ${sampleSize}/10 trades.`}
+        </p>
+      )}
+    </div>
+  )
+}
+
 /* Glass panel — used for secondary cards */
 function Panel({
   children, className, delay = 0,
@@ -452,11 +507,14 @@ export function DashboardPage() {
               Discipline Score
             </p>
             {stats ? (
-              <DisciplineRing
-                score={stats.disciplineScore}
-                window={stats.disciplineWindow}
-                ruleBreakdown={stats.ruleBreakdown}
-              />
+              <>
+                <DisciplineRing
+                  score={stats.disciplineScore}
+                  window={stats.disciplineWindow}
+                  ruleBreakdown={stats.ruleBreakdown}
+                />
+                <CompositeReadout composite={stats.compositeScore} />
+              </>
             ) : (
               <div className="h-[200px] w-[200px] animate-pulse rounded-full bg-surface" />
             )}
