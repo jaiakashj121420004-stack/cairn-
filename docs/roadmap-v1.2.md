@@ -205,7 +205,7 @@ v1.2 is complete when all v1.1 criteria (CLAUDE.md §16.a) are met, the v1.1 bra
 12. ✅ Analytics includes time-of-day, day-of-week, expectancy, profit factor, R-multiple distribution. — commit `f13cabd`, 2026-05-31
 13. ✅ The Review screen lists local insight-engine findings; at least 5 heuristics are wired and tested. — commit `4ac1913`, 2026-05-31
 14. ✅ Close Trade modal pre-ticks rules-broken from planned-vs-actual comparison; the trader confirms or unticks. — commit `eac6e9e`, 2026-05-31 (6 detectors in the rule engine; SL-widening + new TP-narrowing have real-time hooks; mid-trade risk-increase real-time hook deferred — see §17.6)
-15. A composite performance score is displayed alongside the Discipline Score.
+15. ✅ A composite performance score is displayed alongside the Discipline Score. — commit `ce30ab7`, 2026-05-31 (decimal.js 0–100 score from win rate, profit factor, avg win/loss, consistency, clean-rate; rendered under the Discipline Ring)
 16. Per-trade A–F quality grade appears on the trade detail and the trade log.
 17. Notebook is available with rich-text notes and at least three templates (trading plan, watchlist, weekly review).
 
