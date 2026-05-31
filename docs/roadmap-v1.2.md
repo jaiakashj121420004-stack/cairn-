@@ -200,14 +200,14 @@ v1.2 is complete when all v1.1 criteria (CLAUDE.md §16.a) are met, the v1.1 bra
 9. ✅ ⌘K command palette is implemented and listed in Settings shortcuts.
 10. ✅ Calendar view exists, coloured by daily P&L, with click-through to a day's trades (bucketed by `exit_time` in the configured timezone, agreeing with the rules engine).
 
-**Automations (Wave 2) — in progress**
+**Automations (Wave 2) — DONE 2026-05-31** (items 11–17 complete; gates green)
 11. ✅ Dashboard updates instantly on every close (no manual refresh). — commit `14d8ced`, 2026-05-31
 12. ✅ Analytics includes time-of-day, day-of-week, expectancy, profit factor, R-multiple distribution. — commit `f13cabd`, 2026-05-31
 13. ✅ The Review screen lists local insight-engine findings; at least 5 heuristics are wired and tested. — commit `4ac1913`, 2026-05-31
 14. ✅ Close Trade modal pre-ticks rules-broken from planned-vs-actual comparison; the trader confirms or unticks. — commit `eac6e9e`, 2026-05-31 (6 detectors in the rule engine; SL-widening + new TP-narrowing have real-time hooks; mid-trade risk-increase real-time hook deferred — see §17.6)
 15. ✅ A composite performance score is displayed alongside the Discipline Score. — commit `ce30ab7`, 2026-05-31 (decimal.js 0–100 score from win rate, profit factor, avg win/loss, consistency, clean-rate; rendered under the Discipline Ring)
 16. ✅ Per-trade A–F quality grade appears on the trade detail and the trade log. — commit `bc3808b`, 2026-05-31 (process-weighted: plan-followed + rules-clean dominate; disciplined loss can grade A, rule-breaking win grades F)
-17. Notebook is available with rich-text notes and at least three templates (trading plan, watchlist, weekly review).
+17. ✅ Notebook is available with markdown notes and three templates (trading plan, watchlist, weekly review). — commit `eb7e52c`, 2026-05-31 (local `notebook_entries` table, XSS-safe markdown renderer, two-pane page, pin + soft-delete)
 
 **Import + two-phase logging (Wave 3)**
 18. MT5 statement import lands trades into the local DB with no manual entry; round-tripped through tests.

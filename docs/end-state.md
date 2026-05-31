@@ -58,8 +58,8 @@ v1.2 sits between v1.1 and v2.0 and is its own shippable milestone. It is comple
 **Friction quick-wins (Wave 1):**
 53. The New Trade panel remembers last pair/setup/mode within a session; invalidation offers ICT-native quick-chips that satisfy the 20-char gate in one tap; emotional state defaults to a one-tap selector with sliders behind an advanced disclosure; the close modal has a "Closed clean at TP/SL" one-click path; a ⌘K command palette is implemented; a calendar view exists.
 
-**Automations (Wave 2):**
-54. Dashboard updates instantly on every close; analytics includes time-of-day, day-of-week, expectancy, profit factor, and R-multiple distribution; the Review screen surfaces at least five local-heuristic insights; the close modal pre-ticks rules-broken from planned-vs-actual comparison; a composite performance score sits alongside the Discipline Score; per-trade A–F quality grade appears on the trade detail and trade log; the Notebook is available with at least three templates.
+**Automations (Wave 2) — DONE 2026-05-31:**
+54. ✅ Dashboard updates instantly on every close; analytics includes time-of-day, day-of-week, expectancy, profit factor, and R-multiple distribution; the Review screen surfaces at least five local-heuristic insights; the close modal pre-ticks rules-broken from planned-vs-actual comparison; a composite performance score sits alongside the Discipline Score; per-trade A–F quality grade appears on the trade detail and trade log; the Notebook is available with at least three templates. (commits `14d8ced` · `f13cabd` · `4ac1913` · `eac6e9e` · `ce30ab7` · `bc3808b` · `eb7e52c`)
 
 **Import + two-phase logging (Wave 3):**
 55. MT5, cTrader and TradingView statement/CSV imports land trades into the local DB with no manual entry, round-tripped through tests. MAE/MFE auto-populates from imported price data where present. The fast-path New Trade flow completes in ≤ 20 s. The close modal is split into a minimal exit-only step plus a deferred reflection queue, with a sidebar badge for trades awaiting reflection. Setup templates / playbooks pre-fill the New Trade panel on one tap.
