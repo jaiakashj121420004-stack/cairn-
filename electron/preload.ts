@@ -16,10 +16,12 @@ import type {
   BackupResult,
   RestoreInfo,
   BackupSettings,
-  Mt5ImportPreview,
-  Mt5CommitResult,
+  ImportPreview,
+  ImportCommitResult,
   Mt5PreviewInput,
   Mt5CommitInput,
+  CTraderPreviewInput,
+  CTraderCommitInput,
 } from '../shared/types/index'
 import type {
   PropFirm,
@@ -292,10 +294,14 @@ const api = {
   },
 
   import: {
-    previewMt5: (input: Mt5PreviewInput): Promise<IpcResponse<Mt5ImportPreview>> =>
+    previewMt5: (input: Mt5PreviewInput): Promise<IpcResponse<ImportPreview>> =>
       ipcRenderer.invoke('import:previewMt5', input),
-    commitMt5: (input: Mt5CommitInput): Promise<IpcResponse<Mt5CommitResult>> =>
+    commitMt5: (input: Mt5CommitInput): Promise<IpcResponse<ImportCommitResult>> =>
       ipcRenderer.invoke('import:commitMt5', input),
+    previewCtrader: (input: CTraderPreviewInput): Promise<IpcResponse<ImportPreview>> =>
+      ipcRenderer.invoke('import:previewCtrader', input),
+    commitCtrader: (input: CTraderCommitInput): Promise<IpcResponse<ImportCommitResult>> =>
+      ipcRenderer.invoke('import:commitCtrader', input),
   },
 
   events: {

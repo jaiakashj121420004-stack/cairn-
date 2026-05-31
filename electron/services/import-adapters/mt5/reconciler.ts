@@ -123,21 +123,22 @@ function reconcileGroup(
   const tp = order?.takeProfit ?? null
 
   return {
-    externalRef: `mt5_order_${orderId}`,
-    symbol:      entryDeal.symbol,
-    pairId:      null,  // resolved by IPC handler against the pairs table
+    externalRef:  `mt5_order_${orderId}`,
+    brokerTradeId: orderId,
+    symbol:        entryDeal.symbol,
+    pairId:        null,  // resolved by IPC handler against the pairs table
     direction,
-    entryTime:   entryDeal.timeMs,
-    entryPrice:  entryDeal.price,
-    exitTime:    finalExit?.timeMs ?? null,
-    exitPrice:   finalExit?.price ?? null,
-    stopLoss:    isZeroPrice(sl) ? null : sl,
-    takeProfit:  isZeroPrice(tp) ? null : tp,
-    volumeLots:  entryDeal.volumeLots,
-    pnlAmount:   totalPnl.toFixed(2),
-    commission:  totalComm.toFixed(2),
-    swap:        totalSwap.toFixed(2),
-    status:      isClosed ? 'closed' : 'open',
+    entryTime:     entryDeal.timeMs,
+    entryPrice:    entryDeal.price,
+    exitTime:      finalExit?.timeMs ?? null,
+    exitPrice:     finalExit?.price ?? null,
+    stopLoss:      isZeroPrice(sl) ? null : sl,
+    takeProfit:    isZeroPrice(tp) ? null : tp,
+    volumeLots:    entryDeal.volumeLots,
+    pnlAmount:     totalPnl.toFixed(2),
+    commission:    totalComm.toFixed(2),
+    swap:          totalSwap.toFixed(2),
+    status:        isClosed ? 'closed' : 'open',
     partialExits,
   }
 }

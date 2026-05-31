@@ -57,10 +57,12 @@ import type {
   BackupResult,
   RestoreInfo,
   BackupSettings,
-  Mt5ImportPreview,
-  Mt5CommitResult,
+  ImportPreview,
+  ImportCommitResult,
   Mt5PreviewInput,
   Mt5CommitInput,
+  CTraderPreviewInput,
+  CTraderCommitInput,
 } from '@shared/types/index'
 
 export interface DbStatus {
@@ -202,8 +204,10 @@ declare global {
         delete: (id: string) => Promise<IpcResponse<{ ok: true }>>
       }
       import: {
-        previewMt5: (input: Mt5PreviewInput) => Promise<IpcResponse<Mt5ImportPreview>>
-        commitMt5: (input: Mt5CommitInput) => Promise<IpcResponse<Mt5CommitResult>>
+        previewMt5: (input: Mt5PreviewInput) => Promise<IpcResponse<ImportPreview>>
+        commitMt5: (input: Mt5CommitInput) => Promise<IpcResponse<ImportCommitResult>>
+        previewCtrader: (input: CTraderPreviewInput) => Promise<IpcResponse<ImportPreview>>
+        commitCtrader: (input: CTraderCommitInput) => Promise<IpcResponse<ImportCommitResult>>
       }
       events: {
         on: (name: string, cb: (payload: unknown) => void) => () => void
@@ -402,10 +406,14 @@ export const ipc = {
   },
 
   import: {
-    previewMt5: (input: Mt5PreviewInput): Promise<IpcResponse<Mt5ImportPreview>> =>
+    previewMt5: (input: Mt5PreviewInput): Promise<IpcResponse<ImportPreview>> =>
       window.api.import.previewMt5(input),
-    commitMt5: (input: Mt5CommitInput): Promise<IpcResponse<Mt5CommitResult>> =>
+    commitMt5: (input: Mt5CommitInput): Promise<IpcResponse<ImportCommitResult>> =>
       window.api.import.commitMt5(input),
+    previewCtrader: (input: CTraderPreviewInput): Promise<IpcResponse<ImportPreview>> =>
+      window.api.import.previewCtrader(input),
+    commitCtrader: (input: CTraderCommitInput): Promise<IpcResponse<ImportCommitResult>> =>
+      window.api.import.commitCtrader(input),
   },
 
   backup: {
