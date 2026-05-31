@@ -200,8 +200,8 @@ v1.2 is complete when all v1.1 criteria (CLAUDE.md §16.a) are met, the v1.1 bra
 9. ✅ ⌘K command palette is implemented and listed in Settings shortcuts.
 10. ✅ Calendar view exists, coloured by daily P&L, with click-through to a day's trades (bucketed by `exit_time` in the configured timezone, agreeing with the rules engine).
 
-**Automations (Wave 2)**
-11. Dashboard updates instantly on every close (no manual refresh).
+**Automations (Wave 2) — in progress**
+11. ✅ Dashboard updates instantly on every close (no manual refresh). — commit `14d8ced`, 2026-05-31
 12. Analytics includes time-of-day, day-of-week, expectancy, profit factor, R-multiple distribution.
 13. The Review screen lists local insight-engine findings; at least 5 heuristics are wired and tested.
 14. Close Trade modal pre-ticks rules-broken from planned-vs-actual comparison; the trader confirms or unticks.

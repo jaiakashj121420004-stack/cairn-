@@ -576,9 +576,19 @@ All six issues from the 2026-05-30 review are fixed and covered by the now-green
 - The working tree contained 12 truncated/corrupted uncommitted files from an interrupted earlier session (e.g. `ui-store.ts` ended mid-token at `setSetti`). They were restored to their committed HEAD content — **the corrupt edits were discarded, no committed work was lost.**
 - `.git/index` was corrupted during review (filesystem-permission quirk on the Windows mount). **Resolved 2026-05-31:** removed `.git/index` + stale `.git/index.lock` / `.git/index.stash.*` and ran `git reset` to rebuild the index from HEAD. Committed history was always intact; no work was lost. The uncommitted prior-session timezone work (`trading-day` module + calendar fixes) was recovered and is included in commit `f82a0d6`.
 
-### Wave 2 readiness verdict
+### Wave 2 progress (in progress)
 
-**Wave 1 DONE — gates green on 2026-05-31, Wave 2 unblocked.** All six §17.6 issues are resolved (commit `f82a0d6`) and all five quality gates pass (typecheck, lint at `--max-warnings 0`, 254 unit tests, build, stable smoke E2E). Re-verified same date with Wave 2 event-bus scaffolding in the working tree — 258 tests, all gates still green. The calendar and rules engine now share one timezone-aware day definition, floating promises are handled, and the clean-close test can no longer drift from the component. Wave 2 (Automations) may begin.
+**Wave 2 item 1 DONE — commit `14d8ced`, 2026-05-31.** Typed event bus implemented end-to-end:
+- `electron/ipc/trades.ts` emits `cairn:event` after every DB-committing trade mutation (`trade.placed`, `trade.closed`, `trade.partial-closed`, `session.locked`, `rule.violated`).
+- `electron/preload.ts` fans the IPC channel into per-name listener sets, exposed as `window.api.events.{on,off}`.
+- `src/lib/event-bus.ts` — typed module-level singleton wrapping the preload bridge.
+- `DashboardPage` subscribes via `eventBus.on(...)`, refreshing the Discipline Ring, streak, and all stat cards on every trade mutation. No polling.
+- `tests/integration/event-bus.test.ts` — 4 integration tests asserting event payload shape for `trade.placed`, `trade.closed`, `rule.violated`, `trade.partial-closed`.
+- Also fixed a pre-existing flaky failure in `ReviewPage.test.tsx` (double-useEffect race with `afterEach`/`delete window.api`).
+
+All five gates green post-commit: typecheck · lint · 258 tests · build · smoke E2E.
+
+**Wave 1 DONE (baseline) — commit `f82a0d6`, 2026-05-31.** All six §17.6 issues resolved, five quality gates green, Wave 2 unblocked.
 
 ---
 
