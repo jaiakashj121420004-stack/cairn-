@@ -578,6 +578,8 @@ All six issues from the 2026-05-30 review are fixed and covered by the now-green
 
 ### Wave 2 progress (in progress)
 
+**Wave 2 item 3 DONE — commit `4ac1913`, 2026-05-31.** Local insight engine: five pure heuristics in `electron/services/insights/` (`urgency-hurts`, `killzone-expectancy`, `tilt-cycle`, `best-setup-underused`, `worst-hour`). Each takes `ClosedTrade[]` and returns `Insight | null`. `insights:list` / `insights:dismiss` IPC. Migration 0005 adds `dismissed_insights` (7-day snooze). Review screen "Patterns" section renders non-null insights sorted by severity with per-card dismiss. 5 new test files (unit + fast-check property each). No LLM, no network, no "AI" label anywhere.
+
 **Wave 2 item 2 DONE — commit `f13cabd`, 2026-05-31.** Derived analytics: `electron/services/analytics/derived.ts` with five pure functions (`getTimeOfDayHeatmap`, `getDowSummary`, `getExpectancyWithSpark`, `getProfitFactorR`, `getRDistributionPure`), all taking `TradeRowForDerived[]`. Expectancy and profit factor use decimal.js exclusively — no float arithmetic. `analytics:derived` IPC channel + `DerivedTab` ("Metrics" tab) wired into Analytics page. 24 tests including two fast-check properties (constant-outcome expectancy, scale-invariant profit factor). decimal.js 10.6.0 added.
 
 **Wave 2 item 1 DONE — commit `14d8ced`, 2026-05-31.** Typed event bus implemented end-to-end:
