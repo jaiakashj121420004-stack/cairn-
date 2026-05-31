@@ -31,7 +31,12 @@ function evaluate(ctx: RuleContext, _configUnknown: unknown): RuleEvaluation {
       : 'SL modification is a tighten, not a widen.',
     canOverride: true,
     suggestedAction: widening ? 'Keep the original SL or exit the trade.' : undefined,
-    contextSnapshot: { current: mod.currentValue, proposed: mod.newValue, dir: target.direction },
+    contextSnapshot: {
+      field: 'stop_loss_price',
+      current: mod.currentValue,
+      proposed: mod.newValue,
+      dir: target.direction,
+    },
   }
 }
 

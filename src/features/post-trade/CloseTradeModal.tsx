@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { X, Image as ImageIcon, Paperclip } from 'lucide-react'
+import { X, Image as ImageIcon, Paperclip, Check } from 'lucide-react'
 import { Modal, Button, Tooltip, useToast } from '../../components/ui'
 import { ipc } from '../../lib/ipc'
 import { cn } from '../../lib/cn'
@@ -7,7 +7,13 @@ import { formatCents, formatRMultiple } from '../../lib/formatters'
 import { useSessionStore } from '../../stores/session-store'
 import { useRAlerts } from '../../hooks/useRAlerts'
 import { buildCleanClosePrefill } from './clean-close-prefill'
-import type { TradeListItem, ExitReason, ScreenshotKind, PartialCloseInput } from '@shared/types/index'
+import type {
+  TradeListItem,
+  ExitReason,
+  ScreenshotKind,
+  PartialCloseInput,
+  CloseDetectionDTO,
+} from '@shared/types/index'
 
 interface Props {
   open: boolean
@@ -218,6 +224,9 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
   const [availableRules, setAvailableRules] = useState<
     Array<{ key: string; label: string }>
   >([])
+  // Planned-vs-actual divergences Cairn detected for this trade (pre-ticked).
+  const [detected, setDetected] = useState<CloseDetectionDTO[]>([])
+  const detectedByKey = new Map(detected.map((d) => [d.ruleKey, d.detail]))
 
   // Reflection
   const [postCalmScore, setPostCalmScore] = useState(7)
@@ -259,18 +268,29 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
     setTags([])
     setScreenshots([])
     setHasFlaggedViolations(false)
+    setDetected([])
 
     const tradeId = trade?.id
     void Promise.all([
       ipc.rules.listAvailable(),
       tradeId ? ipc.trades.get(tradeId) : Promise.resolve(null),
-    ]).then(([rulesRes, tradeDetailRes]) => {
+      tradeId ? ipc.rules.detectCloseViolations(tradeId) : Promise.resolve(null),
+    ]).then(([rulesRes, tradeDetailRes, detectRes]) => {
       if (rulesRes.ok) setAvailableRules(rulesRes.data.map((r) => ({ key: r.key, label: r.label })))
-      if (tradeDetailRes && tradeDetailRes.ok) {
-        setHasFlaggedViolations(tradeDetailRes.data.ruleViolations.length > 0)
-      } else {
-        setHasFlaggedViolations(false)
+
+      const detectedItems = detectRes && detectRes.ok ? detectRes.data : []
+      setDetected(detectedItems)
+      // Pre-tick the checklist with whatever the engine detected. The trader
+      // still confirms or unticks each one — honesty stays with the human.
+      if (detectedItems.length > 0) {
+        setRulesBroken((prev) => Array.from(new Set([...prev, ...detectedItems.map((d) => d.ruleKey)])))
       }
+
+      const recordedViolations =
+        tradeDetailRes && tradeDetailRes.ok ? tradeDetailRes.data.ruleViolations.length : 0
+      // Clean-close is only offered when nothing was flagged live AND nothing was
+      // detected at close.
+      setHasFlaggedViolations(recordedViolations > 0 || detectedItems.length > 0)
     }).catch(() => {
       toast('Failed to load trade details.', 'error')
     })
@@ -734,27 +754,47 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
 
         {/* Rules broken */}
         <SectionHeader>Rules broken</SectionHeader>
+        {detected.length > 0 && (
+          <p className="mb-2 px-2 text-caption text-text-muted">
+            Cairn pre-ticked {detected.length} item{detected.length > 1 ? 's' : ''} from a
+            planned-vs-actual check. Confirm or untick — the call is yours.
+          </p>
+        )}
         <div className="space-y-1.5">
-          {availableRules.map((rule) => (
-            <label
-              key={rule.key}
-              className="flex items-center gap-3 rounded-[8px] px-2 py-1.5 hover:bg-surface-elevated cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                checked={rulesBroken.includes(rule.key)}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    setRulesBroken((prev) => [...prev, rule.key])
-                  } else {
-                    setRulesBroken((prev) => prev.filter((k) => k !== rule.key))
-                  }
-                }}
-                className="h-4 w-4 rounded border-border accent-[var(--color-accent-a)]"
-              />
-              <span className="text-body-sm text-text-secondary">{rule.label}</span>
-            </label>
-          ))}
+          {availableRules.map((rule) => {
+            const detail = detectedByKey.get(rule.key)
+            return (
+              <label
+                key={rule.key}
+                className="flex items-center gap-3 rounded-[8px] px-2 py-1.5 hover:bg-surface-elevated cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  checked={rulesBroken.includes(rule.key)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setRulesBroken((prev) => [...prev, rule.key])
+                    } else {
+                      setRulesBroken((prev) => prev.filter((k) => k !== rule.key))
+                    }
+                  }}
+                  className="h-4 w-4 rounded border-border accent-[var(--color-accent-a)]"
+                />
+                <span className="text-body-sm text-text-secondary">{rule.label}</span>
+                {detail !== undefined && (
+                  <Tooltip content={detail} side="top">
+                    <span
+                      data-testid={`detected-badge-${rule.key}`}
+                      className="ml-auto inline-flex items-center gap-1 rounded-full border border-accent-a/40 bg-accent-a/10 px-2 py-0.5 text-micro font-medium text-accent-a"
+                    >
+                      <Check className="h-3 w-3" strokeWidth={2.5} />
+                      detected by Cairn
+                    </span>
+                  </Tooltip>
+                )}
+              </label>
+            )
+          })}
           {availableRules.length === 0 && (
             <p className="text-caption text-text-muted px-2">Loading rules…</p>
           )}

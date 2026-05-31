@@ -16,3 +16,13 @@ export {
   recordOverride,
   onTradeClosed,
 } from './engine'
+export {
+  detectCloseViolations,
+  detectSlWidened,
+  detectTpNarrowed,
+  detectRiskIncreased,
+  detectOutsideKillzone,
+  detectDailyLimitExceeded,
+  detectCircuitBreakerBypassed,
+  type DetectedViolation,
+} from './close-detection'

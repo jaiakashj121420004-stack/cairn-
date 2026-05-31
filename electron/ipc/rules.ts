@@ -9,6 +9,7 @@ import {
   onTradeClosed,
   clearCooldownById,
   listRules,
+  detectCloseViolations,
 } from '../services/rules-engine/index'
 import type {
   IpcResponse,
@@ -17,6 +18,7 @@ import type {
   DraftTradeInput,
   EvaluateModificationInput,
   OverrideInputDTO,
+  CloseDetectionDTO,
 } from '../../shared/types/index'
 
 const DraftTradeSchema = z.object({
@@ -65,6 +67,7 @@ const OverrideSchema = z.object({
 const GetSessionStateSchema = z.object({ accountId: z.string().min(1) })
 const ClearCooldownSchema = z.object({ id: z.string().min(1), ack: z.string().default('') })
 const OnTradeClosedSchema = z.object({ tradeId: z.string().min(1) })
+const DetectCloseViolationsSchema = z.object({ tradeId: z.string().min(1) })
 
 export function registerRulesHandlers(): void {
   ipcMain.handle(
@@ -172,6 +175,22 @@ export function registerRulesHandlers(): void {
         const db = getDb()
         onTradeClosed(db, parsed.data.tradeId)
         return { ok: true, data: { ok: true } }
+      } catch (err) {
+        return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'rules:detectCloseViolations',
+    (_e, raw: { tradeId: string }): IpcResponse<CloseDetectionDTO[]> => {
+      const parsed = DetectCloseViolationsSchema.safeParse(raw)
+      if (!parsed.success) {
+        return { ok: false, error: { code: 'VALIDATION_ERROR', message: parsed.error.message } }
+      }
+      try {
+        const db = getDb()
+        return { ok: true, data: detectCloseViolations(db, parsed.data.tradeId) }
       } catch (err) {
         return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
       }

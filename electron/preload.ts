@@ -33,6 +33,7 @@ import type {
   RuleEvaluationDTO,
   SessionStateDTO,
   AccountRuleConfigDTO,
+  CloseDetectionDTO,
   UpsertAccountRuleInput,
   Pair,
   CreatePairInput,
@@ -156,6 +157,8 @@ const api = {
       ipcRenderer.invoke('rules:clearCooldown', { id, ack }),
     onTradeClosed: (tradeId: string): Promise<IpcResponse<{ ok: true }>> =>
       ipcRenderer.invoke('rules:onTradeClosed', { tradeId }),
+    detectCloseViolations: (tradeId: string): Promise<IpcResponse<CloseDetectionDTO[]>> =>
+      ipcRenderer.invoke('rules:detectCloseViolations', { tradeId }),
     listAvailable: (): Promise<
       IpcResponse<
         Array<{

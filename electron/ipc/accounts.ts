@@ -87,6 +87,7 @@ const DEFAULT_ACCOUNT_RULES: Array<{
   },
   { ruleKey: 'require_htf_bias_logged', enabled: 1, value: JSON.stringify({}), priority: 80 },
   { ruleKey: 'no_sl_widening', enabled: 1, value: JSON.stringify({}), priority: 90 },
+  { ruleKey: 'no_tp_narrowing', enabled: 1, value: JSON.stringify({}), priority: 91 },
   {
     ruleKey: 'require_killzone',
     enabled: 1,

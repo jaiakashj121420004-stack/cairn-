@@ -54,6 +54,14 @@ export interface RuleEvaluationDTO {
   contextSnapshot?: Record<string, unknown>
 }
 
+/** A planned-vs-actual divergence detected when closing a trade. The renderer
+ *  pre-ticks the checklist row matching `ruleKey` and shows `detail` as the
+ *  "detected by Cairn" explanation. */
+export interface CloseDetectionDTO {
+  ruleKey: string
+  detail: string
+}
+
 export interface AccountRuleConfigDTO {
   id: string
   accountId: string

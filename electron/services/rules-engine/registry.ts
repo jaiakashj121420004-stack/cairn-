@@ -9,6 +9,7 @@ import { rule as requireMssConfirmation } from './rules/require-mss-confirmation
 import { rule as requireInvalidationText } from './rules/require-invalidation-text'
 import { rule as requireHtfBiasLogged } from './rules/require-htf-bias-logged'
 import { rule as noSlWidening } from './rules/no-sl-widening'
+import { rule as noTpNarrowing } from './rules/no-tp-narrowing'
 import { rule as requireKillzone } from './rules/require-killzone'
 import { rule as requireDxyCheck } from './rules/require-dxy-check'
 import { rule as maxTradesPerDay } from './rules/max-trades-per-day'
@@ -30,6 +31,7 @@ const ALL: Rule[] = [
   requireInvalidationText,
   requireHtfBiasLogged,
   noSlWidening,
+  noTpNarrowing,
   requireKillzone,
   requireDxyCheck,
   maxTradesPerDay,

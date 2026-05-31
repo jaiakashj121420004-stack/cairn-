@@ -15,6 +15,7 @@ import type {
   RuleEvaluationDTO,
   SessionStateDTO,
   AccountRuleConfigDTO,
+  CloseDetectionDTO,
   UpsertAccountRuleInput,
   Pair,
   CreatePairInput,
@@ -119,6 +120,7 @@ declare global {
         override: (input: OverrideInputDTO) => Promise<IpcResponse<{ ok: true }>>
         clearCooldown: (id: string, ack: string) => Promise<IpcResponse<{ ok: true }>>
         onTradeClosed: (tradeId: string) => Promise<IpcResponse<{ ok: true }>>
+        detectCloseViolations: (tradeId: string) => Promise<IpcResponse<CloseDetectionDTO[]>>
         listAvailable: () => Promise<
           IpcResponse<
             Array<{
@@ -285,6 +287,8 @@ export const ipc = {
       window.api.rules.clearCooldown(id, ack),
     onTradeClosed: (tradeId: string): Promise<IpcResponse<{ ok: true }>> =>
       window.api.rules.onTradeClosed(tradeId),
+    detectCloseViolations: (tradeId: string): Promise<IpcResponse<CloseDetectionDTO[]>> =>
+      window.api.rules.detectCloseViolations(tradeId),
     listAvailable: () => window.api.rules.listAvailable(),
   },
 
