@@ -2,6 +2,13 @@ export type IpcResponse<T> =
   | { ok: true; data: T }
   | { ok: false; error: { code: string; message: string; details?: unknown } }
 
+// ─── Trade grade ──────────────────────────────────────────────────────────────
+export type GradeLetter = 'A' | 'B' | 'C' | 'D' | 'F'
+export interface TradeGrade {
+  letter: GradeLetter
+  score: number // 0–100 (can go below 0 before clamping in the badge, but formula is unbounded below 45 only by rules-broken)
+}
+
 export type RuleSeverity = 'blocking' | 'warning' | 'logged'
 export type RuleOutcome = 'blocked' | 'user_overrode' | 'logged_post_hoc'
 export type RuleCategory = 'risk' | 'process' | 'timing' | 'behavior'
@@ -604,6 +611,8 @@ export interface TradeListItem {
   followedPlanExactly: number | null
   slMoved: number | null
   enteredBeforeMss: number | null
+  preUrgencyScore: number
+  grade: TradeGrade | null
   createdAt: number
   updatedAt: number
 }
@@ -631,6 +640,7 @@ export interface TradeDetail extends Trade {
   ruleViolations: RuleViolation[]
   relatedTrades: TradeListItem[]
   partialCloses: PartialCloseRecord[]
+  grade: TradeGrade | null
 }
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────

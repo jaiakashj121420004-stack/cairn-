@@ -17,7 +17,6 @@ import { useSessionStore } from '../../stores/session-store'
 import { TradeDetailModal } from './TradeDetailModal'
 import { CloseTradeModal } from '../post-trade/CloseTradeModal'
 import { GradeBadge } from '../../components/shared/GradeBadge'
-import { gradeTrade, countRulesBroken } from '../../lib/trade-grade'
 import type { TradeListItem, TradeFilter, TradeMode, TradeDirection, TradeStatus } from '@shared/types/index'
 
 type SortKey =
@@ -61,12 +60,7 @@ function exportCsv(trades: TradeListItem[]) {
     t.pnlPctBps !== null ? (t.pnlPctBps / 100).toFixed(2) : '',
     t.durationMinutes ?? '',
     t.isClean === 1 ? 'yes' : t.isClean === 0 ? 'no' : '',
-    gradeTrade({
-      rrRatio: t.rrRatio,
-      followedPlanExactly: t.followedPlanExactly,
-      rulesBrokenCount: countRulesBroken(t.rulesBroken),
-      pnlR: t.pnlR,
-    })?.letter ?? '',
+    t.grade?.letter ?? '',
     t.rulesBroken ? JSON.parse(t.rulesBroken).join(';') : '',
   ])
   const csv = [headers, ...rows].map((r) => r.map((v) => `"${v}"`).join(',')).join('\n')
@@ -586,19 +580,11 @@ export function TradeLogPage() {
                       )}
                     </td>
                     <td className="px-3 py-2.5">
-                      {(() => {
-                        const g = gradeTrade({
-                          rrRatio: trade.rrRatio,
-                          followedPlanExactly: trade.followedPlanExactly,
-                          rulesBrokenCount: countRulesBroken(trade.rulesBroken),
-                          pnlR: trade.pnlR,
-                        })
-                        return g ? (
-                          <GradeBadge grade={g} />
-                        ) : (
-                          <span className="text-text-muted text-caption">—</span>
-                        )
-                      })()}
+                      {trade.grade ? (
+                        <GradeBadge grade={trade.grade} />
+                      ) : (
+                        <span className="text-text-muted text-caption">—</span>
+                      )}
                     </td>
                     <td
                       className="px-3 py-2.5"

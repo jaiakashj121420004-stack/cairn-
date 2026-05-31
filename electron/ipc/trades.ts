@@ -7,6 +7,7 @@ import * as path from 'path'
 import { getDb } from '../db/index'
 import * as schema from '../db/schema'
 import { calculatePnl, calculateDurationMinutes } from '../services/pnl-calculator'
+import { computeTradeGrade, countRulesBroken } from '../services/trade-grade'
 import type {
   IpcResponse,
   Trade,
@@ -612,6 +613,7 @@ export function registerTradeHandlers(): void {
           followedPlanExactly: schema.trades.followedPlanExactly,
           slMoved: schema.trades.slMoved,
           enteredBeforeMss: schema.trades.enteredBeforeMss,
+          preUrgencyScore: schema.trades.preUrgencyScore,
           createdAt: schema.trades.createdAt,
           updatedAt: schema.trades.updatedAt,
         })
@@ -659,6 +661,14 @@ export function registerTradeHandlers(): void {
         followedPlanExactly: r.followedPlanExactly ?? null,
         slMoved: r.slMoved ?? null,
         enteredBeforeMss: r.enteredBeforeMss ?? null,
+        preUrgencyScore: r.preUrgencyScore,
+        grade: computeTradeGrade({
+          followedPlanExactly: r.followedPlanExactly ?? null,
+          rulesBrokenCount: countRulesBroken(r.rulesBroken ?? null),
+          pnlR: r.pnlR ?? null,
+          rrRatio: r.rrRatio,
+          preUrgencyScore: r.preUrgencyScore,
+        }),
         createdAt: r.createdAt,
         updatedAt: r.updatedAt,
       }))
@@ -772,6 +782,7 @@ export function registerTradeHandlers(): void {
           followedPlanExactly: schema.trades.followedPlanExactly,
           slMoved: schema.trades.slMoved,
           enteredBeforeMss: schema.trades.enteredBeforeMss,
+          preUrgencyScore: schema.trades.preUrgencyScore,
           createdAt: schema.trades.createdAt,
           updatedAt: schema.trades.updatedAt,
         })
@@ -827,6 +838,14 @@ export function registerTradeHandlers(): void {
           followedPlanExactly: r.followedPlanExactly ?? null,
           slMoved: r.slMoved ?? null,
           enteredBeforeMss: r.enteredBeforeMss ?? null,
+          preUrgencyScore: r.preUrgencyScore,
+          grade: computeTradeGrade({
+            followedPlanExactly: r.followedPlanExactly ?? null,
+            rulesBrokenCount: countRulesBroken(r.rulesBroken ?? null),
+            pnlR: r.pnlR ?? null,
+            rrRatio: r.rrRatio,
+            preUrgencyScore: r.preUrgencyScore,
+          }),
           createdAt: r.createdAt,
           updatedAt: r.updatedAt,
         }))
@@ -851,6 +870,13 @@ export function registerTradeHandlers(): void {
         })),
         relatedTrades,
         partialCloses,
+        grade: computeTradeGrade({
+          followedPlanExactly: tradeRow.followedPlanExactly ?? null,
+          rulesBrokenCount: countRulesBroken(tradeRow.rulesBroken ?? null),
+          pnlR: tradeRow.pnlR ?? null,
+          rrRatio: tradeRow.rrRatio,
+          preUrgencyScore: tradeRow.preUrgencyScore,
+        }),
       }
 
       return { ok: true, data: detail }

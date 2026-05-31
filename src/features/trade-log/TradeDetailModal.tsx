@@ -17,7 +17,6 @@ import { springDefault } from '../../lib/motion'
 import { CloseTradeModal } from '../post-trade/CloseTradeModal'
 import { useSessionStore } from '../../stores/session-store'
 import { GradeBadge } from '../../components/shared/GradeBadge'
-import { gradeTrade, countRulesBroken } from '../../lib/trade-grade'
 import type { TradeDetail } from '@shared/types/index'
 
 interface Props {
@@ -165,15 +164,7 @@ export function TradeDetailModal({ tradeId, onClose, onTradeUpdated }: Props) {
                     </p>
                   </div>
                   <CleanBadge isClean={detail.isClean} />
-                  {(() => {
-                    const g = gradeTrade({
-                      rrRatio: detail.rrRatio,
-                      followedPlanExactly: detail.followedPlanExactly,
-                      rulesBrokenCount: countRulesBroken(detail.rulesBroken),
-                      pnlR: detail.pnlR,
-                    })
-                    return g ? <GradeBadge grade={g} size="lg" /> : null
-                  })()}
+                  {detail.grade ? <GradeBadge grade={detail.grade} size="lg" /> : null}
                 </div>
               ) : (
                 <p className="text-body-sm text-text-muted">Loading…</p>
@@ -639,6 +630,8 @@ export function TradeDetailModal({ tradeId, onClose, onTradeUpdated }: Props) {
             followedPlanExactly: detail.followedPlanExactly,
             slMoved: detail.slMoved,
             enteredBeforeMss: detail.enteredBeforeMss,
+            preUrgencyScore: detail.preUrgencyScore,
+            grade: detail.grade,
             createdAt: detail.createdAt,
             updatedAt: detail.updatedAt,
           }}
