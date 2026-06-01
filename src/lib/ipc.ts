@@ -34,8 +34,14 @@ import type {
   TradeDetail,
   TradeScreenshot,
   TradeFilter,
+  Playbook,
+  CreatePlaybookInput,
+  UpdatePlaybookInput,
+  PlaybookStats,
   CreateTradeInput,
   CloseTradeInput,
+  CloseMinimalInput,
+  CompletePhase2Input,
   PartialCloseInput,
   DashboardStats,
   AnalyticsFilter,
@@ -63,6 +69,8 @@ import type {
   Mt5CommitInput,
   CTraderPreviewInput,
   CTraderCommitInput,
+  TvPreviewInput,
+  TvCommitInput,
 } from '@shared/types/index'
 
 export interface DbStatus {
@@ -158,8 +166,12 @@ declare global {
         create: (input: CreateTradeInput) => Promise<IpcResponse<Trade>>
         setOpen: (tradeId: string, accountId: string) => Promise<IpcResponse<Trade>>
         close: (input: CloseTradeInput) => Promise<IpcResponse<Trade>>
+        closeMinimal: (input: CloseMinimalInput) => Promise<IpcResponse<Trade>>
+        completePhase2: (input: CompletePhase2Input) => Promise<IpcResponse<Trade>>
         partialClose: (input: PartialCloseInput) => Promise<IpcResponse<Trade>>
         list: (filter: TradeFilter) => Promise<IpcResponse<TradeListItem[]>>
+        listAwaitingReflection: (accountId?: string | null) => Promise<IpcResponse<TradeListItem[]>>
+        countAwaitingReflection: (accountId?: string | null) => Promise<IpcResponse<number>>
         get: (tradeId: string) => Promise<IpcResponse<TradeDetail>>
         delete: (tradeId: string) => Promise<IpcResponse<{ ok: true }>>
         addScreenshot: (tradeId: string, kind: string, sourcePath: string, caption?: string) => Promise<IpcResponse<TradeScreenshot>>
@@ -179,6 +191,14 @@ declare global {
         derived: (filter: AnalyticsFilter) => Promise<IpcResponse<DerivedStats>>
         listReviews: (accountId?: string | null) => Promise<IpcResponse<ReviewSummary[]>>
         createReview: (input: CreateReviewInput) => Promise<IpcResponse<ReviewSummary>>
+        playbookStats: (filter: AnalyticsFilter) => Promise<IpcResponse<PlaybookStats>>
+      }
+      playbooks: {
+        list:   (accountId: string) => Promise<IpcResponse<Playbook[]>>
+        get:    (id: string) => Promise<IpcResponse<Playbook>>
+        create: (input: CreatePlaybookInput) => Promise<IpcResponse<Playbook>>
+        update: (input: UpdatePlaybookInput) => Promise<IpcResponse<Playbook>>
+        delete: (id: string) => Promise<IpcResponse<{ ok: true }>>
       }
       backup: {
         getSettings: () => Promise<IpcResponse<BackupSettings>>
@@ -208,6 +228,8 @@ declare global {
         commitMt5: (input: Mt5CommitInput) => Promise<IpcResponse<ImportCommitResult>>
         previewCtrader: (input: CTraderPreviewInput) => Promise<IpcResponse<ImportPreview>>
         commitCtrader: (input: CTraderCommitInput) => Promise<IpcResponse<ImportCommitResult>>
+        previewTradingView: (input: TvPreviewInput) => Promise<IpcResponse<ImportPreview>>
+        commitTradingView: (input: TvCommitInput) => Promise<IpcResponse<ImportCommitResult>>
       }
       events: {
         on: (name: string, cb: (payload: unknown) => void) => () => void
@@ -340,10 +362,18 @@ export const ipc = {
       window.api.trades.setOpen(tradeId, accountId),
     close: (input: CloseTradeInput): Promise<IpcResponse<Trade>> =>
       window.api.trades.close(input),
+    closeMinimal: (input: CloseMinimalInput): Promise<IpcResponse<Trade>> =>
+      window.api.trades.closeMinimal(input),
+    completePhase2: (input: CompletePhase2Input): Promise<IpcResponse<Trade>> =>
+      window.api.trades.completePhase2(input),
     partialClose: (input: PartialCloseInput): Promise<IpcResponse<Trade>> =>
       window.api.trades.partialClose(input),
     list: (filter: TradeFilter): Promise<IpcResponse<TradeListItem[]>> =>
       window.api.trades.list(filter),
+    listAwaitingReflection: (accountId?: string | null): Promise<IpcResponse<TradeListItem[]>> =>
+      window.api.trades.listAwaitingReflection(accountId ?? null),
+    countAwaitingReflection: (accountId?: string | null): Promise<IpcResponse<number>> =>
+      window.api.trades.countAwaitingReflection(accountId ?? null),
     get: (tradeId: string): Promise<IpcResponse<TradeDetail>> =>
       window.api.trades.get(tradeId),
     delete: (tradeId: string): Promise<IpcResponse<{ ok: true }>> =>
@@ -384,6 +414,21 @@ export const ipc = {
       window.api.analytics.listReviews(accountId ?? null),
     createReview: (input: CreateReviewInput): Promise<IpcResponse<ReviewSummary>> =>
       window.api.analytics.createReview(input),
+    playbookStats: (filter: AnalyticsFilter): Promise<IpcResponse<PlaybookStats>> =>
+      window.api.analytics.playbookStats(filter),
+  },
+
+  playbooks: {
+    list:   (accountId: string): Promise<IpcResponse<Playbook[]>> =>
+      window.api.playbooks.list(accountId),
+    get:    (id: string): Promise<IpcResponse<Playbook>> =>
+      window.api.playbooks.get(id),
+    create: (input: CreatePlaybookInput): Promise<IpcResponse<Playbook>> =>
+      window.api.playbooks.create(input),
+    update: (input: UpdatePlaybookInput): Promise<IpcResponse<Playbook>> =>
+      window.api.playbooks.update(input),
+    delete: (id: string): Promise<IpcResponse<{ ok: true }>> =>
+      window.api.playbooks.delete(id),
   },
 
   insights: {
@@ -414,6 +459,10 @@ export const ipc = {
       window.api.import.previewCtrader(input),
     commitCtrader: (input: CTraderCommitInput): Promise<IpcResponse<ImportCommitResult>> =>
       window.api.import.commitCtrader(input),
+    previewTradingView: (input: TvPreviewInput): Promise<IpcResponse<ImportPreview>> =>
+      window.api.import.previewTradingView(input),
+    commitTradingView: (input: TvCommitInput): Promise<IpcResponse<ImportCommitResult>> =>
+      window.api.import.commitTradingView(input),
   },
 
   backup: {

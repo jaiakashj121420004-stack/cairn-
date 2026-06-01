@@ -478,6 +478,8 @@ export interface Trade {
   whatIDidRight: string | null
   whatIDidWrong: string | null
   tags: string | null
+  // Two-phase logging: 0 = deferred reflection (Phase 2) still owed, 1 = captured.
+  phase2Complete: number
   // Timestamps
   createdAt: number
   updatedAt: number
@@ -526,6 +528,40 @@ export interface CloseTradeInput {
   slMovedReason?: string
   enteredBeforeMss: boolean
   rulesBroken: string[]
+  postCalmScore: number
+  whatIDidRight?: string
+  whatIDidWrong?: string
+  tags?: string[]
+}
+
+/**
+ * Phase-1 minimal close (two-phase logging). Records only the exit facts; the
+ * honesty review, rules-broken checklist, MAE/MFE and reflection are deferred to
+ * Phase 2 via the Review-screen reflection queue. The trade is left with
+ * `phase_2_complete = 0`. Used when `pre_trade.fast_path_enabled` is on.
+ */
+export interface CloseMinimalInput {
+  tradeId: string
+  exitPrice: number      // encoded integer (Math.round(float × 10^(pipDecimal+1)))
+  exitTime: number       // UTC ms
+  exitReason: ExitReason
+}
+
+/**
+ * Phase-2 completion (two-phase logging). Supplies the deferred reflection for a
+ * trade that was minimally closed, and sets `phase_2_complete = 1`. The honesty
+ * Y/N fields remain required — the gate moved, the honesty did not.
+ */
+export interface CompletePhase2Input {
+  tradeId: string
+  followedPlanExactly: boolean
+  planChangesDescription?: string
+  slMoved: boolean
+  slMovedReason?: string
+  enteredBeforeMss: boolean
+  rulesBroken: string[]
+  maePips?: number       // tenths (user pips × 10)
+  mfePips?: number
   postCalmScore: number
   whatIDidRight?: string
   whatIDidWrong?: string
@@ -612,6 +648,7 @@ export interface TradeListItem {
   slMoved: number | null
   enteredBeforeMss: number | null
   preUrgencyScore: number
+  phase2Complete: number
   grade: TradeGrade | null
   createdAt: number
   updatedAt: number
@@ -1146,6 +1183,17 @@ export interface BackupSettings {
 
 // ── Broker Statement Import (Wave 3 items 18–20) ─────────────────────────────
 
+/**
+ * One OHLC candle (or tick) within a trade's open→close window.
+ * Used by the MAE/MFE auto-compute (see electron/services/mae-mfe.ts).
+ * Prices are raw decimal strings — never floats — so the math stays exact.
+ */
+export interface PriceCandle {
+  ts: number      // UTC ms
+  high: string    // raw price string
+  low: string     // raw price string
+}
+
 /** One partial-close event within an import candidate. */
 export interface ImportPartialExit {
   externalRef: string   // e.g. "mt5_deal_10000004" / "ctrader_pos_55555555_p0"
@@ -1178,6 +1226,12 @@ export interface ImportCandidate {
   swap: string                    // total swap
   status: 'open' | 'closed'
   partialExits: ImportPartialExit[]
+  /**
+   * Optional OHLC/tick series spanning open→close, when the broker export
+   * carries per-minute or per-tick price data. Present → the committer
+   * auto-computes MAE/MFE; absent → both stay null (no interpolation).
+   */
+  priceSeries?: PriceCandle[]
 }
 
 /** A row the parser couldn't fully parse. NOT silently dropped — surfaces in preview. */
@@ -1230,6 +1284,63 @@ export interface Mt5CommitInput {
   defaultSetupId: string
 }
 
+// ── Playbook types ────────────────────────────────────────────────────────────
+
+/** A saved trade-template per account. One tap pre-fills the New Trade panel. */
+export interface Playbook {
+  id: string
+  accountId: string
+  name: string
+  pairId: string | null
+  setupId: string
+  killzoneId: string | null
+  requiredConfluenceMd: string | null
+  /** Risk % as integer basis points: 1.5% → 150. null = use account default. */
+  defaultRiskPct: number | null
+  /** Chip id from INVALIDATION_CHIPS (e.g. "below-ob"), or null for free-text. */
+  defaultInvalidationChip: string | null
+  createdAt: number
+  updatedAt: number
+  deletedAt: number | null
+  version: number
+}
+
+export interface CreatePlaybookInput {
+  accountId: string
+  name: string
+  setupId: string
+  pairId?: string | null
+  killzoneId?: string | null
+  requiredConfluenceMd?: string | null
+  defaultRiskPct?: number | null
+  defaultInvalidationChip?: string | null
+}
+
+export interface UpdatePlaybookInput {
+  id: string
+  name?: string
+  setupId?: string
+  pairId?: string | null
+  killzoneId?: string | null
+  requiredConfluenceMd?: string | null
+  defaultRiskPct?: number | null
+  defaultInvalidationChip?: string | null
+}
+
+/** Per-playbook performance row for the Analytics "Setups" tab. */
+export interface PlaybookRow {
+  playbookId: string
+  playbookName: string
+  /** Number of trades that matched this playbook's pair + setup + killzone criteria. */
+  n: number
+  winRateBps: number
+  expectancyR: number
+}
+
+export interface PlaybookStats {
+  byPlaybook: PlaybookRow[]
+}
+
 // ── cTrader adapter types ─────────────────────────────────────────────────────
 
 export interface CTraderPreviewInput {
@@ -1241,6 +1352,22 @@ export interface CTraderCommitInput {
   html: string
   accountId: string
   /** cTrader symbol → Cairn pairId for every unresolved symbol. */
+  symbolMap: Record<string, string>
+  /** Setup to assign to all imported trades. */
+  defaultSetupId: string
+}
+
+// ── TradingView adapter types ─────────────────────────────────────────────────
+
+export interface TvPreviewInput {
+  csv: string
+  accountId: string
+}
+
+export interface TvCommitInput {
+  csv: string
+  accountId: string
+  /** TradingView symbol → Cairn pairId for every unresolved symbol. */
   symbolMap: Record<string, string>
   /** Setup to assign to all imported trades. */
   defaultSetupId: string

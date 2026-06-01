@@ -22,6 +22,8 @@ import type {
   Mt5CommitInput,
   CTraderPreviewInput,
   CTraderCommitInput,
+  TvPreviewInput,
+  TvCommitInput,
 } from '../shared/types/index'
 import type {
   PropFirm,
@@ -57,13 +59,19 @@ import type {
   TradeListItem,
   TradeDetail,
   TradeScreenshot,
+  Playbook,
+  CreatePlaybookInput,
+  UpdatePlaybookInput,
   TradeFilter,
   CreateTradeInput,
   CloseTradeInput,
+  CloseMinimalInput,
+  CompletePhase2Input,
   PartialCloseInput,
   DashboardStats,
   AnalyticsFilter,
   PerformanceStats,
+  PlaybookStats,
   RuleAdherenceStats,
   SetupPerformanceStats,
   BehavioralStats,
@@ -207,10 +215,18 @@ const api = {
       ipcRenderer.invoke('trades:setOpen', { tradeId, accountId }),
     close: (input: CloseTradeInput): Promise<IpcResponse<Trade>> =>
       ipcRenderer.invoke('trades:close', input),
+    closeMinimal: (input: CloseMinimalInput): Promise<IpcResponse<Trade>> =>
+      ipcRenderer.invoke('trades:closeMinimal', input),
+    completePhase2: (input: CompletePhase2Input): Promise<IpcResponse<Trade>> =>
+      ipcRenderer.invoke('trades:completePhase2', input),
     partialClose: (input: PartialCloseInput): Promise<IpcResponse<Trade>> =>
       ipcRenderer.invoke('trades:partialClose', input),
     list: (filter: TradeFilter): Promise<IpcResponse<TradeListItem[]>> =>
       ipcRenderer.invoke('trades:list', filter),
+    listAwaitingReflection: (accountId?: string | null): Promise<IpcResponse<TradeListItem[]>> =>
+      ipcRenderer.invoke('trades:listAwaitingReflection', { accountId: accountId ?? null }),
+    countAwaitingReflection: (accountId?: string | null): Promise<IpcResponse<number>> =>
+      ipcRenderer.invoke('trades:countAwaitingReflection', { accountId: accountId ?? null }),
     get: (tradeId: string): Promise<IpcResponse<TradeDetail>> =>
       ipcRenderer.invoke('trades:get', { tradeId }),
     delete: (tradeId: string): Promise<IpcResponse<{ ok: true }>> =>
@@ -250,6 +266,20 @@ const api = {
       ipcRenderer.invoke('analytics:listReviews', { accountId: accountId ?? null }),
     createReview: (input: CreateReviewInput): Promise<IpcResponse<ReviewSummary>> =>
       ipcRenderer.invoke('analytics:createReview', input),
+    playbookStats: (filter: AnalyticsFilter): Promise<IpcResponse<PlaybookStats>> =>
+      ipcRenderer.invoke('analytics:playbooks', { filter }),
+  },
+  playbooks: {
+    list:   (accountId: string): Promise<IpcResponse<Playbook[]>> =>
+      ipcRenderer.invoke('playbooks:list', { accountId }),
+    get:    (id: string): Promise<IpcResponse<Playbook>> =>
+      ipcRenderer.invoke('playbooks:get', { id }),
+    create: (input: CreatePlaybookInput): Promise<IpcResponse<Playbook>> =>
+      ipcRenderer.invoke('playbooks:create', input),
+    update: (input: UpdatePlaybookInput): Promise<IpcResponse<Playbook>> =>
+      ipcRenderer.invoke('playbooks:update', input),
+    delete: (id: string): Promise<IpcResponse<{ ok: true }>> =>
+      ipcRenderer.invoke('playbooks:delete', { id }),
   },
   backup: {
     getSettings: (): Promise<IpcResponse<BackupSettings>> =>
@@ -302,6 +332,10 @@ const api = {
       ipcRenderer.invoke('import:previewCtrader', input),
     commitCtrader: (input: CTraderCommitInput): Promise<IpcResponse<ImportCommitResult>> =>
       ipcRenderer.invoke('import:commitCtrader', input),
+    previewTradingView: (input: TvPreviewInput): Promise<IpcResponse<ImportPreview>> =>
+      ipcRenderer.invoke('import:previewTradingView', input),
+    commitTradingView: (input: TvCommitInput): Promise<IpcResponse<ImportCommitResult>> =>
+      ipcRenderer.invoke('import:commitTradingView', input),
   },
 
   events: {
