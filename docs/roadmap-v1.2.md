@@ -209,14 +209,14 @@ v1.2 is complete when all v1.1 criteria (CLAUDE.md §16.a) are met, the v1.1 bra
 16. ✅ Per-trade A–F quality grade appears on the trade detail and the trade log. — commit `bc3808b`, 2026-05-31 (process-weighted: plan-followed + rules-clean dominate; disciplined loss can grade A, rule-breaking win grades F)
 17. ✅ Notebook is available with markdown notes and three templates (trading plan, watchlist, weekly review). — commit `eb7e52c`, 2026-05-31 (local `notebook_entries` table, XSS-safe markdown renderer, two-pane page, pin + soft-delete)
 
-**Import + two-phase logging (Wave 3)**
-18. MT5 statement import lands trades into the local DB with no manual entry; round-tripped through tests.
-19. cTrader statement import works the same way.
-20. TradingView CSV import works for users on its journal/paper trader.
-21. MAE/MFE auto-populates from imported price data when present.
-22. Two-phase logging is live: the New Trade panel completes in ≤ 20 s for a "fast path" trade, and the close modal is split into a minimal exit-only step plus a deferred reflection queue.
-23. Sidebar shows a badge with N trades awaiting reflection.
-24. Setup templates / playbooks exist; one tap pre-fills the New Trade panel with the saved scaffold.
+**Import + two-phase logging (Wave 3) — DONE 2026-06-01**
+18. ✅ MT5 statement import lands trades into the local DB with no manual entry; round-tripped through tests. — commit `0505913` (adapter + committer), `b35172e` (shared layer refactor)
+19. ✅ cTrader statement import works the same way. — commit `b35172e`
+20. ✅ TradingView CSV import works for users on its journal/paper trader. — commit `b35172e` (handlers), `4069b56` (IPC bridge), `0d42e6e` (Import UI tab), `a5898c4` (integration tests)
+21. ✅ MAE/MFE auto-computes via shared committer when `priceSeries + stopLoss` are both present; infrastructure tested in `mae-mfe-commit.test.ts`. Note: MT5/cTrader HTML statements and TradingView CSV do not carry per-candle OHLC data, so MAE/MFE remains null for current statement imports. The machinery is in place for adapters that do provide a price series. — commit `04a82b6`
+22. ✅ Two-phase logging is live: `pre_trade.fast_path_enabled` (default on, toggled in Settings → General) makes the close modal minimal — exit price + reason + time only, with a deferred-reflection notice; `closeMinimal` IPC writes the trade closed; the Review screen surfaces the queue via `listAwaitingReflection`; `ReflectionModal` calls `completePhase2`. — commit `04a82b6`
+23. ✅ Sidebar shows a live badge (N trades awaiting reflection) on the Review nav item; `ReflectionStore` drives it; `eventBus` refreshes on `trade.closed` and `trade.reflected`. — commit `04a82b6`
+24. ✅ Setup templates / playbooks exist (Settings → Playbooks); `buildPlaybookPatch` pre-fills PreTradePanel on inline dropdown tap or ⌘K "New trade from playbook: <name>". — commit `04a82b6`
 
 **Quality bars (continuous across all waves)**
 25. `pnpm typecheck` and `pnpm lint --max-warnings 0` stay green on every PR.

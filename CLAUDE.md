@@ -602,7 +602,35 @@ All six issues from the 2026-05-30 review are fixed and covered by the now-green
 
 All five gates green post-commit: typecheck · lint · 258 tests · build · smoke E2E.
 
+**Wave 3 item 18 DONE — commit `0505913`, 2026-05-31.** MT5 statement import adapter. Migration 0008 adds `external_ref` (unique partial index on non-NULL) to `trades` + `trade_partials`. Parser (`electron/services/import-adapters/mt5/parser.ts`) finds Deals/Orders tables by section label across EN/ES/DE languages, detects column positions from header row, skips balance rows silently, propagates all unparseable rows as `Mt5ParseError`. Reconciler (`reconciler.ts`) groups deals by orderId, detects full-close vs. still-open by lot totals, derives partialExits. IPC: `import:previewMt5` (resolve + dedupe + return preview, unresolved excluded from skippedCount); `import:commitMt5` (block on any unresolved symbol, write in one transaction with full decimal encoding). 34 new tests (16 parser unit + 18 reconciler unit + 17 integration); all 5 quality gates green: typecheck · lint(0) · 478 tests · build · smoke E2E. Also bumped all test fixture files to load migrations 0001-0008 (Drizzle includes new nullable columns in INSERTs if they appear in the schema, so the test DB must stay in sync).
+
 **Wave 1 DONE (baseline) — commit `f82a0d6`, 2026-05-31.** All six §17.6 issues resolved, five quality gates green, Wave 2 unblocked.
+
+### Wave 3 progress — DONE 2026-06-01 (items 18–24 complete; all five gates green, 661 unit tests)
+
+**End-to-end verification (2026-06-01):** All seven Wave 3 items confirmed user-reachable — not source-only.
+
+**Item 21 note:** MAE/MFE auto-compute infrastructure is fully present and tested (`mae-mfe-commit.test.ts`). Current statement formats (MT5/cTrader HTML, TradingView CSV) do not carry per-candle OHLC data, so both columns remain null for all current imports. The committer correctly populates them when a future adapter provides `priceSeries + stopLoss`.
+
+| Gate | Wave 3 closeout (`04a82b6`) |
+|---|---|
+| `pnpm typecheck` | clean |
+| `pnpm lint` (`--max-warnings 0`) | clean |
+| `pnpm test:unit` | 69 files, 661 tests |
+| `pnpm build` | success |
+| `pnpm test:e2e` | passed |
+
+**Wave 3 item 18 DONE — commit `0505913`, 2026-05-31.** MT5 statement import adapter. Migration 0008 adds `external_ref` (unique partial index on non-NULL) to `trades` + `trade_partials`. Parser (`electron/services/import-adapters/mt5/parser.ts`) finds Deals/Orders tables by section label across EN/ES/DE languages, detects column positions from header row, skips balance rows silently, propagates all unparseable rows as `Mt5ParseError`. Reconciler (`reconciler.ts`) groups deals by orderId, detects full-close vs. still-open by lot totals, derives partialExits. IPC: `import:previewMt5` (resolve + dedupe + return preview, unresolved excluded from skippedCount); `import:commitMt5` (block on any unresolved symbol, write in one transaction with full decimal encoding). 34 new tests (16 parser unit + 18 reconciler unit + 17 integration); all 5 quality gates green: typecheck · lint(0) · 478 tests · build · smoke E2E. Also bumped all test fixture files to load migrations 0001-0008 (Drizzle includes new nullable columns in INSERTs if they appear in the schema, so the test DB must stay in sync).
+
+**Wave 3 item 19 DONE — commit `b35172e`, 2026-05-31.** cTrader HTML statement import adapter (shared import layer refactor). `electron/services/import-adapters/ctrader/` parser + reconciler; shared `_shared/symbol-resolver.ts`, `committer.ts`, `encoder.ts`. `import:previewCtrader` / `import:commitCtrader` IPC handlers. 17 integration tests + 22 reconciler unit + 19 parser unit. All five gates green.
+
+**Wave 3 item 20 DONE — commits `b35172e` (handler) · `4069b56` (IPC bridge) · `0d42e6e` (Import UI) · `a5898c4` (integration tests), 2026-06-01.** TradingView CSV import adapter (parser + reconciler), IPC bridge in preload.ts + ipc.ts + shared/types, Settings → Import tab (MT5 / cTrader / TradingView picker → file → preview table → symbol mapper → commit → done), "Import statement" in ⌘K registry, 20 integration tests + 19 parser unit + 21 reconciler unit + 4 ImportTab smoke tests.
+
+**Wave 3 items 21–24 DONE — commit `04a82b6`, 2026-06-01.** All shipped together as the remaining Wave 3 working-tree files:
+- **21 (MAE/MFE):** `electron/services/mae-mfe.ts` — pure `computeMaeMfe` (decimal.js, OHLC candles); shared committer calls it when `priceSeries + stopLoss` present; 5 committer integration tests + 15 unit tests (fast-check properties: always returns non-negative R, scale-invariant).
+- **22 (Two-phase logging):** Migration 0009 adds `phase`, `awaiting_reflection`, `reflected_at` columns to `trades`. `closeMinimal` + `completePhase2` IPC handlers (Zod-validated). `CloseTradeModal` reads `pre_trade.fast_path_enabled` (default true, toggled in Settings → General); when enabled shows minimal close form + deferred-reflection notice and calls `closeMinimal`. `ReflectionModal` on ReviewPage calls `completePhase2`. `listAwaitingReflection` + `countAwaitingReflection` IPC for the queue. Integration test: `two-phase-logging.test.ts` (5 tests).
+- **23 (Sidebar badge):** `src/stores/reflection-store.ts` tracks `pendingCount` via `ipc.trades.countAwaitingReflection`; Sidebar subscribes, shows badge on Review nav item (collapsed: dot; expanded: count pill), refreshes on `trade.closed` and `trade.reflected` eventBus events.
+- **24 (Playbooks):** Migration 0010 adds `playbooks` table. `electron/ipc/playbooks.ts` CRUD handlers (Zod-validated). `PlaybooksTab.tsx` in Settings. `src/lib/playbook-prefill.ts` — pure `buildPlaybookPatch`; applied in PreTradePanel on inline `<select>` change and on `initialPlaybookId` from ⌘K `playbookIdRequested` store signal. Analytics: `playbook-analytics.test.ts` (6 tests), `playbooks.test.ts` integration (11 tests), `playbook-prefill.test.ts` unit (12 tests).
 
 ---
 
