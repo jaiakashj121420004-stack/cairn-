@@ -14,6 +14,11 @@ interface UiState {
   commandPaletteOpen: boolean
   /** Which settings tab to activate on the next /settings visit. Cleared after consumed. */
   settingsTabRequested: string | null
+  /**
+   * When set via "New trade from playbook: <name>" in Cmd+K, the PreTradePanel
+   * reads this once on open and applies the playbook pre-fill, then clears it.
+   */
+  playbookIdRequested: string | null
   setThemePreference: (pref: ThemePreference) => void
   setSidebarCollapsed: (collapsed: boolean) => void
   setActiveModal: (id: string | null) => void
@@ -21,6 +26,7 @@ interface UiState {
   setBiasRequested: (v: boolean) => void
   setCommandPaletteOpen: (v: boolean) => void
   setSettingsTabRequested: (tab: string | null) => void
+  setPlaybookIdRequested: (id: string | null) => void
 }
 
 function resolveTheme(pref: ThemePreference): ResolvedTheme {
@@ -47,6 +53,7 @@ export const useUiStore = create<UiState>()(
       biasRequested: false,
       commandPaletteOpen: false,
       settingsTabRequested: null,
+      playbookIdRequested: null,
       setThemePreference: (pref) => {
         const resolved = resolveTheme(pref)
         applyTheme(resolved)
@@ -58,6 +65,7 @@ export const useUiStore = create<UiState>()(
       setBiasRequested: (v) => set({ biasRequested: v }),
       setCommandPaletteOpen: (v) => set({ commandPaletteOpen: v }),
       setSettingsTabRequested: (tab) => set({ settingsTabRequested: tab }),
+      setPlaybookIdRequested: (id) => set({ playbookIdRequested: id }),
     }),
     {
       name: 'cairn-ui',

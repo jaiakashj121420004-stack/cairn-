@@ -19,6 +19,7 @@ import {
   calcRR,
   calcRiskCents,
 } from './encoder'
+import { computeMaeMfe } from '../../mae-mfe'
 
 export interface PairDetail {
   id: string
@@ -93,6 +94,22 @@ export function commitCandidates(
           ? Math.round((c.exitTime - c.entryTime) / 60_000)
           : null
 
+      // MAE/MFE — only when the export carried a price series AND a real SL
+      // (R is undefined without a stop). encodePrice on a distance yields the
+      // same tenths-of-pip unit the mae_pips / mfe_pips columns store, so
+      // mae_pips / sl_pips == maeR / 100 stays consistent. No series → null.
+      const maeMfe =
+        c.priceSeries && c.priceSeries.length > 0 && c.stopLoss
+          ? computeMaeMfe({
+              entryPrice: c.entryPrice,
+              slPrice:    c.stopLoss,
+              direction:  c.direction,
+              candles:    c.priceSeries,
+            })
+          : null
+      const maePips = maeMfe ? encodePrice(maeMfe.maePriceDistance, pair.pipDecimal) : null
+      const mfePips = maeMfe ? encodePrice(maeMfe.mfePriceDistance, pair.pipDecimal) : null
+
       db.insert(schema.trades).values({
         id:                    tradeId,
         accountId:             options.accountId,
@@ -133,8 +150,8 @@ export function commitCandidates(
           c.status === 'closed' && account.accountSizeCents > 0
             ? Math.round((grossPnlCents * 10000) / account.accountSizeCents)
             : null,
-        maePips:               null,
-        mfePips:               null,
+        maePips:               maePips,
+        mfePips:               mfePips,
         durationMinutes,
         followedPlanExactly:   null,
         planChangesDescription: null,

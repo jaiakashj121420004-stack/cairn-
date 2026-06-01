@@ -29,6 +29,8 @@ import { registerImportHandlers } from '../../electron/ipc/import'
 const MIGRATIONS = [
   '0001_initial', '0002_v11', '0003_opened_at', '0004_consolidate_partials',
   '0005_dismissed_insights', '0006_notebook', '0007_notebook_account', '0008_external_ref',
+  '0009_phase2',
+  '0010_playbooks',
 ].map((t) => readFileSync(join(__dirname, `../../electron/db/migrations/${t}.sql`), 'utf-8'))
 
 const FIXTURE_DIR = join(__dirname, '../fixtures/import/ctrader')

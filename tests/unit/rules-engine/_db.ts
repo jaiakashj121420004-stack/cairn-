@@ -17,6 +17,7 @@ const MIGRATIONS = [
   readFileSync(join(__dirname, '../../../electron/db/migrations/0006_notebook.sql'), 'utf-8'),
   readFileSync(join(__dirname, '../../../electron/db/migrations/0007_notebook_account.sql'), 'utf-8'),
   readFileSync(join(__dirname, '../../../electron/db/migrations/0008_external_ref.sql'), 'utf-8'),
+  readFileSync(join(__dirname, '../../../electron/db/migrations/0009_phase2.sql'), 'utf-8'),
 ]
 
 let SQL: Awaited<ReturnType<typeof initSqlJs>> | null = null

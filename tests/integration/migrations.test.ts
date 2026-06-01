@@ -76,6 +76,8 @@ describe('migration journal wiring', () => {
       '0006_notebook',
       '0007_notebook_account',
       '0008_external_ref',
+      '0009_phase2',
+      '0010_playbooks',
     ])
     // Every journaled tag must resolve to a non-empty .sql file.
     for (const tag of orderedTags()) {
@@ -199,6 +201,101 @@ describe('migration 0004: partial_closes → trade_partials conversion', () => {
     // The legacy table and its row survive the aborted migration.
     const surviving = queryRows(sqlite, 'SELECT id FROM trade_partials')
     expect(surviving).toEqual([{ id: 'legacy1' }])
+    sqlite.close()
+  })
+})
+
+describe('migration 0009: phase_2_complete column + backfill', () => {
+  const PRE_0009 = [
+    '0001_initial', '0002_v11', '0003_opened_at', '0004_consolidate_partials',
+    '0005_dismissed_insights', '0006_notebook', '0007_notebook_account', '0008_external_ref',
+  ]
+  // All NOT-NULL columns on `trades` (FKs are off in sql.js, so account/pair/setup
+  // ids need not resolve). Anything omitted must be nullable or defaulted.
+  const COLS =
+    'id, account_id, pair_id, setup_id, mode, direction, status, entry_price, ' +
+    'stop_loss_price, take_profit_price, sl_pips, rr_ratio, lot_size, risk_amount_cents, ' +
+    'risk_pct_bps, planned_invalidation, mss_confirmed, htf_bias_aligned, pre_calm_score, ' +
+    'pre_urgency_score, pre_need_score, created_at, updated_at'
+  const vals = (id: string, status: string) =>
+    `'${id}','a','p','s','live','long','${status}',100,90,120,10,200,10,1000,100,'x',1,1,5,5,5,1,1`
+
+  it('adds phase_2_complete, backfilling closed trades → 1 and leaving open → 0', () => {
+    const sqlite = new SQL.Database()
+    for (const tag of PRE_0009) applyMigration(sqlite, tag)
+
+    // Column absent before the migration.
+    const before = sqlite.exec('PRAGMA table_info(`trades`)')
+    const beforeCols = (before[0]?.values ?? []).map((r) => r[1] as string)
+    expect(beforeCols).not.toContain('phase_2_complete')
+
+    // Seed pre-existing rows captured under the old single-phase flow.
+    sqlite.run(`INSERT INTO trades (${COLS}) VALUES (${vals('closed1', 'closed')})`)
+    sqlite.run(`INSERT INTO trades (${COLS}) VALUES (${vals('open1', 'open')})`)
+
+    applyMigration(sqlite, '0009_phase2')
+
+    const after = sqlite.exec('PRAGMA table_info(`trades`)')
+    const afterCols = new Map(
+      (after[0]?.values ?? []).map((r) => [r[1] as string, (r[2] as string).toLowerCase()]),
+    )
+    expect(afterCols.has('phase_2_complete')).toBe(true)
+    expect(afterCols.get('phase_2_complete')).toBe('integer')
+
+    const rows = queryRows(sqlite, 'SELECT id, phase_2_complete FROM trades ORDER BY id')
+    const byId = Object.fromEntries(rows.map((r) => [r.id, r.phase_2_complete]))
+    expect(byId['closed1']).toBe(1) // backfilled — its reflection is already on the row
+    expect(byId['open1']).toBe(0)   // not closed → no reflection owed yet
+    sqlite.close()
+  })
+
+  it('a new trade inserted without the column defaults to 0 (reflection owed)', () => {
+    const sqlite = new SQL.Database()
+    for (const tag of orderedTags()) applyMigration(sqlite, tag)
+    // Note: phase_2_complete intentionally omitted — the DEFAULT must apply.
+    sqlite.run(`INSERT INTO trades (${COLS}) VALUES (${vals('new1', 'open')})`)
+    const row = queryRows(sqlite, "SELECT phase_2_complete FROM trades WHERE id = 'new1'")
+    expect(row[0]?.phase_2_complete).toBe(0)
+    sqlite.close()
+  })
+})
+
+describe('migration 0010: playbooks table', () => {
+  it('creates the playbooks table with all required columns', () => {
+    const sqlite = new SQL.Database()
+    for (const tag of orderedTags()) applyMigration(sqlite, tag)
+
+    const tables = tableNames(sqlite)
+    expect(tables).toContain('playbooks')
+
+    const info = sqlite.exec('PRAGMA table_info(`playbooks`)')
+    const cols = new Map(
+      (info[0]?.values ?? []).map((r) => [r[1] as string, (r[2] as string).toLowerCase()]),
+    )
+    expect(cols.has('id')).toBe(true)
+    expect(cols.has('account_id')).toBe(true)
+    expect(cols.has('name')).toBe(true)
+    expect(cols.has('setup_id')).toBe(true)
+    expect(cols.has('pair_id')).toBe(true)
+    expect(cols.has('killzone_id')).toBe(true)
+    expect(cols.has('default_risk_pct')).toBe(true)
+    expect(cols.has('default_invalidation_chip')).toBe(true)
+    expect(cols.has('required_confluence_md')).toBe(true)
+    expect(cols.has('version')).toBe(true)
+    expect(cols.has('deleted_at')).toBe(true)
+    // Risk % stored as integer basis points, not float
+    expect(cols.get('default_risk_pct')).toBe('integer')
+    expect(cols.get('version')).toBe('integer')
+    sqlite.close()
+  })
+
+  it('prior tables are unaffected', () => {
+    const sqlite = new SQL.Database()
+    for (const tag of orderedTags()) applyMigration(sqlite, tag)
+    const tables = tableNames(sqlite)
+    expect(tables).toContain('trades')
+    expect(tables).toContain('notebook_entries')
+    expect(tables).toContain('trade_partials')
     sqlite.close()
   })
 })

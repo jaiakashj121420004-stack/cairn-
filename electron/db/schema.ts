@@ -221,6 +221,9 @@ export const trades = sqliteTable('trades', {
   whatIDidRight: text('what_i_did_right'),
   whatIDidWrong: text('what_i_did_wrong'),
   tags: text('tags'),
+  // v1.2 Wave 3: two-phase logging. 0 = deferred reflection (Phase 2) still owed;
+  // 1 = reflection captured. New rows default 0; existing closed rows backfilled to 1.
+  phase2Complete: integer('phase_2_complete').notNull().default(0),
   // v1.1: optional screenshot attachment (never required, never blocks submission)
   screenshotPath: text('screenshot_path'),
   // v1.1: wall-clock timestamp when a planned trade was activated (planned → open)
@@ -234,6 +237,28 @@ export const trades = sqliteTable('trades', {
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
   deletedAt: integer('deleted_at'),
+})
+
+export const playbooks = sqliteTable('playbooks', {
+  id: text('id').primaryKey(),
+  accountId: text('account_id')
+    .notNull()
+    .references(() => accounts.id),
+  name: text('name').notNull(),
+  pairId: text('pair_id').references(() => pairs.id),
+  setupId: text('setup_id')
+    .notNull()
+    .references(() => setups.id),
+  killzoneId: text('killzone_id').references(() => killzones.id),
+  requiredConfluenceMd: text('required_confluence_md'),
+  /** Risk % as integer basis points: 1.5% → 150. null = use account default. */
+  defaultRiskPct: integer('default_risk_pct'),
+  /** Chip id from INVALIDATION_CHIPS (e.g. "below-ob"), or null for free-text. */
+  defaultInvalidationChip: text('default_invalidation_chip'),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+  deletedAt: integer('deleted_at'),
+  version: integer('version').notNull().default(1),
 })
 
 export const tradeScreenshots = sqliteTable('trade_screenshots', {

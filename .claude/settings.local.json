@@ -48,7 +48,18 @@
       "Bash(cat vite.config.ts)",
       "Bash(cat vitest.config.*)",
       "Bash(grep -rn \"include\\\\|tests/\" vite.config.ts vitest.config.ts)",
-      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\(JSON.stringify\\(Object.keys\\(p.devDependencies ?? {}\\).filter\\(k => k.includes\\('testing'\\) || k.includes\\('jsdom'\\)\\)\\)\\)\")"
+      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\(JSON.stringify\\(Object.keys\\(p.devDependencies ?? {}\\).filter\\(k => k.includes\\('testing'\\) || k.includes\\('jsdom'\\)\\)\\)\\)\")",
+      "Bash(npx vitest *)",
+      "Bash(node -e \"const { createServer } = require\\('vite'\\); createServer\\(\\).catch\\(e => console.log\\(e.message\\)\\)\")",
+      "Bash(ls src/*.css)",
+      "Bash(ls src/styles/)",
+      "Bash(python -c \"import sys, json; d = json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('exports', {}\\), indent=2\\)\\)\")",
+      "Bash(node -e ' *)",
+      "Bash(ls node_modules/override)",
+      "Bash(python -c \"import sys, json; d = json.load\\(sys.stdin\\); print\\('deps:', list\\(d.get\\('dependencies', {}\\).keys\\(\\)\\)\\)\")",
+      "Bash(python -c \"import sys, json; d = json.load\\(sys.stdin\\); [print\\(k, ':', json.dumps\\(v\\)\\) for k, v in d.items\\(\\) if k in ['scripts', 'main', 'dependencies', 'devDependencies']]\")",
+      "Bash(python -c \"import sys, json; d = json.load\\(sys.stdin\\); print\\('version:', d.get\\('version'\\)\\)\")",
+      "Bash(pnpm test:unit --reporter=verbose)"
     ]
   },
   "outputStyle": "default"

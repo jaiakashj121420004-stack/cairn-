@@ -1,5 +1,5 @@
 import { ipcMain, app, dialog } from 'electron'
-import { eq, and, isNull, gte, lte, desc } from 'drizzle-orm'
+import { eq, and, isNull, gte, lte, desc, asc, count } from 'drizzle-orm'
 import { z } from 'zod'
 import { v7 as uuidv7 } from 'uuid'
 import * as fs from 'fs'
@@ -16,6 +16,8 @@ import type {
   TradeScreenshot,
   CreateTradeInput,
   CloseTradeInput,
+  CloseMinimalInput,
+  CompletePhase2Input,
   PartialCloseInput,
   PartialCloseRecord,
   TradeFilter,
@@ -77,6 +79,7 @@ function mapRow(row: typeof schema.trades.$inferSelect): Trade {
     whatIDidRight: row.whatIDidRight ?? null,
     whatIDidWrong: row.whatIDidWrong ?? null,
     tags: row.tags ?? null,
+    phase2Complete: row.phase2Complete,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     deletedAt: row.deletedAt ?? null,
@@ -95,6 +98,144 @@ function mapScreenshotRow(
     caption: row.caption ?? null,
     createdAt: row.createdAt,
     absolutePath: absPath,
+  }
+}
+
+// Shared column set + mapping for every query that returns a TradeListItem
+// (trades:list, related-trades in trades:get, trades:listAwaitingReflection).
+// One definition keeps the three call-sites in lock-step.
+const TRADE_LIST_SELECT = {
+  id: schema.trades.id,
+  accountId: schema.trades.accountId,
+  sessionId: schema.trades.sessionId,
+  pairId: schema.trades.pairId,
+  pairSymbol: schema.pairs.symbol,
+  pairPipDecimal: schema.pairs.pipDecimal,
+  pairPipValuePerLotCents: schema.pairs.pipValuePerStandardLotCents,
+  setupId: schema.trades.setupId,
+  setupName: schema.setups.name,
+  killzoneId: schema.trades.killzoneId,
+  killzoneName: schema.killzones.name,
+  mode: schema.trades.mode,
+  direction: schema.trades.direction,
+  status: schema.trades.status,
+  entryPrice: schema.trades.entryPrice,
+  stopLossPrice: schema.trades.stopLossPrice,
+  takeProfitPrice: schema.trades.takeProfitPrice,
+  slPips: schema.trades.slPips,
+  rrRatio: schema.trades.rrRatio,
+  lotSize: schema.trades.lotSize,
+  riskAmountCents: schema.trades.riskAmountCents,
+  riskPctBps: schema.trades.riskPctBps,
+  exitPrice: schema.trades.exitPrice,
+  exitTime: schema.trades.exitTime,
+  exitReason: schema.trades.exitReason,
+  pnlCents: schema.trades.pnlCents,
+  pnlR: schema.trades.pnlR,
+  pnlPctBps: schema.trades.pnlPctBps,
+  durationMinutes: schema.trades.durationMinutes,
+  isClean: schema.trades.isClean,
+  rulesBroken: schema.trades.rulesBroken,
+  tags: schema.trades.tags,
+  followedPlanExactly: schema.trades.followedPlanExactly,
+  slMoved: schema.trades.slMoved,
+  enteredBeforeMss: schema.trades.enteredBeforeMss,
+  preUrgencyScore: schema.trades.preUrgencyScore,
+  phase2Complete: schema.trades.phase2Complete,
+  createdAt: schema.trades.createdAt,
+  updatedAt: schema.trades.updatedAt,
+} as const
+
+interface TradeListRow {
+  id: string
+  accountId: string
+  sessionId: string | null
+  pairId: string
+  pairSymbol: string
+  pairPipDecimal: number
+  pairPipValuePerLotCents: number
+  setupId: string
+  setupName: string
+  killzoneId: string | null
+  killzoneName: string | null
+  mode: string
+  direction: string
+  status: string
+  entryPrice: number
+  stopLossPrice: number
+  takeProfitPrice: number
+  slPips: number
+  rrRatio: number
+  lotSize: number
+  riskAmountCents: number
+  riskPctBps: number
+  exitPrice: number | null
+  exitTime: number | null
+  exitReason: string | null
+  pnlCents: number | null
+  pnlR: number | null
+  pnlPctBps: number | null
+  durationMinutes: number | null
+  isClean: number | null
+  rulesBroken: string | null
+  tags: string | null
+  followedPlanExactly: number | null
+  slMoved: number | null
+  enteredBeforeMss: number | null
+  preUrgencyScore: number
+  phase2Complete: number
+  createdAt: number
+  updatedAt: number
+}
+
+function toTradeListItem(r: TradeListRow): TradeListItem {
+  return {
+    id: r.id,
+    accountId: r.accountId,
+    sessionId: r.sessionId ?? null,
+    pairId: r.pairId,
+    pairSymbol: r.pairSymbol,
+    pairPipDecimal: r.pairPipDecimal,
+    pairPipValuePerLotCents: r.pairPipValuePerLotCents,
+    setupId: r.setupId,
+    setupName: r.setupName,
+    killzoneId: r.killzoneId ?? null,
+    killzoneName: r.killzoneName ?? null,
+    mode: r.mode as TradeListItem['mode'],
+    direction: r.direction as TradeListItem['direction'],
+    status: r.status as TradeListItem['status'],
+    entryPrice: r.entryPrice,
+    stopLossPrice: r.stopLossPrice,
+    takeProfitPrice: r.takeProfitPrice,
+    slPips: r.slPips,
+    rrRatio: r.rrRatio,
+    lotSize: r.lotSize,
+    riskAmountCents: r.riskAmountCents,
+    riskPctBps: r.riskPctBps,
+    exitPrice: r.exitPrice ?? null,
+    exitTime: r.exitTime ?? null,
+    exitReason: (r.exitReason ?? null) as TradeListItem['exitReason'],
+    pnlCents: r.pnlCents ?? null,
+    pnlR: r.pnlR ?? null,
+    pnlPctBps: r.pnlPctBps ?? null,
+    durationMinutes: r.durationMinutes ?? null,
+    isClean: r.isClean ?? null,
+    rulesBroken: r.rulesBroken ?? null,
+    tags: r.tags ?? null,
+    followedPlanExactly: r.followedPlanExactly ?? null,
+    slMoved: r.slMoved ?? null,
+    enteredBeforeMss: r.enteredBeforeMss ?? null,
+    preUrgencyScore: r.preUrgencyScore,
+    phase2Complete: r.phase2Complete,
+    grade: computeTradeGrade({
+      followedPlanExactly: r.followedPlanExactly ?? null,
+      rulesBrokenCount: countRulesBroken(r.rulesBroken ?? null),
+      pnlR: r.pnlR ?? null,
+      rrRatio: r.rrRatio,
+      preUrgencyScore: r.preUrgencyScore,
+    }),
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
   }
 }
 
@@ -140,6 +281,29 @@ const CloseTradeSchema = z.object({
   slMovedReason: z.string().optional(),
   enteredBeforeMss: z.boolean(),
   rulesBroken: z.array(z.string()),
+  postCalmScore: z.number().int().min(1).max(10),
+  whatIDidRight: z.string().optional(),
+  whatIDidWrong: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+})
+
+const CloseMinimalSchema = z.object({
+  tradeId: z.string().uuid(),
+  exitPrice: z.number().int(),
+  exitTime: z.number().int().positive(),
+  exitReason: z.enum(['tp', 'sl', 'manual', 'be', 'partial_full', 'timeout']),
+})
+
+const CompletePhase2Schema = z.object({
+  tradeId: z.string().uuid(),
+  followedPlanExactly: z.boolean(),
+  planChangesDescription: z.string().optional(),
+  slMoved: z.boolean(),
+  slMovedReason: z.string().optional(),
+  enteredBeforeMss: z.boolean(),
+  rulesBroken: z.array(z.string()),
+  maePips: z.number().int().nonnegative().optional(),
+  mfePips: z.number().int().nonnegative().optional(),
   postCalmScore: z.number().int().min(1).max(10),
   whatIDidRight: z.string().optional(),
   whatIDidWrong: z.string().optional(),
@@ -383,6 +547,8 @@ export function registerTradeHandlers(): void {
             whatIDidRight: d.whatIDidRight ?? null,
             whatIDidWrong: d.whatIDidWrong ?? null,
             tags: tagsJson,
+            // Single-phase close captures the full reflection in one pass.
+            phase2Complete: 1,
             updatedAt: now,
           })
           .where(eq(schema.trades.id, d.tradeId))
@@ -449,6 +615,195 @@ export function registerTradeHandlers(): void {
       if (!row) return { ok: false, error: { code: 'DB_ERROR', message: 'Close failed' } }
       if (!e.sender.isDestroyed()) {
         e.sender.send('cairn:event', { name: 'trade.closed', payload: { tradeId: d.tradeId, accountId: trade.accountId, pnlCents } })
+        for (const ruleKey of d.rulesBroken) {
+          e.sender.send('cairn:event', { name: 'rule.violated', payload: { accountId: trade.accountId, ruleKey, tradeId: d.tradeId } })
+        }
+      }
+      return { ok: true, data: mapRow(row) }
+    } catch (err) {
+      return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
+    }
+  })
+
+  // ── trades:closeMinimal ──────────────────────────────────────────────────────
+  // Phase-1 close (two-phase logging). Records exit facts + P&L only; reflection
+  // is deferred to Phase 2. Leaves phase_2_complete = 0 so the trade lands in the
+  // Review-screen reflection queue. The post-loss cooldown still fires here — it
+  // is real-time prevention, not reflection.
+  ipcMain.handle('trades:closeMinimal', (e, raw: CloseMinimalInput): IpcResponse<Trade> => {
+    const parsed = CloseMinimalSchema.safeParse(raw)
+    if (!parsed.success) {
+      return { ok: false, error: { code: 'VALIDATION_ERROR', message: parsed.error.message } }
+    }
+    try {
+      const db = getDb()
+      const now = Date.now()
+      const d = parsed.data
+
+      const trade = db.select().from(schema.trades).where(eq(schema.trades.id, d.tradeId)).get()
+      if (!trade) return { ok: false, error: { code: 'NOT_FOUND', message: 'Trade not found' } }
+      if (trade.status === 'closed') {
+        return { ok: false, error: { code: 'CONFLICT', message: 'Trade already closed' } }
+      }
+
+      const pair = db.select().from(schema.pairs).where(eq(schema.pairs.id, trade.pairId)).get()
+      if (!pair) return { ok: false, error: { code: 'NOT_FOUND', message: 'Pair not found' } }
+
+      const account = db
+        .select()
+        .from(schema.accounts)
+        .where(eq(schema.accounts.id, trade.accountId))
+        .get()
+      if (!account) return { ok: false, error: { code: 'NOT_FOUND', message: 'Account not found' } }
+
+      const { pnlCents, pnlR, pnlPctBps } = calculatePnl({
+        direction: trade.direction as 'long' | 'short',
+        exitPrice: d.exitPrice,
+        entryPrice: trade.entryPrice,
+        lotSize: trade.lotSize,
+        slPips: trade.slPips,
+        pipValuePerStandardLotCents: pair.pipValuePerStandardLotCents,
+        accountSizeCents: account.accountSizeCents,
+      })
+      const durationMinutes = calculateDurationMinutes(
+        trade.openedAt ?? trade.actualEntryTime,
+        d.exitTime,
+        trade.createdAt,
+      )
+      const isLoss = pnlCents < 0
+
+      db.transaction(() => {
+        // Exit facts only. Honesty / rules-broken / isClean stay null until Phase 2.
+        db.update(schema.trades)
+          .set({
+            status: 'closed',
+            exitPrice: d.exitPrice,
+            exitTime: d.exitTime,
+            exitReason: d.exitReason,
+            pnlCents,
+            pnlR,
+            pnlPctBps,
+            durationMinutes,
+            phase2Complete: 0,
+            updatedAt: now,
+          })
+          .where(eq(schema.trades.id, d.tradeId))
+          .run()
+
+        const newEquity = account.currentEquityCents + pnlCents
+        const newPeak = Math.max(account.peakEquityCents, newEquity)
+        db.update(schema.accounts)
+          .set({ currentEquityCents: newEquity, peakEquityCents: newPeak, updatedAt: now })
+          .where(eq(schema.accounts.id, trade.accountId))
+          .run()
+
+        if (isLoss && trade.mode === 'live') {
+          const cooldownRule = db
+            .select()
+            .from(schema.accountRules)
+            .where(
+              and(
+                eq(schema.accountRules.accountId, trade.accountId),
+                eq(schema.accountRules.ruleKey, 'cooldown_after_loss_minutes'),
+              ),
+            )
+            .get()
+          if (cooldownRule && cooldownRule.enabled === 1) {
+            const config = JSON.parse(cooldownRule.value) as { minutes?: number }
+            const minutes = config.minutes ?? 30
+            db.insert(schema.cooldowns)
+              .values({
+                id: uuidv7(),
+                accountId: trade.accountId,
+                reason: 'post_loss',
+                startedAt: now,
+                expiresAt: now + minutes * 60 * 1000,
+              })
+              .run()
+          }
+        }
+      })
+
+      const row = db.select().from(schema.trades).where(eq(schema.trades.id, d.tradeId)).get()
+      if (!row) return { ok: false, error: { code: 'DB_ERROR', message: 'Close failed' } }
+      if (!e.sender.isDestroyed()) {
+        e.sender.send('cairn:event', { name: 'trade.closed', payload: { tradeId: d.tradeId, accountId: trade.accountId, pnlCents } })
+      }
+      return { ok: true, data: mapRow(row) }
+    } catch (err) {
+      return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
+    }
+  })
+
+  // ── trades:completePhase2 ────────────────────────────────────────────────────
+  // Phase-2 completion. Supplies the deferred reflection for a minimally-closed
+  // trade and flips phase_2_complete → 1, clearing it from the reflection queue.
+  ipcMain.handle('trades:completePhase2', (e, raw: CompletePhase2Input): IpcResponse<Trade> => {
+    const parsed = CompletePhase2Schema.safeParse(raw)
+    if (!parsed.success) {
+      return { ok: false, error: { code: 'VALIDATION_ERROR', message: parsed.error.message } }
+    }
+    try {
+      const db = getDb()
+      const now = Date.now()
+      const d = parsed.data
+
+      const trade = db.select().from(schema.trades).where(eq(schema.trades.id, d.tradeId)).get()
+      if (!trade) return { ok: false, error: { code: 'NOT_FOUND', message: 'Trade not found' } }
+      if (trade.status !== 'closed') {
+        return { ok: false, error: { code: 'CONFLICT', message: 'Trade is not closed; reflection applies to closed trades only' } }
+      }
+      if (trade.phase2Complete === 1) {
+        return { ok: false, error: { code: 'CONFLICT', message: 'Reflection already completed for this trade' } }
+      }
+
+      const isClean =
+        d.rulesBroken.length === 0 && d.followedPlanExactly && !d.enteredBeforeMss ? 1 : 0
+      const rulesBrokenJson = JSON.stringify(d.rulesBroken)
+      const tagsJson = d.tags && d.tags.length > 0 ? JSON.stringify(d.tags) : null
+
+      db.transaction(() => {
+        db.update(schema.trades)
+          .set({
+            maePips: d.maePips ?? null,
+            mfePips: d.mfePips ?? null,
+            followedPlanExactly: d.followedPlanExactly ? 1 : 0,
+            planChangesDescription: d.planChangesDescription ?? null,
+            slMoved: d.slMoved ? 1 : 0,
+            slMovedReason: d.slMovedReason ?? null,
+            enteredBeforeMss: d.enteredBeforeMss ? 1 : 0,
+            rulesBroken: rulesBrokenJson,
+            isClean,
+            postCalmScore: d.postCalmScore,
+            whatIDidRight: d.whatIDidRight ?? null,
+            whatIDidWrong: d.whatIDidWrong ?? null,
+            tags: tagsJson,
+            phase2Complete: 1,
+            updatedAt: now,
+          })
+          .where(eq(schema.trades.id, d.tradeId))
+          .run()
+
+        for (const ruleKey of d.rulesBroken) {
+          db.insert(schema.ruleViolations)
+            .values({
+              id: uuidv7(),
+              accountId: trade.accountId,
+              tradeId: d.tradeId,
+              ruleKey,
+              severity: 'logged',
+              outcome: 'logged_post_hoc',
+              contextJson: JSON.stringify({ reflectedAt: now }),
+              createdAt: now,
+            })
+            .run()
+        }
+      })
+
+      const row = db.select().from(schema.trades).where(eq(schema.trades.id, d.tradeId)).get()
+      if (!row) return { ok: false, error: { code: 'DB_ERROR', message: 'Reflection failed' } }
+      if (!e.sender.isDestroyed()) {
+        e.sender.send('cairn:event', { name: 'trade.reflected', payload: { tradeId: d.tradeId, accountId: trade.accountId } })
         for (const ruleKey of d.rulesBroken) {
           e.sender.send('cairn:event', { name: 'rule.violated', payload: { accountId: trade.accountId, ruleKey, tradeId: d.tradeId } })
         }
@@ -577,46 +932,7 @@ export function registerTradeHandlers(): void {
         conditions.push(eq(schema.trades.isClean, d.isClean ? 1 : 0))
 
       const rows = db
-        .select({
-          id: schema.trades.id,
-          accountId: schema.trades.accountId,
-          sessionId: schema.trades.sessionId,
-          pairId: schema.trades.pairId,
-          pairSymbol: schema.pairs.symbol,
-          pairPipDecimal: schema.pairs.pipDecimal,
-          pairPipValuePerLotCents: schema.pairs.pipValuePerStandardLotCents,
-          setupId: schema.trades.setupId,
-          setupName: schema.setups.name,
-          killzoneId: schema.trades.killzoneId,
-          killzoneName: schema.killzones.name,
-          mode: schema.trades.mode,
-          direction: schema.trades.direction,
-          status: schema.trades.status,
-          entryPrice: schema.trades.entryPrice,
-          stopLossPrice: schema.trades.stopLossPrice,
-          takeProfitPrice: schema.trades.takeProfitPrice,
-          slPips: schema.trades.slPips,
-          rrRatio: schema.trades.rrRatio,
-          lotSize: schema.trades.lotSize,
-          riskAmountCents: schema.trades.riskAmountCents,
-          riskPctBps: schema.trades.riskPctBps,
-          exitPrice: schema.trades.exitPrice,
-          exitTime: schema.trades.exitTime,
-          exitReason: schema.trades.exitReason,
-          pnlCents: schema.trades.pnlCents,
-          pnlR: schema.trades.pnlR,
-          pnlPctBps: schema.trades.pnlPctBps,
-          durationMinutes: schema.trades.durationMinutes,
-          isClean: schema.trades.isClean,
-          rulesBroken: schema.trades.rulesBroken,
-          tags: schema.trades.tags,
-          followedPlanExactly: schema.trades.followedPlanExactly,
-          slMoved: schema.trades.slMoved,
-          enteredBeforeMss: schema.trades.enteredBeforeMss,
-          preUrgencyScore: schema.trades.preUrgencyScore,
-          createdAt: schema.trades.createdAt,
-          updatedAt: schema.trades.updatedAt,
-        })
+        .select(TRADE_LIST_SELECT)
         .from(schema.trades)
         .innerJoin(schema.pairs, eq(schema.trades.pairId, schema.pairs.id))
         .innerJoin(schema.setups, eq(schema.trades.setupId, schema.setups.id))
@@ -625,59 +941,71 @@ export function registerTradeHandlers(): void {
         .orderBy(desc(schema.trades.createdAt))
         .all()
 
-      const items: TradeListItem[] = rows.map((r) => ({
-        id: r.id,
-        accountId: r.accountId,
-        sessionId: r.sessionId ?? null,
-        pairId: r.pairId,
-        pairSymbol: r.pairSymbol,
-        pairPipDecimal: r.pairPipDecimal,
-        pairPipValuePerLotCents: r.pairPipValuePerLotCents,
-        setupId: r.setupId,
-        setupName: r.setupName,
-        killzoneId: r.killzoneId ?? null,
-        killzoneName: r.killzoneName ?? null,
-        mode: r.mode as TradeListItem['mode'],
-        direction: r.direction as TradeListItem['direction'],
-        status: r.status as TradeListItem['status'],
-        entryPrice: r.entryPrice,
-        stopLossPrice: r.stopLossPrice,
-        takeProfitPrice: r.takeProfitPrice,
-        slPips: r.slPips,
-        rrRatio: r.rrRatio,
-        lotSize: r.lotSize,
-        riskAmountCents: r.riskAmountCents,
-        riskPctBps: r.riskPctBps,
-        exitPrice: r.exitPrice ?? null,
-        exitTime: r.exitTime ?? null,
-        exitReason: (r.exitReason ?? null) as TradeListItem['exitReason'],
-        pnlCents: r.pnlCents ?? null,
-        pnlR: r.pnlR ?? null,
-        pnlPctBps: r.pnlPctBps ?? null,
-        durationMinutes: r.durationMinutes ?? null,
-        isClean: r.isClean ?? null,
-        rulesBroken: r.rulesBroken ?? null,
-        tags: r.tags ?? null,
-        followedPlanExactly: r.followedPlanExactly ?? null,
-        slMoved: r.slMoved ?? null,
-        enteredBeforeMss: r.enteredBeforeMss ?? null,
-        preUrgencyScore: r.preUrgencyScore,
-        grade: computeTradeGrade({
-          followedPlanExactly: r.followedPlanExactly ?? null,
-          rulesBrokenCount: countRulesBroken(r.rulesBroken ?? null),
-          pnlR: r.pnlR ?? null,
-          rrRatio: r.rrRatio,
-          preUrgencyScore: r.preUrgencyScore,
-        }),
-        createdAt: r.createdAt,
-        updatedAt: r.updatedAt,
-      }))
+      const items: TradeListItem[] = rows.map(toTradeListItem)
 
       return { ok: true, data: items }
     } catch (err) {
       return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
     }
   })
+
+  // ── trades:listAwaitingReflection ─────────────────────────────────────────────
+  // Closed trades whose Phase-2 reflection is still owed, oldest-closed first so
+  // the queue clears in chronological order. Optional accountId (null = all).
+  ipcMain.handle(
+    'trades:listAwaitingReflection',
+    (_e, raw: { accountId?: string | null }): IpcResponse<TradeListItem[]> => {
+      try {
+        const db = getDb()
+        const conditions = [
+          eq(schema.trades.status, 'closed'),
+          eq(schema.trades.phase2Complete, 0),
+          isNull(schema.trades.deletedAt),
+        ]
+        if (raw?.accountId) conditions.push(eq(schema.trades.accountId, raw.accountId))
+
+        const rows = db
+          .select(TRADE_LIST_SELECT)
+          .from(schema.trades)
+          .innerJoin(schema.pairs, eq(schema.trades.pairId, schema.pairs.id))
+          .innerJoin(schema.setups, eq(schema.trades.setupId, schema.setups.id))
+          .leftJoin(schema.killzones, eq(schema.trades.killzoneId, schema.killzones.id))
+          .where(and(...conditions))
+          .orderBy(asc(schema.trades.exitTime))
+          .all()
+
+        return { ok: true, data: rows.map(toTradeListItem) }
+      } catch (err) {
+        return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
+      }
+    },
+  )
+
+  // ── trades:countAwaitingReflection ────────────────────────────────────────────
+  // Count of closed-but-unreflected trades. Drives the sidebar reflection badge.
+  ipcMain.handle(
+    'trades:countAwaitingReflection',
+    (_e, raw: { accountId?: string | null }): IpcResponse<number> => {
+      try {
+        const db = getDb()
+        const conditions = [
+          eq(schema.trades.status, 'closed'),
+          eq(schema.trades.phase2Complete, 0),
+          isNull(schema.trades.deletedAt),
+        ]
+        if (raw?.accountId) conditions.push(eq(schema.trades.accountId, raw.accountId))
+
+        const row = db
+          .select({ n: count() })
+          .from(schema.trades)
+          .where(and(...conditions))
+          .get()
+        return { ok: true, data: row?.n ?? 0 }
+      } catch (err) {
+        return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
+      }
+    },
+  )
 
   // ── trades:get ───────────────────────────────────────────────────────────────
   ipcMain.handle('trades:get', (_e, raw: { tradeId: string }): IpcResponse<TradeDetail> => {
@@ -746,46 +1074,7 @@ export function registerTradeHandlers(): void {
       dayEnd.setUTCHours(23, 59, 59, 999)
 
       const relatedRows = db
-        .select({
-          id: schema.trades.id,
-          accountId: schema.trades.accountId,
-          sessionId: schema.trades.sessionId,
-          pairId: schema.trades.pairId,
-          pairSymbol: schema.pairs.symbol,
-          pairPipDecimal: schema.pairs.pipDecimal,
-          pairPipValuePerLotCents: schema.pairs.pipValuePerStandardLotCents,
-          setupId: schema.trades.setupId,
-          setupName: schema.setups.name,
-          killzoneId: schema.trades.killzoneId,
-          killzoneName: schema.killzones.name,
-          mode: schema.trades.mode,
-          direction: schema.trades.direction,
-          status: schema.trades.status,
-          entryPrice: schema.trades.entryPrice,
-          stopLossPrice: schema.trades.stopLossPrice,
-          takeProfitPrice: schema.trades.takeProfitPrice,
-          slPips: schema.trades.slPips,
-          rrRatio: schema.trades.rrRatio,
-          lotSize: schema.trades.lotSize,
-          riskAmountCents: schema.trades.riskAmountCents,
-          riskPctBps: schema.trades.riskPctBps,
-          exitPrice: schema.trades.exitPrice,
-          exitTime: schema.trades.exitTime,
-          exitReason: schema.trades.exitReason,
-          pnlCents: schema.trades.pnlCents,
-          pnlR: schema.trades.pnlR,
-          pnlPctBps: schema.trades.pnlPctBps,
-          durationMinutes: schema.trades.durationMinutes,
-          isClean: schema.trades.isClean,
-          rulesBroken: schema.trades.rulesBroken,
-          tags: schema.trades.tags,
-          followedPlanExactly: schema.trades.followedPlanExactly,
-          slMoved: schema.trades.slMoved,
-          enteredBeforeMss: schema.trades.enteredBeforeMss,
-          preUrgencyScore: schema.trades.preUrgencyScore,
-          createdAt: schema.trades.createdAt,
-          updatedAt: schema.trades.updatedAt,
-        })
+        .select(TRADE_LIST_SELECT)
         .from(schema.trades)
         .innerJoin(schema.pairs, eq(schema.trades.pairId, schema.pairs.id))
         .innerJoin(schema.setups, eq(schema.trades.setupId, schema.setups.id))
@@ -800,55 +1089,9 @@ export function registerTradeHandlers(): void {
         )
         .all()
 
-      const relatedTrades: import('../../shared/types/index').TradeListItem[] = relatedRows
+      const relatedTrades: TradeListItem[] = relatedRows
         .filter((r) => r.id !== tradeId)
-        .map((r) => ({
-          id: r.id,
-          accountId: r.accountId,
-          sessionId: r.sessionId ?? null,
-          pairId: r.pairId,
-          pairSymbol: r.pairSymbol,
-          pairPipDecimal: r.pairPipDecimal,
-          pairPipValuePerLotCents: r.pairPipValuePerLotCents,
-          setupId: r.setupId,
-          setupName: r.setupName,
-          killzoneId: r.killzoneId ?? null,
-          killzoneName: r.killzoneName ?? null,
-          mode: r.mode as TradeListItem['mode'],
-          direction: r.direction as TradeListItem['direction'],
-          status: r.status as TradeListItem['status'],
-          entryPrice: r.entryPrice,
-          stopLossPrice: r.stopLossPrice,
-          takeProfitPrice: r.takeProfitPrice,
-          slPips: r.slPips,
-          rrRatio: r.rrRatio,
-          lotSize: r.lotSize,
-          riskAmountCents: r.riskAmountCents,
-          riskPctBps: r.riskPctBps,
-          exitPrice: r.exitPrice ?? null,
-          exitTime: r.exitTime ?? null,
-          exitReason: (r.exitReason ?? null) as TradeListItem['exitReason'],
-          pnlCents: r.pnlCents ?? null,
-          pnlR: r.pnlR ?? null,
-          pnlPctBps: r.pnlPctBps ?? null,
-          durationMinutes: r.durationMinutes ?? null,
-          isClean: r.isClean ?? null,
-          rulesBroken: r.rulesBroken ?? null,
-          tags: r.tags ?? null,
-          followedPlanExactly: r.followedPlanExactly ?? null,
-          slMoved: r.slMoved ?? null,
-          enteredBeforeMss: r.enteredBeforeMss ?? null,
-          preUrgencyScore: r.preUrgencyScore,
-          grade: computeTradeGrade({
-            followedPlanExactly: r.followedPlanExactly ?? null,
-            rulesBrokenCount: countRulesBroken(r.rulesBroken ?? null),
-            pnlR: r.pnlR ?? null,
-            rrRatio: r.rrRatio,
-            preUrgencyScore: r.preUrgencyScore,
-          }),
-          createdAt: r.createdAt,
-          updatedAt: r.updatedAt,
-        }))
+        .map(toTradeListItem)
 
       const detail: TradeDetail = {
         ...mapRow(tradeRow),

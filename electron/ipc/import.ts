@@ -7,6 +7,8 @@ import { parseMt5Html } from '../services/import-adapters/mt5/parser'
 import { reconcileDeals } from '../services/import-adapters/mt5/reconciler'
 import { parseCTraderHtml } from '../services/import-adapters/ctrader/parser'
 import { reconcilePositions } from '../services/import-adapters/ctrader/reconciler'
+import { parseTradingViewCsv } from '../services/import-adapters/tradingview/parser'
+import { reconcileTvTrades } from '../services/import-adapters/tradingview/reconciler'
 import { buildSymbolMap, resolvePairIds } from '../services/import-adapters/_shared/symbol-resolver'
 import { findExistingRefs } from '../services/import-adapters/_shared/deduper'
 import { commitCandidates } from '../services/import-adapters/_shared/committer'
@@ -25,6 +27,18 @@ const PreviewSchema = z.object({
 
 const CommitSchema = z.object({
   html:           z.string().min(1),
+  accountId:      z.string().uuid(),
+  symbolMap:      z.record(z.string(), z.string().uuid()),
+  defaultSetupId: z.string().uuid(),
+})
+
+const TvPreviewSchema = z.object({
+  csv:       z.string().min(1),
+  accountId: z.string().uuid(),
+})
+
+const TvCommitSchema = z.object({
+  csv:            z.string().min(1),
   accountId:      z.string().uuid(),
   symbolMap:      z.record(z.string(), z.string().uuid()),
   defaultSetupId: z.string().uuid(),
@@ -243,6 +257,94 @@ export function registerImportHandlers(): void {
       db,
       newCandidates,
       { accountId, defaultSetupId, brokerSource: 'ctrader', nowMs: Date.now() },
+      pairDetailMap,
+      account,
+    )
+    return { ok: true, data: { ...result, skipped } }
+  })
+
+  // ── import:previewTradingView ─────────────────────────────────────────────
+  ipcMain.handle('import:previewTradingView', (_e, raw: unknown): IpcResponse<ImportPreview> => {
+    const parsed = TvPreviewSchema.safeParse(raw)
+    if (!parsed.success) {
+      return { ok: false, error: { code: 'VALIDATION_ERROR', message: parsed.error.message } }
+    }
+
+    const { csv } = parsed.data
+    const db = getDb()
+
+    const parseResult = parseTradingViewCsv(csv)
+    const candidates  = reconcileTvTrades(parseResult.rows)
+
+    const pairs    = loadPairs(db)
+    const autoMap  = buildSymbolMap(pairs)
+    const { resolved, unresolved } = resolvePairIds(candidates, autoMap, {})
+
+    const resolvedWithPair = resolved.filter((c) => c.pairId !== null)
+    const existingSet      = findExistingRefs(db, resolvedWithPair.map((c) => c.externalRef))
+    const skippedCount     = resolvedWithPair.filter((c) => existingSet.has(c.externalRef)).length
+    const newCandidates    = resolvedWithPair.filter((c) => !existingSet.has(c.externalRef))
+
+    return {
+      ok: true,
+      data: {
+        candidates: newCandidates,
+        skippedCount,
+        unresolvedSymbols: unresolved,
+        parseErrors: parseResult.errors,
+      },
+    }
+  })
+
+  // ── import:commitTradingView ──────────────────────────────────────────────
+  ipcMain.handle('import:commitTradingView', (_e, raw: unknown): IpcResponse<ImportCommitResult> => {
+    const parsed = TvCommitSchema.safeParse(raw)
+    if (!parsed.success) {
+      return { ok: false, error: { code: 'VALIDATION_ERROR', message: parsed.error.message } }
+    }
+
+    const { csv, accountId, symbolMap: userSymbolMap, defaultSetupId } = parsed.data
+    const db = getDb()
+
+    const validation = validateCommitEntities(db, defaultSetupId, accountId)
+    if (!validation.ok) return { ok: false, error: validation.error }
+    const { account } = validation
+
+    const parseResult = parseTradingViewCsv(csv)
+    const candidates  = reconcileTvTrades(parseResult.rows)
+
+    const pairs          = loadPairs(db)
+    const autoMap        = buildSymbolMap(pairs)
+    const mergedMap      = new Map(autoMap)
+    for (const [sym, id] of Object.entries(userSymbolMap)) {
+      mergedMap.set(sym.toUpperCase(), id)
+    }
+    const pairDetailMap = new Map(pairs.map((p) => [p.id, p]))
+
+    const { resolved, unresolved } = resolvePairIds(candidates, mergedMap, {})
+    if (unresolved.length > 0) {
+      return {
+        ok: false,
+        error: {
+          code: 'UNRESOLVED_SYMBOLS',
+          message: `Cannot commit: unresolved symbols: ${unresolved.join(', ')}`,
+          details: { unresolvedSymbols: unresolved },
+        },
+      }
+    }
+
+    const existingSet   = findExistingRefs(db, resolved.map((c) => c.externalRef))
+    const newCandidates = resolved.filter((c) => !existingSet.has(c.externalRef))
+    const skipped       = resolved.length - newCandidates.length
+
+    if (newCandidates.length === 0) {
+      return { ok: true, data: { imported: 0, partials: 0, skipped } }
+    }
+
+    const result = commitCandidates(
+      db,
+      newCandidates,
+      { accountId, defaultSetupId, brokerSource: 'tradingview', nowMs: Date.now() },
       pairDetailMap,
       account,
     )

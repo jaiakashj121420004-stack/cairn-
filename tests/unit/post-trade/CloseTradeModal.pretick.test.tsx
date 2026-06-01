@@ -76,7 +76,10 @@ function buildMockApi(detected: Array<{ ruleKey: string; detail: string }>) {
       create: vi.fn(), setOpen: vi.fn(), list: vi.fn(), delete: vi.fn(),
     },
     settings: {
-      get: () => Promise.resolve({ ok: true as const, data: null }),
+      // fast_path_enabled = false → the modal renders the full single-phase close
+      // form, where the rules-broken pre-tick under test lives. (In fast-path mode
+      // that pre-tick moves to the Review-screen reflection flow.)
+      get: () => Promise.resolve({ ok: true as const, data: false }),
       set: vi.fn(),
     },
   }

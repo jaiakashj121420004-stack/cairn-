@@ -7,7 +7,7 @@ import { ChartTooltip } from '../../../components/analytics/ChartTooltip'
 import { CHART_COLORS } from '../../../components/analytics/chart-theme'
 import { formatPercent, formatRMultiple, formatCents } from '../../../lib/formatters'
 import { cn } from '../../../lib/cn'
-import type { SetupPerformanceStats, SubTotals } from '@shared/types/index'
+import type { PlaybookStats, SetupPerformanceStats, SubTotals } from '@shared/types/index'
 
 const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -55,14 +55,19 @@ function CompareRow({
 
 export function SetupPerformanceTab() {
   const { filter } = useAnalyticsStore()
-  const [data, setData] = useState<SetupPerformanceStats | null>(null)
+  const [data,    setData]    = useState<SetupPerformanceStats | null>(null)
+  const [pbData,  setPbData]  = useState<PlaybookStats | null>(null)
   const [loading, setLoading] = useState(true)
-  const [metric, setMetric] = useState<'expectancyR' | 'winRateBps'>('expectancyR')
+  const [metric,  setMetric]  = useState<'expectancyR' | 'winRateBps'>('expectancyR')
 
   useEffect(() => {
     setLoading(true)
-    void ipc.analytics.setups(filter).then((r) => {
-      if (r.ok) setData(r.data)
+    void Promise.all([
+      ipc.analytics.setups(filter),
+      ipc.analytics.playbookStats(filter),
+    ]).then(([r, pb]) => {
+      if (r.ok)  setData(r.data)
+      if (pb.ok) setPbData(pb.data)
       setLoading(false)
     })
   }, [filter])
@@ -193,6 +198,46 @@ export function SetupPerformanceTab() {
       </div>
 
       {void killzoneNameMap}
+
+      {/* Playbook expectancy */}
+      {pbData && pbData.byPlaybook.length > 0 && (
+        <div className="rounded-lg border border-border bg-surface-elevated p-4">
+          <h3 className="mb-3 text-body font-semibold text-text-primary">Expectancy by playbook</h3>
+          <div className="h-64">
+            <ResponsiveContainer>
+              <BarChart data={pbData.byPlaybook.map((r) => ({ ...r, label: r.playbookName }))}>
+                <CartesianGrid stroke={CHART_COLORS.grid} strokeDasharray="3 3" />
+                <XAxis dataKey="label" stroke={CHART_COLORS.axis} />
+                <YAxis stroke={CHART_COLORS.axis} />
+                <Tooltip content={<ChartTooltip formatter={(v) => formatRMultiple(Number(v))} />} />
+                <Bar dataKey="expectancyR" fill={CHART_COLORS.win} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <table className="mt-4 w-full text-body-sm">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="pb-2 text-left text-caption text-text-muted">Playbook</th>
+                <th className="pb-2 text-right text-caption text-text-muted">n</th>
+                <th className="pb-2 text-right text-caption text-text-muted">Win rate</th>
+                <th className="pb-2 text-right text-caption text-text-muted">Expectancy</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pbData.byPlaybook.map((r) => (
+                <tr key={r.playbookId} className="border-t border-border">
+                  <td className="py-2 text-text-secondary">{r.playbookName}</td>
+                  <td className="py-2 text-right font-mono text-text-muted">{r.n}</td>
+                  <td className="py-2 text-right font-mono text-text-muted">{formatPercent(r.winRateBps)}</td>
+                  <td className={cn('py-2 text-right font-mono', r.expectancyR > 0 ? 'text-accent-a' : 'text-danger')}>
+                    {formatRMultiple(r.expectancyR)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }

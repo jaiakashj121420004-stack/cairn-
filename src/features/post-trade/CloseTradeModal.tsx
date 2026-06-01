@@ -242,6 +242,14 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
   const [saving, setSaving] = useState(false)
   /** True when the rule engine recorded at least one violation for this trade while it was live. */
   const [hasFlaggedViolations, setHasFlaggedViolations] = useState(false)
+  /**
+   * Two-phase logging: when fast-path is on, a full close captures only the exit
+   * facts and defers the reflection (honesty, rules-broken, MAE/MFE, notes) to the
+   * Review-screen queue. Defaults true (the app default); the open effect confirms
+   * from settings. Deferring never skips honesty — it just moves it.
+   */
+  const [fastPathEnabled, setFastPathEnabled] = useState(true)
+  const minimal = closeMode === 'full' && fastPathEnabled
 
   // Populate defaults on open
   useEffect(() => {
@@ -275,7 +283,10 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
       ipc.rules.listAvailable(),
       tradeId ? ipc.trades.get(tradeId) : Promise.resolve(null),
       tradeId ? ipc.rules.detectCloseViolations(tradeId) : Promise.resolve(null),
-    ]).then(([rulesRes, tradeDetailRes, detectRes]) => {
+      ipc.settings.get<boolean>('pre_trade.fast_path_enabled'),
+    ]).then(([rulesRes, tradeDetailRes, detectRes, fastRes]) => {
+      // Default on; only an explicit `false` disables fast-path.
+      setFastPathEnabled(!(fastRes && fastRes.ok && fastRes.data === false))
       if (rulesRes.ok) setAvailableRules(rulesRes.data.map((r) => ({ key: r.key, label: r.label })))
 
       const detectedItems = detectRes && detectRes.ok ? detectRes.data : []
@@ -325,6 +336,14 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
     slMoved !== null &&
     (!slMoved || slMovedReason.trim().length > 0) &&
     enteredBeforeMss !== null &&
+    !saving
+
+  // Minimal (fast-path) close needs only the exit facts; reflection is deferred.
+  const canSubmitMinimal =
+    !!trade &&
+    exitPriceStr.trim() !== '' &&
+    !isNaN(parseFloat(exitPriceStr)) &&
+    exitReason !== '' &&
     !saving
 
   const partialLotsDb = Math.round(parseFloat(partialLotsStr) * 100)
@@ -407,6 +426,33 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
     bumpTradeVersion()
     setSaving(false)
     toast(`Partial close logged. ${(partialLotsDb / 100).toFixed(2)} lots closed.`, 'success')
+    onClosed()
+  }
+
+  async function handleMinimalSubmit() {
+    if (!trade || !canSubmitMinimal) return
+    setSaving(true)
+
+    const exitPrice = priceToDb(exitPriceStr, trade.pairPipDecimal)
+    const res = await ipc.trades.closeMinimal({
+      tradeId: trade.id,
+      exitPrice,
+      exitTime: exitTimeMs,
+      exitReason: exitReason as ExitReason,
+    })
+    if (!res.ok) {
+      toast(res.error.message, 'error')
+      setSaving(false)
+      return
+    }
+
+    // Real-time mechanisms still fire on close; reflection is what's deferred.
+    await ipc.rules.onTradeClosed(trade.id)
+    checkAndAlert(res.data.pnlR)
+
+    bumpTradeVersion()
+    setSaving(false)
+    toast('Trade closed. Reflection queued on the Review screen.', 'success')
     onClosed()
   }
 
@@ -556,7 +602,8 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
         {/* Full close form */}
         {closeMode === 'full' && (<div className="space-y-4">
 
-          {/* Quick-close shortcuts */}
+          {/* Quick-close shortcuts (full reflection only — they pre-fill honesty) */}
+          {!minimal && (
           <div className="space-y-1.5">
             <p className="text-caption font-medium text-text-secondary">Quick close</p>
             <div className="grid grid-cols-2 gap-2">
@@ -594,6 +641,7 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
               })}
             </div>
           </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -675,7 +723,8 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
             </div>
           )}
 
-          {/* MAE / MFE */}
+          {/* MAE / MFE — deferred to reflection in fast-path mode */}
+          {!minimal && (
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-caption font-medium text-text-secondary">
@@ -706,9 +755,20 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
               />
             </div>
           </div>
+          )}
+
+          {minimal && (
+            <div className="rounded-[10px] border border-border bg-surface px-4 py-3">
+              <p className="text-caption text-text-secondary">
+                Exit recorded now. The honesty review, rules-broken checklist, MAE/MFE and
+                notes are deferred to <span className="font-medium text-text-primary">Trades awaiting
+                reflection</span> on the Review screen — clear them in one calm pass after the session.
+              </p>
+            </div>
+          )}
         </div>)}
 
-        {closeMode === 'full' && (<>
+        {closeMode === 'full' && !minimal && (<>
         {/* Honesty section */}
         <SectionHeader>Honesty</SectionHeader>
         <div className="space-y-4">
@@ -926,6 +986,14 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
             disabled={!canSubmitPartial}
           >
             Log partial close
+          </Button>
+        ) : minimal ? (
+          <Button
+            onClick={() => void handleMinimalSubmit()}
+            loading={saving}
+            disabled={!canSubmitMinimal}
+          >
+            Close trade
           </Button>
         ) : (
           <Button

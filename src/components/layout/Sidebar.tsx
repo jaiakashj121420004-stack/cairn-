@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -15,6 +16,8 @@ import type { LucideIcon } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { springSettled, duration } from '../../lib/motion'
 import { useUiStore } from '../../stores/ui-store'
+import { useReflectionStore } from '../../stores/reflection-store'
+import { eventBus } from '../../lib/event-bus'
 import { ThemeToggle } from '../shared/ThemeToggle'
 import { CairnLogo } from '../shared/CairnLogo'
 import { Tooltip } from '../ui/tooltip'
@@ -39,6 +42,17 @@ const TEXT_TRANSITION = { duration: duration.instant }
 
 export function Sidebar() {
   const { sidebarCollapsed, setSidebarCollapsed } = useUiStore()
+  const pendingReflections = useReflectionStore((s) => s.pendingCount)
+  const refreshReflections = useReflectionStore((s) => s.refresh)
+
+  // Keep the reflection badge live: load once, then refresh whenever a trade
+  // closes (a new reflection may be owed) or is reflected (one cleared).
+  useEffect(() => {
+    void refreshReflections()
+    const offClosed = eventBus.on('trade.closed', () => void refreshReflections())
+    const offReflected = eventBus.on('trade.reflected', () => void refreshReflections())
+    return () => { offClosed(); offReflected() }
+  }, [refreshReflections])
 
   return (
     <motion.aside
@@ -114,7 +128,12 @@ export function Sidebar() {
         )}
       >
         {NAV_ITEMS.map((item) => (
-          <NavItem key={item.to} {...item} collapsed={sidebarCollapsed} />
+          <NavItem
+            key={item.to}
+            {...item}
+            collapsed={sidebarCollapsed}
+            badge={item.to === '/review' ? pendingReflections : 0}
+          />
         ))}
       </nav>
 
@@ -143,9 +162,11 @@ export function Sidebar() {
 
 interface NavItemProps extends NavItemDef {
   collapsed: boolean
+  badge?: number
 }
 
-function NavItem({ to, label, icon: Icon, collapsed }: NavItemProps) {
+function NavItem({ to, label, icon: Icon, collapsed, badge = 0 }: NavItemProps) {
+  const hasBadge = badge > 0
   const linkContent = (
     <NavLink to={to} end className="block">
       {({ isActive }) => (
@@ -168,14 +189,24 @@ function NavItem({ to, label, icon: Icon, collapsed }: NavItemProps) {
               : undefined
           }
         >
-          <Icon
-            className={cn(
-              'h-[18px] w-[18px] shrink-0 transition-all duration-200',
-              isActive && 'text-accent-a drop-shadow-[0_0_8px_hsl(74,74%,59%,0.55)]',
-              !isActive && 'group-hover:scale-[1.05]',
+          <div className="relative shrink-0">
+            <Icon
+              className={cn(
+                'h-[18px] w-[18px] transition-all duration-200',
+                isActive && 'text-accent-a drop-shadow-[0_0_8px_hsl(74,74%,59%,0.55)]',
+                !isActive && 'group-hover:scale-[1.05]',
+              )}
+              strokeWidth={isActive ? 2 : 1.5}
+            />
+            {/* Collapsed: a small dot marks pending reflections (count shown when expanded). */}
+            {hasBadge && collapsed && (
+              <span
+                data-testid="cairn-reflection-pending"
+                aria-label={`${badge} trades awaiting reflection`}
+                className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-accent-a ring-2 ring-[hsl(var(--surface))]"
+              />
             )}
-            strokeWidth={isActive ? 2 : 1.5}
-          />
+          </div>
           <AnimatePresence initial={false}>
             {!collapsed && (
               <motion.span
@@ -184,7 +215,7 @@ function NavItem({ to, label, icon: Icon, collapsed }: NavItemProps) {
                 exit={{ opacity: 0 }}
                 transition={{ duration: duration.instant }}
                 className={cn(
-                  'whitespace-nowrap text-body font-medium transition-colors duration-150',
+                  'flex-1 whitespace-nowrap text-body font-medium transition-colors duration-150',
                   isActive && 'text-text-primary',
                 )}
               >
@@ -192,6 +223,15 @@ function NavItem({ to, label, icon: Icon, collapsed }: NavItemProps) {
               </motion.span>
             )}
           </AnimatePresence>
+          {hasBadge && !collapsed && (
+            <span
+              data-testid="cairn-reflection-pending"
+              aria-label={`${badge} trades awaiting reflection`}
+              className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-accent-a/15 px-1.5 text-micro font-semibold text-accent-a"
+            >
+              {badge}
+            </span>
+          )}
         </div>
       )}
     </NavLink>
@@ -199,7 +239,7 @@ function NavItem({ to, label, icon: Icon, collapsed }: NavItemProps) {
 
   if (collapsed) {
     return (
-      <Tooltip content={label} side="right" wrapperClassName="block">
+      <Tooltip content={hasBadge ? `${label} · ${badge} to reflect` : label} side="right" wrapperClassName="block">
         {linkContent}
       </Tooltip>
     )

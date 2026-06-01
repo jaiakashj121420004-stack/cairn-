@@ -14,11 +14,12 @@ import {
   STATIC_COMMANDS,
   SETTINGS_TAB_COMMANDS,
   buildAccountCommands,
+  buildPlaybookCommands,
   matchCommand,
   type CommandDef,
   type CommandDeps,
 } from './registry'
-import type { Account, TradeListItem } from '@shared/types/index'
+import type { Account, Playbook, TradeListItem } from '@shared/types/index'
 
 export function CommandPalette() {
   const navigate = useNavigate()
@@ -27,6 +28,7 @@ export function CommandPalette() {
     commandPaletteOpen,
     setCommandPaletteOpen,
     setNewTradeRequested,
+    setPlaybookIdRequested,
     setBiasRequested,
     setSettingsTabRequested,
     themePreference,
@@ -37,12 +39,13 @@ export function CommandPalette() {
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
   const [accounts, setAccounts] = useState<Account[]>([])
+  const [palPlaybooks, setPalPlaybooks] = useState<Playbook[]>([])
   const [pendingCloseTrade, setPendingCloseTrade] = useState<TradeListItem | null>(null)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
 
-  // Load accounts when palette opens
+  // Load accounts + playbooks when palette opens
   useEffect(() => {
     if (!commandPaletteOpen) return
     setQuery('')
@@ -52,9 +55,14 @@ export function CommandPalette() {
     }).catch(() => {
       // palette opened before accounts loaded — show empty list, non-fatal
     })
+    if (selectedAccountId) {
+      void ipc.playbooks.list(selectedAccountId).then((res) => {
+        if (res.ok) setPalPlaybooks(res.data)
+      }).catch(() => { /* non-fatal */ })
+    }
     // Focus input after paint
     requestAnimationFrame(() => inputRef.current?.focus())
-  }, [commandPaletteOpen])
+  }, [commandPaletteOpen, selectedAccountId])
 
   const close = useCallback(() => {
     setCommandPaletteOpen(false)
@@ -67,6 +75,7 @@ export function CommandPalette() {
     toast,
     closeCommandPalette: close,
     setNewTradeRequested,
+    setPlaybookIdRequested,
     setBiasRequested,
     setSettingsTabRequested,
     toggleTheme: () => {
@@ -91,6 +100,7 @@ export function CommandPalette() {
   // Build full command list, filtered by query
   const allCommands: CommandDef[] = [
     ...STATIC_COMMANDS,
+    ...buildPlaybookCommands(palPlaybooks),
     ...buildAccountCommands(accounts),
     ...SETTINGS_TAB_COMMANDS,
   ]

@@ -228,7 +228,10 @@ function buildMockApi(opts: MockApiOptions = {}) {
     sessions: { getToday: vi.fn(), upsert: vi.fn(), lock: vi.fn() },
     trades: {
       create: vi.fn(), setOpen: vi.fn(), close: vi.fn(), partialClose: vi.fn(),
+      closeMinimal: vi.fn(), completePhase2: vi.fn(),
       list: vi.fn(), get: vi.fn(), delete: vi.fn(),
+      listAwaitingReflection: () => ok([]),
+      countAwaitingReflection: () => ok(0),
       addScreenshot: vi.fn(), pickScreenshots: vi.fn(), listScreenshots: vi.fn(),
       deleteScreenshot: vi.fn(),
     },

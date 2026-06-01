@@ -138,6 +138,16 @@ test('smoke: onboard → session bias → place trade → close trade → analyt
 
     // ── 4. PLACE A TRADE ──────────────────────────────────────────────────────
 
+    // Disable two-phase fast-path so this smoke run exercises the FULL single-phase
+    // flow (setup, MSS, and the honesty review at close). The fast-path/reflection
+    // lifecycle has dedicated coverage in tests/integration/two-phase-logging.test.ts.
+    await page.getByRole('link', { name: 'Settings' }).click()
+    await expect(page.getByText('Fast path (two-phase logging)')).toBeVisible()
+    await page.getByRole('switch').click()
+    await expect(page.getByText('Saved')).toBeVisible({ timeout: 8_000 })
+    await page.getByRole('link', { name: 'Dashboard' }).click()
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+
     await page.getByRole('button', { name: 'New Trade' }).click()
     // Wait for the pre-trade panel to slide in (Framer Motion).
     await expect(page.getByText('New Trade', { exact: false }).nth(1)).toBeVisible()
@@ -219,6 +229,50 @@ test('smoke: onboard → session bias → place trade → close trade → analyt
         .locator('p', { hasText: 'Trades' })
         .locator('xpath=following-sibling::p'),
     ).toHaveText('1')
+
+    // ── 7. FAST-PATH GATE — re-enable and place via the six gate fields ───────
+    // Re-enable two-phase fast-path, then place a trade using ONLY the gate
+    // fields. This proves the Gate has no hidden/blocking steps — the structural
+    // guarantee behind the ≤20 s target (the human stopwatch check). Playwright
+    // types instantly, so the elapsed time bounds app responsiveness, not human
+    // think-time; the real win is that no full-form field is required to submit.
+    await page.getByRole('link', { name: 'Settings' }).click()
+    await expect(page.getByText('Fast path (two-phase logging)')).toBeVisible()
+    await page.getByRole('switch').click() // back on
+    await expect(page.getByText('Saved')).toBeVisible({ timeout: 8_000 })
+    await page.getByRole('link', { name: 'Dashboard' }).click()
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+
+    const gateStart = Date.now()
+    await page.getByRole('button', { name: 'New Trade' }).click()
+    await expect(page.getByText('New Trade', { exact: false }).nth(1)).toBeVisible()
+
+    // Pair pre-fills from the last trade (Wave 1 context); set it explicitly to
+    // be deterministic regardless of prefill.
+    const pairTrigger = page.locator('button[aria-haspopup="listbox"]').filter({ hasText: /Select pair…|EURUSD/ })
+    await pairTrigger.click()
+    await page.getByPlaceholder('Search…').fill('EURUSD')
+    await page.getByRole('option', { name: /EURUSD/ }).click()
+
+    // Direction Short (different from the earlier Long trade → no duplicate guard).
+    await page.getByRole('button', { name: 'Short' }).click()
+    // Prices — short 2R (SL 30 pips above, TP 60 pips below)
+    await page.locator('label:text-is("Entry") + input').fill('1.08500')
+    await page.locator('label:text-is("Stop loss") + input').fill('1.08800')
+    await page.locator('label:text-is("Take profit") + input').fill('1.07900')
+    // One MSS tap (required by the blocking MSS rule — the gate does not skip it).
+    await page.getByText('MSS confirmed').click()
+    // One invalidation chip (satisfies the 20-char honesty gate in one tap).
+    await page.getByRole('button', { name: 'Liquidity sweep fails to reverse' }).click()
+    // One emotion preset.
+    await page.getByRole('button', { name: 'Focused' }).click()
+
+    await page.getByRole('button', { name: 'Place order' }).click()
+    await expect(page.getByText('Order placed in broker?')).toBeVisible()
+    await page.getByRole('button', { name: "Yes, it's placed" }).click()
+    await expect(page.getByText('Trade open.')).toBeVisible({ timeout: 8_000 })
+    const gateElapsed = Date.now() - gateStart
+    expect(gateElapsed).toBeLessThan(20_000)
   } finally {
     await app.close()
     // Clean up temp data directory; ignore errors (process may have locked files on Windows).

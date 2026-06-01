@@ -346,7 +346,10 @@ const STATUS_BADGE: Record<TradeStatus, { label: string }> = {
 ───────────────────────────────────────────────────────────────── */
 export function DashboardPage() {
   const { todaySession, sessionState, selectedAccountId, refresh } = useSessionStore()
-  const { newTradeRequested, biasRequested, setNewTradeRequested, setBiasRequested } = useUiStore()
+  const {
+    newTradeRequested, biasRequested, playbookIdRequested,
+    setNewTradeRequested, setBiasRequested, setPlaybookIdRequested,
+  } = useUiStore()
   const [biasOpen, setBiasOpen] = useState(false)
   const [tradeOpen, setTradeOpen] = useState(false)
   const handleBiasClose = useCallback(() => setBiasOpen(false), [])
@@ -397,6 +400,14 @@ export function DashboardPage() {
     return () => { unsubs.forEach((u) => u()) }
   }, [loadStats, refresh]) // eslint-disable-line
   useEffect(() => { if (newTradeRequested) { setNewTradeRequested(false); setTradeOpen(true) } }, [newTradeRequested, setNewTradeRequested])
+
+  const [pendingPlaybookId, setPendingPlaybookId] = useState<string | null>(null)
+  useEffect(() => {
+    if (playbookIdRequested) {
+      setPendingPlaybookId(playbookIdRequested)
+      setPlaybookIdRequested(null)
+    }
+  }, [playbookIdRequested, setPlaybookIdRequested])
   useEffect(() => { if (biasRequested) { setBiasRequested(false); setBiasOpen(true) } }, [biasRequested, setBiasRequested])
 
   /* Derived values */
@@ -941,6 +952,8 @@ export function DashboardPage() {
           void loadStats()
           setTradeOpen(false)
         }}
+        initialPlaybookId={pendingPlaybookId}
+        onPlaybookConsumed={() => setPendingPlaybookId(null)}
       />
     </div>
   )

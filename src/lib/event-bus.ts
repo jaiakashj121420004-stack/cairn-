@@ -9,6 +9,7 @@
 export type CairnEventName =
   | 'trade.placed'
   | 'trade.closed'
+  | 'trade.reflected'
   | 'trade.partial-closed'
   | 'session.locked'
   | 'session.unlocked'
@@ -17,6 +18,7 @@ export type CairnEventName =
 export interface CairnEventPayload {
   'trade.placed': { tradeId: string; accountId: string }
   'trade.closed': { tradeId: string; accountId: string; pnlCents: number }
+  'trade.reflected': { tradeId: string; accountId: string }
   'trade.partial-closed': { tradeId: string; accountId: string }
   'session.locked': { accountId: string }
   'session.unlocked': { accountId: string }

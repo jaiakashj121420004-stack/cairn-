@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { X, Loader2, CheckCircle2, XCircle, AlertTriangle, Paperclip } from 'lucide-react'
+import { X, Loader2, CheckCircle2, XCircle, AlertTriangle, Paperclip, BookOpen } from 'lucide-react'
 import { ipc } from '../../lib/ipc'
 import { useSessionStore } from '../../stores/session-store'
 import { useSettingsStore } from '../../stores/settings-store'
 import { useLastTradeContextStore, getRecentContext } from '../../stores/last-trade-context'
 import { INVALIDATION_CHIPS, INVALIDATION_MIN_CHARS } from './constants/invalidation-chips'
 import { EMOTION_PRESETS } from './constants/emotion-presets'
+import { buildPlaybookPatch } from '../../lib/playbook-prefill'
 import { useToast } from '../../components/ui'
 import { Button, Select, Checkbox, Modal } from '../../components/ui'
 import { calculateLotSizeFromRisk, calculateRR, calcRiskCentsFromPct } from '../../lib/calculators'
@@ -18,6 +19,7 @@ import { cn } from '../../lib/cn'
 import type {
   Account,
   Pair,
+  Playbook,
   Setup,
   Killzone,
   RuleEvaluationDTO,
@@ -29,6 +31,9 @@ interface Props {
   open: boolean
   onClose: () => void
   onTradeCreated?: () => void
+  /** When set (from Cmd+K "New trade from playbook: X"), auto-apply this playbook when the panel opens. Cleared via onPlaybookConsumed. */
+  initialPlaybookId?: string | null
+  onPlaybookConsumed?: () => void
 }
 
 type Mode = 'live' | 'sim' | 'backtest'
@@ -141,7 +146,7 @@ function Slider({
   )
 }
 
-export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
+export function PreTradePanel({ open, onClose, onTradeCreated, initialPlaybookId, onPlaybookConsumed }: Props) {
   const toast = useToast()
   const { selectedAccountId, todaySession, refresh, bumpTradeVersion } = useSessionStore()
   const { riskMode, setRiskMode } = useSettingsStore()
@@ -151,6 +156,7 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
   const [setups, setSetups] = useState<Setup[]>([])
   const [killzones, setKillzones] = useState<Killzone[]>([])
   const [account, setAccount] = useState<Account | null>(null)
+  const [playbooks, setPlaybooks] = useState<Playbook[]>([])
   const [riskDollarStr, setRiskDollarStr] = useState('')
   const [riskPctStr, setRiskPctStr] = useState('1')
   const [form, setForm] = useState<FormState>(BLANK)
@@ -175,6 +181,10 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
    * been edited yet — used to show the "(from last trade)" caption.
    */
   const [inheritedFields, setInheritedFields] = useState<Set<'pairId' | 'setupId' | 'mode'>>(new Set())
+  /** Whether two-phase fast-path is available (setting `pre_trade.fast_path_enabled`, default on). */
+  const [fastPathEnabled, setFastPathEnabled] = useState(true)
+  /** Whether the panel is currently in fast (gate-only) mode vs the full single-phase form. */
+  const [fastMode, setFastMode] = useState(true)
 
   // Load reference data + account for risk calculator
   useEffect(() => {
@@ -185,7 +195,14 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
       ipc.killzones.list(),
       ipc.accounts.list(),
       ipc.settings.get('default_risk_pct'),
-    ]).then(([p, s, k, accs, riskSetting]) => {
+      ipc.settings.get<boolean>('pre_trade.fast_path_enabled'),
+      selectedAccountId ? ipc.playbooks.list(selectedAccountId) : Promise.resolve(null),
+    ]).then(([p, s, k, accs, riskSetting, fastSetting, pbRes]) => {
+      const fastEnabled = !(fastSetting.ok && fastSetting.data === false) // default true
+      setFastPathEnabled(fastEnabled)
+      setFastMode(fastEnabled)
+      if (pbRes && pbRes.ok) setPlaybooks(pbRes.data)
+      else setPlaybooks([])
       const activePairs = p.ok ? p.data.filter((x) => x.active === 1) : []
       const activeSetups = s.ok ? s.data.filter((x) => x.active === 1) : []
       if (p.ok) setPairs(activePairs)
@@ -225,6 +242,26 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- lastCtx is a snapshot: read once when panel opens, must not re-trigger on later changes
   }, [open, selectedAccountId])
 
+  // Auto-apply a playbook requested via Cmd+K once playbooks are loaded.
+  useEffect(() => {
+    if (!initialPlaybookId || playbooks.length === 0) return
+    const pb = playbooks.find((p) => p.id === initialPlaybookId)
+    if (!pb) return
+    const patch = buildPlaybookPatch(pb)
+    setForm((f) => ({
+      ...f,
+      ...(patch.pairId     !== null ? { pairId:     patch.pairId ?? ''     } : {}),
+      setupId:    patch.setupId,
+      ...(patch.killzoneId !== null ? { killzoneId: patch.killzoneId ?? '' } : {}),
+      ...(patch.invalidation !== null ? { invalidation: patch.invalidation } : {}),
+    }))
+    if (patch.riskPctStr !== null) setRiskPctStr(patch.riskPctStr)
+    if (patch.chipId !== null) { setSelectedChipId(patch.chipId); setShowCustom(false) }
+    setInheritedFields(new Set())
+    onPlaybookConsumed?.()
+  // We intentionally only run when playbooks finishes loading — not on every playbooks change.
+  }, [playbooks]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Auto-check HTF bias aligned when direction changes
   useEffect(() => {
     if (!todaySession || !form.direction) return
@@ -232,6 +269,16 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
     const aligned = biasMap[todaySession.dailyBias] === form.direction
     setForm((f) => ({ ...f, htfBiasAligned: aligned }))
   }, [form.direction, todaySession])
+
+  // Fast mode hides the setup selector, so auto-assign one (inherited setup wins;
+  // otherwise the first active setup). The trader sees which setup is assigned and
+  // can switch to Full mode to change it — assignment is shown, never hidden.
+  useEffect(() => {
+    const firstSetup = setups[0]
+    if (fastMode && !form.setupId && firstSetup) {
+      setForm((f) => (f.setupId ? f : { ...f, setupId: firstSetup.id }))
+    }
+  }, [fastMode, setups, form.setupId])
 
   // Reset on close
   useEffect(() => {
@@ -248,6 +295,7 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
       setShowAdvanced(false)
       setSelectedChipId(null)
       setShowCustom(false)
+      setPlaybooks([])
     }
   }, [open])
 
@@ -268,7 +316,10 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
   const hasBalance = accountBalance > 0
   const leverage = account?.leverage ?? 100
 
-  const riskUsdCents: number = riskMode === 'dollar'
+  // Fast mode always sizes from the configured default risk %, keeping the gate
+  // to its six fields — no $/% selector to touch.
+  const effectiveRiskMode = fastMode ? 'percent' : riskMode
+  const riskUsdCents: number = effectiveRiskMode === 'dollar'
     ? Math.round(parseFloat(riskDollarStr || '0') * 100)
     : calcRiskCentsFromPct(accountBalance, parseFloat(riskPctStr || '0'))
 
@@ -478,17 +529,75 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
             {/* Header */}
             <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
               <h2 className="text-h3 font-semibold text-text-primary">New Trade</h2>
-              <button
-                type="button"
-                onClick={handleEscapeOrClose}
-                className="rounded-[8px] p-1.5 text-text-muted hover:bg-surface-elevated hover:text-text-primary transition-colors"
-              >
-                <X className="h-4 w-4" strokeWidth={1.5} />
-              </button>
+              <div className="flex items-center gap-2">
+                {fastPathEnabled && (
+                  <div className="flex rounded-[8px] border border-border p-0.5 gap-0.5">
+                    {([['fast', 'Fast'], ['full', 'Full']] as const).map(([m, lbl]) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setFastMode(m === 'fast')}
+                        className={cn(
+                          'rounded-[6px] px-2.5 py-0.5 text-caption font-medium transition-colors',
+                          (m === 'fast') === fastMode
+                            ? 'bg-accent-a/15 text-accent-a'
+                            : 'text-text-muted hover:text-text-secondary',
+                        )}
+                      >
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={handleEscapeOrClose}
+                  className="rounded-[8px] p-1.5 text-text-muted hover:bg-surface-elevated hover:text-text-primary transition-colors"
+                >
+                  <X className="h-4 w-4" strokeWidth={1.5} />
+                </button>
+              </div>
             </div>
 
             {/* Body — scrollable */}
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+              {/* Playbook selector — both fast and full modes */}
+              {playbooks.length > 0 && (
+                <section>
+                  <div className="flex items-center gap-2 rounded-[10px] border border-border bg-surface-elevated px-3 py-2">
+                    <BookOpen className="h-3.5 w-3.5 shrink-0 text-text-muted" strokeWidth={1.5} />
+                    <select
+                      defaultValue=""
+                      onChange={(e) => {
+                        const pb = playbooks.find((p) => p.id === e.target.value)
+                        if (!pb) return
+                        const patch = buildPlaybookPatch(pb)
+                        setForm((f) => ({
+                          ...f,
+                          ...(patch.pairId     !== null ? { pairId: patch.pairId ?? '' }         : {}),
+                          setupId:    patch.setupId,
+                          ...(patch.killzoneId !== null ? { killzoneId: patch.killzoneId ?? '' } : {}),
+                          ...(patch.invalidation !== null ? { invalidation: patch.invalidation } : {}),
+                        }))
+                        if (patch.riskPctStr !== null) setRiskPctStr(patch.riskPctStr)
+                        if (patch.chipId !== null) { setSelectedChipId(patch.chipId); setShowCustom(false) }
+                        // Clear inherited hints when a playbook overrides them
+                        setInheritedFields(new Set())
+                        // Reset the select to placeholder after applying
+                        e.target.value = ''
+                      }}
+                      className="flex-1 bg-transparent text-body-sm text-text-primary focus:outline-none"
+                      aria-label="Use playbook"
+                    >
+                      <option value="" disabled>Use playbook…</option>
+                      {playbooks.map((pb) => (
+                        <option key={pb.id} value={pb.id}>{pb.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </section>
+              )}
+
               {/* A — Context */}
               <section className="rounded-[10px] glass p-3 space-y-1.5">
                 {todaySession ? (
@@ -518,14 +627,16 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
                   searchable
                   placeholder="Select pair…"
                 />
-                <Select
-                  label="Setup"
-                  options={setupOptions}
-                  value={form.setupId}
-                  onChange={(v) => { setForm((f) => ({ ...f, setupId: v })); dropInherited('setupId') }}
-                  placeholder="Select setup…"
-                />
-                {inheritedFields.size > 0 && (
+                {!fastMode && (
+                  <Select
+                    label="Setup"
+                    options={setupOptions}
+                    value={form.setupId}
+                    onChange={(v) => { setForm((f) => ({ ...f, setupId: v })); dropInherited('setupId') }}
+                    placeholder="Select setup…"
+                  />
+                )}
+                {!fastMode && inheritedFields.size > 0 && (
                   <div className="flex items-center gap-2">
                     <span className="text-micro text-text-muted">from last trade</span>
                     <button
@@ -537,34 +648,42 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
                     </button>
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-3">
-                  <Select
-                    label="Killzone"
-                    options={killzoneOptions}
-                    value={form.killzoneId}
-                    onChange={(v) => setForm((f) => ({ ...f, killzoneId: v }))}
-                  />
-                  <div className="space-y-1.5">
-                    <label className="text-caption font-medium text-text-secondary">Mode</label>
-                    <div className="flex gap-1">
-                      {(['live', 'sim', 'backtest'] as Mode[]).map((m) => (
-                        <button
-                          key={m}
-                          type="button"
-                          onClick={() => { setForm((f) => ({ ...f, mode: m })); dropInherited('mode') }}
-                          className={cn(
-                            'flex-1 rounded-[8px] border py-1.5 text-caption font-medium capitalize transition-colors',
-                            form.mode === m
-                              ? 'border-accent-a bg-accent-a/10 text-accent-a'
-                              : 'border-border text-text-muted hover:border-border-strong',
-                          )}
-                        >
-                          {m}
-                        </button>
-                      ))}
+                {!fastMode && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <Select
+                      label="Killzone"
+                      options={killzoneOptions}
+                      value={form.killzoneId}
+                      onChange={(v) => setForm((f) => ({ ...f, killzoneId: v }))}
+                    />
+                    <div className="space-y-1.5">
+                      <label className="text-caption font-medium text-text-secondary">Mode</label>
+                      <div className="flex gap-1">
+                        {(['live', 'sim', 'backtest'] as Mode[]).map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => { setForm((f) => ({ ...f, mode: m })); dropInherited('mode') }}
+                            className={cn(
+                              'flex-1 rounded-[8px] border py-1.5 text-caption font-medium capitalize transition-colors',
+                              form.mode === m
+                                ? 'border-accent-a bg-accent-a/10 text-accent-a'
+                                : 'border-border text-text-muted hover:border-border-strong',
+                            )}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
+                {fastMode && (
+                  <p className="text-micro text-text-muted">
+                    Setup: <span className="text-text-secondary">{setups.find((s) => s.id === form.setupId)?.name ?? '—'}</span>
+                    {' · '}switch to Full to change setup, killzone, or mode.
+                  </p>
+                )}
               </section>
 
               {/* C — Direction */}
@@ -610,7 +729,20 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
                 )}
               </section>
 
-              {/* D2 — Risk calculator */}
+              {/* D2 — Risk calculator. Fast mode: compact read-only (auto from default %). */}
+              {fastMode ? (
+                <section className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-caption font-medium text-text-secondary">Risk (auto)</p>
+                    {account && <span className="text-micro text-text-muted font-mono">{leverage}:1</span>}
+                  </div>
+                  <p className="text-caption text-text-muted">
+                    {hasBalance && riskUsdCents > 0
+                      ? `${(riskPctBps / 100).toFixed(2)}% · ≈ $${(riskUsdCents / 100).toFixed(2)} · ${lotSizeDb > 0 ? (lotSizeDb / 100).toFixed(2) : '—'} lots`
+                      : 'Set account balance in Accounts to size automatically.'}
+                  </p>
+                </section>
+              ) : (
               <section className="space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -685,8 +817,26 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
                   </div>
                 )}
               </section>
+              )}
 
-              {/* E — Confluence */}
+              {/* E (fast) — only the confluence a blocking rule needs (MSS). HTF
+                  alignment is auto-derived from direction; DXY/SMT are full-only.
+                  Shown so the gate never silently skips require_mss_confirmation. */}
+              {fastMode && (
+                <section className="space-y-1.5">
+                  <Checkbox
+                    label="MSS confirmed"
+                    checked={form.mssConfirmed}
+                    onChange={(e) => setForm((f) => ({ ...f, mssConfirmed: e.target.checked }))}
+                  />
+                  <p className="text-micro text-text-muted">
+                    Required when your MSS rule is on. Switch to Full for DXY / SMT.
+                  </p>
+                </section>
+              )}
+
+              {/* E — Confluence (full mode) */}
+              {!fastMode && (
               <section className="space-y-2">
                 <p className="text-caption font-medium text-text-secondary">Confluence</p>
                 <Checkbox
@@ -720,6 +870,7 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
                   )}
                 </div>
               </section>
+              )}
 
               {/* F — Invalidation */}
               <section className="space-y-2">
@@ -822,15 +973,17 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
                     </button>
                   ))}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowAdvanced((v) => !v)}
-                  className="flex items-center gap-1 text-caption text-text-muted hover:text-text-secondary transition-colors"
-                >
-                  <span className={cn('transition-transform', showAdvanced ? 'rotate-90' : 'rotate-0')}>›</span>
-                  Advanced (set scores manually)
-                </button>
-                {showAdvanced && (
+                {!fastMode && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvanced((v) => !v)}
+                    className="flex items-center gap-1 text-caption text-text-muted hover:text-text-secondary transition-colors"
+                  >
+                    <span className={cn('transition-transform', showAdvanced ? 'rotate-90' : 'rotate-0')}>›</span>
+                    Advanced (set scores manually)
+                  </button>
+                )}
+                {!fastMode && showAdvanced && (
                   <div className="space-y-3">
                     <Slider label="Calm (1=scattered, 10=focused)" value={form.calmScore} onChange={(v) => { setSelectedPresetId(null); setForm((f) => ({ ...f, calmScore: v })) }} />
                     <Slider label="Urgency (1=patient, 10=chasing)" value={form.urgencyScore} onChange={(v) => { setSelectedPresetId(null); setForm((f) => ({ ...f, urgencyScore: v })) }} />
@@ -861,32 +1014,36 @@ export function PreTradePanel({ open, onClose, onTradeCreated }: Props) {
                 </div>
               </motion.section>
 
-              {/* Chart attachment */}
-              <section>
-                <button
-                  type="button"
-                  onClick={() => void handlePickCharts()}
-                  className="flex items-center gap-1.5 text-caption text-text-muted hover:text-text-secondary transition-colors"
-                >
-                  <Paperclip className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  {pendingCharts.length === 0
-                    ? 'Attach chart screenshot (optional)'
-                    : `${pendingCharts.length} chart${pendingCharts.length > 1 ? 's' : ''} attached`}
-                </button>
-              </section>
+              {/* Chart attachment (full mode — deferred to reflection in fast mode) */}
+              {!fastMode && (
+                <section>
+                  <button
+                    type="button"
+                    onClick={() => void handlePickCharts()}
+                    className="flex items-center gap-1.5 text-caption text-text-muted hover:text-text-secondary transition-colors"
+                  >
+                    <Paperclip className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    {pendingCharts.length === 0
+                      ? 'Attach chart screenshot (optional)'
+                      : `${pendingCharts.length} chart${pendingCharts.length > 1 ? 's' : ''} attached`}
+                  </button>
+                </section>
+              )}
             </div>
 
             {/* Sticky footer */}
             <div className="shrink-0 border-t border-border px-5 py-4 flex gap-2">
-              <Button
-                variant="secondary"
-                className="flex-1"
-                disabled={!isFormFilled || saving}
-                loading={saving}
-                onClick={() => void saveTrade('planned')}
-              >
-                Save draft
-              </Button>
+              {!fastMode && (
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  disabled={!isFormFilled || saving}
+                  loading={saving}
+                  onClick={() => void saveTrade('planned')}
+                >
+                  Save draft
+                </Button>
+              )}
               <Button
                 className="flex-1"
                 disabled={!isFormFilled || hasBlockingFail || saving}

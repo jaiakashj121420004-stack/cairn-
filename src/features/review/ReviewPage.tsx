@@ -1,13 +1,16 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Download, Lightbulb, Clock, ChevronRight, AlertTriangle, Info, type LucideIcon } from 'lucide-react'
 import { Button, Select, Modal, useToast } from '../../components/ui'
 import { StatCard } from '../../components/analytics/StatCard'
 import { ipc } from '../../lib/ipc'
+import { eventBus } from '../../lib/event-bus'
 import { useSessionStore } from '../../stores/session-store'
+import { useReflectionStore } from '../../stores/reflection-store'
 import { staggerContainer, staggerItem, duration } from '../../lib/motion'
-import { formatCents, formatRMultiple, formatPercent } from '../../lib/formatters'
+import { formatCents, formatRMultiple, formatPercent, formatDate } from '../../lib/formatters'
 import { cn } from '../../lib/cn'
+import { ReflectionModal } from './ReflectionModal'
 import type {
   Account,
   Insight,
@@ -15,6 +18,7 @@ import type {
   PerformanceStats,
   RuleAdherenceStats,
   ReviewSummary,
+  TradeListItem,
   AnalyticsFilter,
   DatePreset,
 } from '@shared/types/index'
@@ -333,6 +337,13 @@ export function ReviewPage() {
   const [selectedReview, setSelectedReview] = useState<ReviewSummary | null>(null)
   const [dismissing, setDismissing] = useState<string | null>(null)
 
+  // Reflection queue (two-phase logging)
+  const [awaiting, setAwaiting] = useState<TradeListItem[]>([])
+  const [focusedIdx, setFocusedIdx] = useState(0)
+  const [reflectTrade, setReflectTrade] = useState<TradeListItem | null>(null)
+  const refreshReflectionBadge = useReflectionStore((s) => s.refresh)
+  const focusedRowRef = useRef<HTMLButtonElement | null>(null)
+
   useEffect(() => {
     void ipc.accounts.list().then((r) => {
       if (!r.ok) return
@@ -373,6 +384,58 @@ export function ReviewPage() {
   useEffect(() => {
     loadInsights()
   }, [loadInsights])
+
+  const loadAwaiting = useCallback(() => {
+    void ipc.trades.listAwaitingReflection(accountId).then((r) => {
+      if (!r.ok) return
+      setAwaiting(r.data)
+      setFocusedIdx((i) => Math.min(i, Math.max(0, r.data.length - 1)))
+    })
+  }, [accountId])
+
+  useEffect(() => {
+    loadAwaiting()
+  }, [loadAwaiting])
+
+  // Keep the queue live as trades close (a reflection becomes owed) and as they
+  // are reflected elsewhere.
+  useEffect(() => {
+    const offClosed = eventBus.on('trade.closed', () => loadAwaiting())
+    const offReflected = eventBus.on('trade.reflected', () => loadAwaiting())
+    return () => { offClosed(); offReflected() }
+  }, [loadAwaiting])
+
+  // Keyboard navigation for the reflection queue: J/K move, R (or Enter) reflects
+  // the focused trade. Disabled while the reflection modal is open or while typing.
+  useEffect(() => {
+    if (reflectTrade || awaiting.length === 0) return
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement | null)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (e.key === 'j' || e.key === 'ArrowDown') {
+        e.preventDefault(); setFocusedIdx((i) => Math.min(awaiting.length - 1, i + 1))
+      } else if (e.key === 'k' || e.key === 'ArrowUp') {
+        e.preventDefault(); setFocusedIdx((i) => Math.max(0, i - 1))
+      } else if (e.key === 'r' || e.key === 'Enter') {
+        const t = awaiting[focusedIdx]
+        if (t) { e.preventDefault(); setReflectTrade(t) }
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [reflectTrade, awaiting, focusedIdx])
+
+  // Keep the focused row in view as J/K move through a long queue.
+  useEffect(() => {
+    focusedRowRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [focusedIdx])
+
+  function handleReflected() {
+    setReflectTrade(null)
+    loadAwaiting()
+    void refreshReflectionBadge()
+    loadInsights()
+  }
 
   async function handleExportPdf() {
     const res = await ipc.data.exportPdf('cairn-review.pdf')
@@ -447,7 +510,26 @@ export function ReviewPage() {
         {/* Trades awaiting reflection */}
         <motion.section variants={staggerItem} transition={{ duration: duration.base }}>
           <SectionHeader title="Trades awaiting reflection" icon={Clock} />
-          <EmptyCard text="No trades awaiting reflection — you're caught up." />
+          {awaiting.length === 0 ? (
+            <EmptyCard text="No trades awaiting reflection — you're caught up." />
+          ) : (
+            <div className="space-y-2" data-testid="reflection-queue">
+              <p className="px-1 text-caption text-text-muted">
+                {awaiting.length} closed trade{awaiting.length > 1 ? 's' : ''} awaiting reflection.
+                Use <kbd className="font-mono text-text-secondary">J</kbd>/<kbd className="font-mono text-text-secondary">K</kbd> to move,{' '}
+                <kbd className="font-mono text-text-secondary">R</kbd> to reflect.
+              </p>
+              {awaiting.map((t, i) => (
+                <AwaitingRow
+                  key={t.id}
+                  trade={t}
+                  focused={i === focusedIdx}
+                  {...(i === focusedIdx ? { rowRef: focusedRowRef } : {})}
+                  onClick={() => { setFocusedIdx(i); setReflectTrade(t) }}
+                />
+              ))}
+            </div>
+          )}
         </motion.section>
 
         {/* Patterns (local insight engine) */}
@@ -488,6 +570,64 @@ export function ReviewPage() {
       {selectedReview && (
         <ReviewDetailModal review={selectedReview} onClose={() => setSelectedReview(null)} />
       )}
+
+      {/* Reflection (Phase 2) modal */}
+      <ReflectionModal
+        open={reflectTrade !== null}
+        trade={reflectTrade}
+        onClose={() => setReflectTrade(null)}
+        onReflected={handleReflected}
+      />
     </div>
+  )
+}
+
+function AwaitingRow({
+  trade,
+  focused,
+  rowRef,
+  onClick,
+}: {
+  trade: TradeListItem
+  focused: boolean
+  rowRef?: React.Ref<HTMLButtonElement>
+  onClick: () => void
+}) {
+  const r = trade.pnlR
+  const closedOn = trade.exitTime ?? trade.updatedAt
+  return (
+    <button
+      ref={rowRef}
+      type="button"
+      onClick={onClick}
+      aria-current={focused}
+      className={cn(
+        'group w-full text-left rounded-[12px] glass p-4 transition-all duration-150 hover:bg-white/[0.04]',
+        focused && 'ring-1 ring-accent-a/60',
+      )}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-body-sm font-medium text-text-primary">{trade.pairSymbol}</span>
+            <span className={cn('text-caption font-medium uppercase', trade.direction === 'long' ? 'text-accent-a' : 'text-danger')}>
+              {trade.direction}
+            </span>
+            <span className="text-caption text-text-muted">{formatDate(closedOn)}</span>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-3">
+          {r !== null && (
+            <span className={cn('font-mono text-body-sm font-semibold', r >= 0 ? 'text-accent-a' : 'text-danger')}>
+              {formatRMultiple(r)}
+            </span>
+          )}
+          <span className="rounded-[7px] border border-border px-2.5 py-1 text-micro font-medium text-text-secondary group-hover:border-accent-a/50 group-hover:text-accent-a">
+            Reflect
+          </span>
+          <ChevronRight className="h-4 w-4 text-text-muted transition-transform duration-150 group-hover:translate-x-0.5" strokeWidth={1.5} />
+        </div>
+      </div>
+    </button>
   )
 }

@@ -631,6 +631,7 @@ export function TradeDetailModal({ tradeId, onClose, onTradeUpdated }: Props) {
             slMoved: detail.slMoved,
             enteredBeforeMss: detail.enteredBeforeMss,
             preUrgencyScore: detail.preUrgencyScore,
+            phase2Complete: detail.phase2Complete,
             grade: detail.grade,
             createdAt: detail.createdAt,
             updatedAt: detail.updatedAt,

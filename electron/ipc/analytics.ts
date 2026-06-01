@@ -8,6 +8,7 @@ import type {
   DerivedStats,
   IpcResponse,
   PerformanceStats,
+  PlaybookStats,
   ReviewSummary,
   RuleAdherenceStats,
   SetupPerformanceStats,
@@ -55,6 +56,7 @@ import {
   getPhaseTrend,
 } from '../services/analytics/phases'
 import { createReview, listReviews } from '../services/analytics/reviews'
+import { getByPlaybook } from '../services/analytics/playbooks'
 import { getConfiguredTimeZone } from '../services/time/trading-day'
 import {
   getDowSummary,
@@ -63,8 +65,8 @@ import {
   getRDistributionPure,
   getTimeOfDayHeatmap,
 } from '../services/analytics/derived'
-import { and, asc, isNotNull } from 'drizzle-orm'
-import { trades } from '../db/schema'
+import { and, asc, eq, isNotNull, isNull } from 'drizzle-orm'
+import { playbooks, trades } from '../db/schema'
 import { buildTradeWhereClauses } from '../services/analytics/filter'
 
 function err(e: unknown): IpcResponse<never> {
@@ -234,6 +236,53 @@ export function registerAnalyticsHandlers(): void {
     async (_e, input: CreateReviewInput): Promise<IpcResponse<ReviewSummary>> => {
       try {
         return { ok: true, data: createReview(getDb(), input) }
+      } catch (e) {
+        return err(e)
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'analytics:playbooks',
+    (_e, { filter }: { filter: AnalyticsFilter }): IpcResponse<PlaybookStats> => {
+      try {
+        const db = getDb()
+        // Resolve which accounts to pull playbooks from (match the filter scope).
+        const accountIds =
+          filter.accountIds === 'all' ? null : filter.accountIds
+
+        const conditions = [isNull(playbooks.deletedAt)]
+        if (accountIds && accountIds.length > 0) {
+          // If multiple accounts, fetch from all of them.
+          if (accountIds.length === 1 && accountIds[0]) {
+            conditions.push(eq(playbooks.accountId, accountIds[0]))
+          }
+          // For multi-account filters we still aggregate across all accounts,
+          // so no accountId filter on playbooks (we want the union).
+        }
+
+        const playbookRows = db
+          .select({
+            id:         playbooks.id,
+            name:       playbooks.name,
+            pairId:     playbooks.pairId,
+            setupId:    playbooks.setupId,
+            killzoneId: playbooks.killzoneId,
+          })
+          .from(playbooks)
+          .where(and(...conditions))
+          .orderBy(asc(playbooks.name))
+          .all()
+
+        const specs = playbookRows.map((r) => ({
+          id:         r.id,
+          name:       r.name,
+          pairId:     r.pairId ?? null,
+          setupId:    r.setupId,
+          killzoneId: r.killzoneId ?? null,
+        }))
+
+        return { ok: true, data: { byPlaybook: getByPlaybook(db, filter, specs) } }
       } catch (e) {
         return err(e)
       }
