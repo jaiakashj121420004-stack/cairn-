@@ -12,18 +12,22 @@ import { DataTab } from './tabs/DataTab'
 import { BackupsTab } from './tabs/BackupsTab'
 import { AlertsTab } from './tabs/AlertsTab'
 import { ShortcutsTab } from './tabs/ShortcutsTab'
+import { PlaybooksTab } from './tabs/PlaybooksTab'
+import { ImportTab } from './tabs/ImportTab'
 
 const TABS: TabItem[] = [
-  { id: 'general', label: 'General' },
-  { id: 'pairs', label: 'Pairs' },
-  { id: 'setups', label: 'Setups' },
+  { id: 'general',   label: 'General' },
+  { id: 'pairs',     label: 'Pairs' },
+  { id: 'setups',    label: 'Setups' },
   { id: 'killzones', label: 'Killzones' },
-  { id: 'firms', label: 'Prop Firms' },
+  { id: 'playbooks', label: 'Playbooks' },
+  { id: 'firms',     label: 'Prop Firms' },
   { id: 'templates', label: 'Templates' },
-  { id: 'alerts', label: 'Alerts' },
+  { id: 'import',    label: 'Import' },
+  { id: 'alerts',    label: 'Alerts' },
   { id: 'shortcuts', label: 'Shortcuts' },
-  { id: 'data', label: 'Data' },
-  { id: 'backups', label: 'Backups' },
+  { id: 'data',      label: 'Data' },
+  { id: 'backups',   label: 'Backups' },
 ]
 
 export function SettingsPage() {
@@ -49,9 +53,11 @@ export function SettingsPage() {
         {activeTab === 'setups' && <SetupsTab />}
         {activeTab === 'killzones' && <KillzonesTab />}
         {activeTab === 'firms' && <PropFirmsTab />}
+        {activeTab === 'playbooks' && <PlaybooksTab />}
         {activeTab === 'templates' && <TemplatesTab />}
         {activeTab === 'alerts' && <AlertsTab />}
         {activeTab === 'shortcuts' && <ShortcutsTab />}
+        {activeTab === 'import' && <ImportTab />}
         {activeTab === 'data' && <DataTab />}
         {activeTab === 'backups' && <BackupsTab />}
       </div>

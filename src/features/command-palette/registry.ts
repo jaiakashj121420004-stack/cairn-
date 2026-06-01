@@ -1,11 +1,12 @@
 import type { NavigateFunction } from 'react-router-dom'
-import type { TradeListItem } from '@shared/types/index'
+import type { Playbook, TradeListItem } from '@shared/types/index'
 
 export interface CommandDeps {
   navigate: NavigateFunction
   toast: (message: string, type: 'success' | 'error' | 'info') => void
   closeCommandPalette: () => void
   setNewTradeRequested: (v: boolean) => void
+  setPlaybookIdRequested: (id: string | null) => void
   setBiasRequested: (v: boolean) => void
   setSettingsTabRequested: (tab: string | null) => void
   toggleTheme: () => void
@@ -126,6 +127,16 @@ export const STATIC_COMMANDS: readonly CommandDef[] = [
       navigate('/settings')
     },
   },
+  {
+    id: 'import-statement',
+    label: 'Import statement',
+    keywords: ['import', 'mt5', 'ctrader', 'tradingview', 'csv', 'html', 'broker', 'statement', 'trades'],
+    action: ({ navigate, setSettingsTabRequested, closeCommandPalette }) => {
+      closeCommandPalette()
+      setSettingsTabRequested('import')
+      navigate('/settings')
+    },
+  },
 ] as const
 
 // ─── Dynamic command builders ─────────────────────────────────────────────────
@@ -140,6 +151,23 @@ export function buildAccountCommands(
     action: ({ navigate, closeCommandPalette }) => {
       closeCommandPalette()
       navigate(`/dashboard?account=${a.id}`)
+    },
+  }))
+}
+
+/** Build one command per playbook: "New trade from playbook: <name>" */
+export function buildPlaybookCommands(
+  playbooks: Playbook[],
+): CommandDef[] {
+  return playbooks.map((pb) => ({
+    id: `playbook-${pb.id}`,
+    label: `New trade from playbook: ${pb.name}`,
+    keywords: ['playbook', 'template', 'trade', pb.name.toLowerCase()],
+    action: ({ navigate, setNewTradeRequested, setPlaybookIdRequested, closeCommandPalette }) => {
+      closeCommandPalette()
+      setPlaybookIdRequested(pb.id)
+      setNewTradeRequested(true)
+      navigate('/dashboard')
     },
   }))
 }
