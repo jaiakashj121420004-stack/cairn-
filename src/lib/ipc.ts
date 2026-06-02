@@ -103,6 +103,7 @@ declare global {
         create: (input: CreateAccountInput) => Promise<IpcResponse<Account>>
         update: (input: UpdateAccountInput) => Promise<IpcResponse<Account>>
         stats: () => Promise<IpcResponse<AccountStats[]>>
+        delete: (id: string) => Promise<IpcResponse<{ ok: true }>>
       }
       pairs: {
         list: () => Promise<IpcResponse<Pair[]>>
@@ -281,6 +282,7 @@ export const ipc = {
     update: (input: UpdateAccountInput): Promise<IpcResponse<Account>> =>
       window.api.accounts.update(input),
     stats: (): Promise<IpcResponse<AccountStats[]>> => window.api.accounts.stats(),
+    delete: (id: string): Promise<IpcResponse<{ ok: true }>> => window.api.accounts.delete(id),
   },
 
   pairs: {
