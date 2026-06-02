@@ -8,6 +8,7 @@ directories:
 
 files:
   - out/**/*
+  - electron/db/**/*
   - package.json
   - "!**/.{git,svn}"
   - "!**/node_modules/.cache"
@@ -24,6 +25,7 @@ mac:
   darkModeSupport: true
 
 win:
+  icon: build/cairn_icon.ico
   target:
     - target: nsis
       arch:

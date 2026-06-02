@@ -49,10 +49,8 @@ export function getDb(): CairnDb {
   // _db is set AFTER migrate() so a failed migration never caches an un-migrated DB.
 
   const migrationsFolder = app.isPackaged
-    ? join(process.resourcesPath, 'migrations')
-    // __dirname is out/main/ in the built bundle; ../../electron/db/migrations resolves
-    // reliably regardless of what app.getAppPath() returns at runtime.
-    : join(__dirname, '..', '..', 'electron', 'db', 'migrations')
+  ? join(process.resourcesPath, 'app.asar', 'electron', 'db', 'migrations')
+  : join(__dirname, '..', '..', 'electron', 'db', 'migrations')
 
   migrate(db, { migrationsFolder })
   log.info('[db] Migrations applied')
