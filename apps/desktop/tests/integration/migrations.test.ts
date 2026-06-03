@@ -11,6 +11,9 @@ import initSqlJs, { type Database as SqlJsDatabase } from 'sql.js'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import fc from 'fast-check'
+import { drizzle } from 'drizzle-orm/sql-js'
+import * as appSchema from '../../electron/db/schema'
+import { runSeed } from '../../electron/db/seed'
 import {
   dollarsToCents,
   rToIntHundredths,
@@ -420,6 +423,135 @@ describe('partial-close conversion codec (property-based)', () => {
         expect(roundHalfAwayFromZero(x)).toBe(sqliteVal)
       }),
     )
+    sqlite.close()
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Full-chain forward + re-run-idempotency, on a fresh DB and on a seeded DB.
+//
+// On "backward": this is a Drizzle SQLite project and the migration chain is
+// FORWARD-ONLY — there are no down/rollback files (verified: no *_down.sql, no
+// rollback markers). The meaningful backward-safety guarantee for a forward-only
+// chain is §19.6's "re-running on the post-state must be a no-op". Production gets
+// that from Drizzle's `__drizzle_migrations` bookkeeping. We cannot run Drizzle's
+// real better-sqlite3 migrator here (the native module is ABI-built for Electron's
+// Node — NODE_MODULE_VERSION 137 — and won't load under the vitest runtime), so the
+// whole suite uses sql.js. We therefore emulate the applied-migration gate with a
+// `__applied` tracking table and prove a second pass applies zero statements and
+// leaves schema + data byte-identical — the same invariant Drizzle enforces.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('full migration chain — forward + re-run idempotency (fresh & seeded)', () => {
+  function freshGatedDb(): SqlJsDatabase {
+    const sqlite = new SQL.Database()
+    sqlite.run('CREATE TABLE IF NOT EXISTS __applied (tag TEXT PRIMARY KEY)')
+    return sqlite
+  }
+
+  // Journal-driven migrator with an applied-tag gate, mirroring Drizzle's behaviour:
+  // each tag is applied at most once. Returns how many tags it applied this pass.
+  function runPendingMigrations(sqlite: SqlJsDatabase): number {
+    const applied = new Set(queryRows(sqlite, 'SELECT tag FROM __applied').map((r) => r.tag))
+    let count = 0
+    for (const tag of orderedTags()) {
+      if (applied.has(tag)) continue
+      applyMigration(sqlite, tag)
+      sqlite.run('INSERT INTO __applied (tag) VALUES (?)', [tag])
+      count++
+    }
+    return count
+  }
+
+  const isInternal = (name: string) => name.startsWith('__') || name.startsWith('sqlite_')
+
+  // Stable snapshot of the user schema (tables, indexes, triggers) — excludes the
+  // test-only __applied gate and sqlite internals.
+  function schemaSnapshot(sqlite: SqlJsDatabase): string {
+    const rows = queryRows(
+      sqlite,
+      'SELECT type, name, sql FROM sqlite_master WHERE sql IS NOT NULL ORDER BY type, name, sql',
+    ).filter((r) => !isInternal(r.name as string))
+    return JSON.stringify(rows)
+  }
+
+  // Every column whose declared type is real/float/double, as `table.column`.
+  function floatColumns(sqlite: SqlJsDatabase): string[] {
+    const out: string[] = []
+    for (const t of tableNames(sqlite)) {
+      if (isInternal(t)) continue
+      const info = sqlite.exec(`PRAGMA table_info(\`${t}\`)`)
+      for (const r of info[0]?.values ?? []) {
+        const col = r[1] as string
+        const type = (r[2] as string).toLowerCase()
+        if (type.includes('real') || type.includes('floa') || type.includes('doub')) {
+          out.push(`${t}.${col}`)
+        }
+      }
+    }
+    return out.sort()
+  }
+
+  it('fresh DB: applies the whole chain forward, then a second pass is a no-op', () => {
+    const sqlite = freshGatedDb()
+
+    const appliedFirst = runPendingMigrations(sqlite)
+    expect(appliedFirst).toBe(orderedTags().length)
+    const snapAfterForward = schemaSnapshot(sqlite)
+
+    // Sanity: the expected end-state tables all exist.
+    const tables = tableNames(sqlite)
+    for (const t of ['trades', 'trade_partials', 'accounts', 'playbooks', 'notebook_entries']) {
+      expect(tables).toContain(t)
+    }
+
+    // Re-run: the gate means zero statements re-apply and the schema is unchanged.
+    const appliedSecond = runPendingMigrations(sqlite)
+    expect(appliedSecond).toBe(0)
+    expect(schemaSnapshot(sqlite)).toBe(snapAfterForward)
+    sqlite.close()
+  })
+
+  it('seeded DB: forward → runSeed (production order) → re-run leaves schema + seed intact', () => {
+    const sqlite = freshGatedDb()
+    runPendingMigrations(sqlite)
+    const snapAfterForward = schemaSnapshot(sqlite)
+
+    // Seed exactly as production does, AFTER migrate(). drizzle/sql-js shares the
+    // query-builder API runSeed uses; the cast bridges the static db-driver type only.
+    const db = drizzle(sqlite, { schema: appSchema }) as unknown as Parameters<typeof runSeed>[0]
+    runSeed(db)
+
+    const seedCounts = () => ({
+      pairs: queryRows(sqlite, 'SELECT id FROM pairs').length,
+      setups: queryRows(sqlite, 'SELECT id FROM setups').length,
+      killzones: queryRows(sqlite, 'SELECT id FROM killzones').length,
+      firms: queryRows(sqlite, 'SELECT id FROM prop_firms').length,
+      settings: queryRows(sqlite, 'SELECT key FROM settings').length,
+    })
+    const before = seedCounts()
+    expect(before.pairs).toBe(19) // the full §16.a item-24 instrument list
+    expect(before.setups).toBe(10)
+    expect(before.killzones).toBe(5)
+    expect(before.firms).toBe(1)
+    expect(before.settings).toBe(8)
+
+    // Re-running the migrator over a populated DB must not touch schema or data.
+    expect(runPendingMigrations(sqlite)).toBe(0)
+    expect(schemaSnapshot(sqlite)).toBe(snapAfterForward)
+    expect(seedCounts()).toEqual(before)
+    sqlite.close()
+  })
+
+  it('no money/pip column is stored as float — the only real column is the tracked orphan', () => {
+    const sqlite = freshGatedDb()
+    runPendingMigrations(sqlite)
+    // CLAUDE.md §2.5 / §19.5 / locked #36: money & pips are integer-encoded. The one
+    // remaining float column is `accounts.max_daily_loss_pct`, an ORPHAN — no code reads
+    // it; the live circuit breaker reads an integer `maxBps` from account_rules instead
+    // (electron/services/rules-engine/rules/max-daily-loss-pct.ts). Tracked in
+    // docs/v1.1-audit-2026-06-03.md; this assertion is a ratchet that fails the moment a
+    // NEW float column is added.
+    expect(floatColumns(sqlite)).toEqual(['accounts.max_daily_loss_pct'])
     sqlite.close()
   })
 })
