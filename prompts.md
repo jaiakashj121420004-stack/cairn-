@@ -49,7 +49,7 @@ After this prompt:
 **Setup (do this once):**
 1. Install: `npm install -g @anthropic-ai/claude-code`.
 2. Start it inside the project root: `cd C:\Users\jaiak\Desktop\JOR_CLAUDE` then `claude`. It uses your Claude Pro login.
-3. First run: let it read `CLAUDE.md`. The large-file warning is now resolved — the root is ~37k chars and the heavy specs live in `docs/` (see §1.5 below).
+3. First run: let it read `CLAUDE.md`. The large-file warning is resolved — after the 2026-06-03 slimming the root is ~39k chars (down from ~57k) and the heavy specs live in `docs/` (see §1.5 below).
 4. Switch model with `/model` (Sonnet 4.6 default; Opus 4.6 for the §2 table; Haiku 4.5 for mechanical work).
 
 **Keep Cowork open in parallel** for: refining a prompt before you paste it into Claude Code; a quick conceptual question; a one-off bash check; editing `CLAUDE.md` or `docs/`. Do the human-review step (read the diff, run the smoke test) wherever you prefer.
@@ -60,21 +60,25 @@ All prompts below use paths relative to the project root (`C:\Users\jaiak\Deskto
 
 ## 1.5 WHERE THE SPECS LIVE — CLAUDE.md RESTRUCTURE (29 May 2026)
 
-`CLAUDE.md` was slimmed to stay under Claude Code's 40k-char performance warning. Five large sections were **moved out of the root into `docs/` sub-files**, keeping their original internal numbering. The root now holds a one-line pointer at each old section heading.
+`CLAUDE.md` was slimmed to stay under Claude Code's 40k-char performance warning. Large sections were **moved out of the root into `docs/` sub-files**, keeping their original internal numbering. The root now holds a one-line pointer at each old section heading. **A second slimming pass on 2026-06-03 (see note below) cut the root from ~57k → ~39k chars** by extracting the §17.6 progress log and condensing §1 / §17 / §17.5.
 
-**When any prompt below says "Read `CLAUDE.md` §15 / §16 / §18 / §19 / §20" (or a sub-number like §19.5, §16.a, §18.4, §20.1), read the mapped file instead:**
+**When any prompt below says "Read `CLAUDE.md` §1 (full) / §15 / §16 / §17.6 / §18 / §19 / §20" (or a sub-number like §19.5, §16.a, §18.4, §20.1), read the mapped file instead:**
 
 | Old CLAUDE.md section | Now lives in | Covers |
 |---|---|---|
+| §1 full founding narrative | `docs/philosophy.md` | Why Cairn exists — problem, design philosophy, three jobs, what-it's-not, voice. (Root §1 keeps the decision-shaping essentials inline: tie-breakers, three jobs, not-list, voice examples.) |
 | §15 (and §15.x) | `docs/glossary.md` | ICT/SMC terms + crypto/billing vocabulary |
 | §16 (§16.a / §16.b / §16.c) | `docs/end-state.md` | "Done" checklists for v1.1 / v2.0 / v1.2 |
+| §17.6 (build/progress log) | `docs/build-status.md` | What's actually built vs planned, per-item commit hashes, five-gate tables, resolved review issues. **Update at the end of every wave.** (Root §17.6 keeps only a current-status headline.) |
 | §18 (and §18.x) | `docs/roadmap-v2.0.md` | Eight-stage cloud/sync/billing plan + per-stage prompts |
 | §19 (and §19.x) | `docs/engineering-quality.md` | The binding "no slop" engineering standard |
 | §20 (and §20.x) | `docs/subscription-contract.md` | EntitlementService / BillingProvider / webhook + state machine |
 
-**Unchanged and still in the root `CLAUDE.md`:** §0–§4 (why / principles / stack / nav map), §14 (locked decisions), §17 and §17.5 (v1.1 + v1.2 change logs). References to those need no remapping.
+**Still authoritative in the root `CLAUDE.md` (no remap needed):** §0 (how to use + source-of-truth rules), §2 (core principles), §3 (tech stack & architecture), §4 (nav map), §14 (locked decisions). §1, §17, §17.5 and §17.6 remain in the root as **condensed summaries with pointers** — read them for the headline, follow the pointer for full detail.
 
-The root file's §4 nav map and its §15/16/18/19/20 pointer lines also link to these files, so "Read CLAUDE.md §19" still resolves — this table just saves Claude Code a hop.
+> **2026-06-03 slimming note.** §17.6's full per-wave log was extracted to `docs/build-status.md` (registered in the §4 nav map); the root §17.6 now carries only a dated current-status line. §1 was condensed to its decision-shaping essentials with the full narrative pointing to `docs/philosophy.md`. §17 (v1.1 log) and §17.5 (v1.2 log) were compressed to headline lists/tables that defer to `docs/features-v1.md`, `docs/rules-engine.md`, `docs/customization.md`, and `docs/roadmap-v1.2.md`. **When closing out a wave, update `docs/build-status.md` (full entry) AND the §17.6 headline in `CLAUDE.md`.**
+
+The root file's §4 nav map and its pointer lines also link to these files, so "Read CLAUDE.md §19" still resolves — this table just saves Claude Code a hop.
 
 ---
 
@@ -1730,16 +1734,4 @@ For when you ship a feature, push, walk away, come back later and something is w
 
 ### Debug Prompt — "Migration is failing on a real user's DB"
 
-> User reports the app crashes on launch after auto-update with the message `<error>`. The relevant migration is `apps/desktop/electron/db/migrations/<N>.sql`. Read the migration. Reason about what state a user DB might be in that makes the migration fail (existing rows that violate a NOT NULL the migration adds; an index name collision; a non-idempotent ALTER on a table that doesn't exist for that user). Reproduce locally on a seeded DB that mimics the user's state. Write a corrective migration N+1 that is idempotent and tested forward + backward. NEVER edit the committed migration N. NEVER suggest the user delete their DB.
-
-**Model:** Opus 4.6. Migrations on real user data have no second chance.
-
-### Debug Prompt — "Webhook is being delivered but state isn't updating"
-
-> Stripe/Razorpay shows webhook `<event_id>` delivered with 200, but `subscription` table doesn't reflect the change. Read `webhook_event` for that event_id. Read the dispatch code path. Reason about: signature accepted but handler errored silently, or handler ran but state machine rejected the transition (look for `ILLEGAL_STATE` in `audit_log`), or handler ran but raced with another webhook. Add a regression test that reproduces the scenario. Fix. Verify the fix by replaying the event via the provider's "Resend" feature.
-
-**Model:** Opus 4.6.
-
-### Debug Prompt — "Sync conflict not resolving"
-
-> User reports that after editing trade `<id>` on two devices, both devices show the trade in conflict and resolving on one doesn't clear it on the other. Read `apps/desktop/electron/services/sync/conflict.ts`. Reason about the resolution-write path: does it produce a new op whose vector clock dominates both heads
+> User reports the app crashes on launch after auto-update with the message `<error>`. The relevant migration is `apps/desktop/electron/db/migrations/<N>.sql`. Read the migration. Reason about what state a user DB might be i
