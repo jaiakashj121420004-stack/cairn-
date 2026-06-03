@@ -1,0 +1,9 @@
+# Cairn pre-commit gate (§19 "no slop"). Fails the commit if any check fails.
+#   1. Full project type-check (strict).
+#   2. Full ESLint pass (--max-warnings 0).
+#   3. Prettier format check on all source files.
+# Note: direct calls instead of lint-staged because lint-staged's stash/restore
+# does not compose correctly with large git mv renames (§3.3 monorepo move).
+pnpm typecheck
+pnpm lint
+pnpm -w run format:check

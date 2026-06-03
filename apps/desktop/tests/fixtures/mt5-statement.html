@@ -1,0 +1,266 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>MT5 Account Statement</title>
+  </head>
+  <body>
+    <!-- Account info (not parsed by adapter) -->
+    <table border="0" width="100%">
+      <tr>
+        <td colspan="3"><b>TraderName: Test Trader (Demo 12345)</b></td>
+      </tr>
+      <tr>
+        <td>Leverage: 1:100</td>
+        <td>Currency: USD</td>
+      </tr>
+    </table>
+
+    <!-- Orders table: SL/TP source for each ticket -->
+    <table border="1" cellspacing="0" cellpadding="3">
+      <tr align="center" bgcolor="#C0C0C0">
+        <td colspan="12"><b>Orders</b></td>
+      </tr>
+      <tr bgcolor="#C0C0C0">
+        <td>Open Time</td>
+        <td>Order</td>
+        <td>Symbol</td>
+        <td>Type</td>
+        <td>Volume</td>
+        <td>Open Price</td>
+        <td>S / L</td>
+        <td>T / P</td>
+        <td>Close Time</td>
+        <td>Close Price</td>
+        <td>Profit</td>
+        <td>Comment</td>
+      </tr>
+      <!-- Ticket 11111111: EURUSD long, full close at TP -->
+      <tr bgcolor="#FFFFFF">
+        <td>2024.01.15 09:30:00</td>
+        <td>11111111</td>
+        <td>EURUSD</td>
+        <td>buy</td>
+        <td>0.10</td>
+        <td>1.08523</td>
+        <td>1.08423</td>
+        <td>1.08723</td>
+        <td>2024.01.15 10:45:00</td>
+        <td>1.08700</td>
+        <td>17.00</td>
+        <td></td>
+      </tr>
+      <!-- Ticket 22222222: GBPUSD short, one partial then full close -->
+      <tr bgcolor="#FFFFFF">
+        <td>2024.01.16 14:00:00</td>
+        <td>22222222</td>
+        <td>GBPUSD</td>
+        <td>sell</td>
+        <td>0.20</td>
+        <td>1.27100</td>
+        <td>1.27250</td>
+        <td>1.26800</td>
+        <td>2024.01.16 15:30:00</td>
+        <td>1.26900</td>
+        <td>40.00</td>
+        <td></td>
+      </tr>
+      <!-- Ticket 33333333: USDJPY long, still open (no close time/price) -->
+      <tr bgcolor="#FFFFFF">
+        <td>2024.01.17 08:00:00</td>
+        <td>33333333</td>
+        <td>USDJPY</td>
+        <td>buy</td>
+        <td>0.10</td>
+        <td>145.500</td>
+        <td>145.000</td>
+        <td>146.000</td>
+        <td></td>
+        <td></td>
+        <td>0.00</td>
+        <td></td>
+      </tr>
+      <!-- Ticket 44444444: XYZABC unknown symbol -->
+      <tr bgcolor="#FFFFFF">
+        <td>2024.01.18 09:00:00</td>
+        <td>44444444</td>
+        <td>XYZABC</td>
+        <td>buy</td>
+        <td>0.10</td>
+        <td>1.00000</td>
+        <td>0.99000</td>
+        <td>1.01000</td>
+        <td>2024.01.18 10:00:00</td>
+        <td>1.00500</td>
+        <td>5.00</td>
+        <td></td>
+      </tr>
+    </table>
+
+    <!-- Deals table: every fill event, one row per deal -->
+    <table border="1" cellspacing="0" cellpadding="3">
+      <tr align="center" bgcolor="#C0C0C0">
+        <td colspan="13"><b>Deals</b></td>
+      </tr>
+      <tr bgcolor="#C0C0C0">
+        <td>Time</td>
+        <td>Deal</td>
+        <td>Symbol</td>
+        <td>Type</td>
+        <td>Direction</td>
+        <td>Volume</td>
+        <td>Price</td>
+        <td>Order</td>
+        <td>Commission</td>
+        <td>Swap</td>
+        <td>Profit</td>
+        <td>Balance</td>
+        <td>Comment</td>
+      </tr>
+      <!-- Balance row: deposit — must be silently skipped, NOT an error -->
+      <tr bgcolor="#F0F0F0">
+        <td>2024.01.01 00:00:00</td>
+        <td>10000000</td>
+        <td></td>
+        <td>balance</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td>0.00</td>
+        <td>0.00</td>
+        <td>10000.00</td>
+        <td>10000.00</td>
+        <td>Initial deposit</td>
+      </tr>
+      <!-- EURUSD entry -->
+      <tr bgcolor="#FFFFFF">
+        <td>2024.01.15 09:35:00</td>
+        <td>10000001</td>
+        <td>EURUSD</td>
+        <td>buy</td>
+        <td>in</td>
+        <td>0.10</td>
+        <td>1.08523</td>
+        <td>11111111</td>
+        <td>-0.80</td>
+        <td>0.00</td>
+        <td>0.00</td>
+        <td>10000.00</td>
+        <td></td>
+      </tr>
+      <!-- EURUSD exit at TP -->
+      <tr bgcolor="#FFFFFF">
+        <td>2024.01.15 10:45:00</td>
+        <td>10000002</td>
+        <td>EURUSD</td>
+        <td>sell</td>
+        <td>out</td>
+        <td>0.10</td>
+        <td>1.08700</td>
+        <td>11111111</td>
+        <td>-0.80</td>
+        <td>0.00</td>
+        <td>17.70</td>
+        <td>10017.70</td>
+        <td>tp</td>
+      </tr>
+      <!-- GBPUSD entry -->
+      <tr bgcolor="#FFFFFF">
+        <td>2024.01.16 14:05:00</td>
+        <td>10000003</td>
+        <td>GBPUSD</td>
+        <td>sell</td>
+        <td>in</td>
+        <td>0.20</td>
+        <td>1.27100</td>
+        <td>22222222</td>
+        <td>-1.60</td>
+        <td>0.00</td>
+        <td>0.00</td>
+        <td>10017.70</td>
+        <td></td>
+      </tr>
+      <!-- GBPUSD partial close: 0.10 lots at 1.26850 -->
+      <tr bgcolor="#FFFFFF">
+        <td>2024.01.16 14:45:00</td>
+        <td>10000004</td>
+        <td>GBPUSD</td>
+        <td>buy</td>
+        <td>out</td>
+        <td>0.10</td>
+        <td>1.26850</td>
+        <td>22222222</td>
+        <td>-0.80</td>
+        <td>0.00</td>
+        <td>25.00</td>
+        <td>10042.70</td>
+        <td>partial</td>
+      </tr>
+      <!-- GBPUSD final close: remaining 0.10 lots at 1.26900 -->
+      <tr bgcolor="#FFFFFF">
+        <td>2024.01.16 15:30:00</td>
+        <td>10000005</td>
+        <td>GBPUSD</td>
+        <td>buy</td>
+        <td>out</td>
+        <td>0.10</td>
+        <td>1.26900</td>
+        <td>22222222</td>
+        <td>-0.80</td>
+        <td>0.00</td>
+        <td>20.00</td>
+        <td>10062.70</td>
+        <td>tp</td>
+      </tr>
+      <!-- USDJPY entry, no exit (open trade) -->
+      <tr bgcolor="#FFFFFF">
+        <td>2024.01.17 08:05:00</td>
+        <td>10000006</td>
+        <td>USDJPY</td>
+        <td>buy</td>
+        <td>in</td>
+        <td>0.10</td>
+        <td>145.500</td>
+        <td>33333333</td>
+        <td>-0.70</td>
+        <td>0.00</td>
+        <td>0.00</td>
+        <td>10062.70</td>
+        <td></td>
+      </tr>
+      <!-- XYZABC entry (unknown symbol) -->
+      <tr bgcolor="#FFFFFF">
+        <td>2024.01.18 09:05:00</td>
+        <td>10000007</td>
+        <td>XYZABC</td>
+        <td>buy</td>
+        <td>in</td>
+        <td>0.10</td>
+        <td>1.00000</td>
+        <td>44444444</td>
+        <td>-0.50</td>
+        <td>0.00</td>
+        <td>0.00</td>
+        <td>10062.70</td>
+        <td></td>
+      </tr>
+      <!-- XYZABC exit -->
+      <tr bgcolor="#FFFFFF">
+        <td>2024.01.18 10:00:00</td>
+        <td>10000008</td>
+        <td>XYZABC</td>
+        <td>sell</td>
+        <td>out</td>
+        <td>0.10</td>
+        <td>1.00500</td>
+        <td>44444444</td>
+        <td>-0.50</td>
+        <td>0.00</td>
+        <td>5.00</td>
+        <td>10067.70</td>
+        <td></td>
+      </tr>
+    </table>
+  </body>
+</html>

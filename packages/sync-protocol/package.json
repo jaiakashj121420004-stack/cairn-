@@ -1,0 +1,11 @@
+{
+  "name": "@cairn/sync-protocol",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Vector-clock and op-log types for the E2E-encrypted sync engine (v2.0 Stage 4)",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

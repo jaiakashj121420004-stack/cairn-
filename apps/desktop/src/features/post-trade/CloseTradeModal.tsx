@@ -1,0 +1,1020 @@
+import { X, Image as ImageIcon, Paperclip, Check } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import type {
+  TradeListItem,
+  ExitReason,
+  ScreenshotKind,
+  PartialCloseInput,
+  CloseDetectionDTO,
+} from '@shared/types/index'
+import { Modal, Button, Tooltip, useToast } from '../../components/ui'
+import { useRAlerts } from '../../hooks/useRAlerts'
+import { cn } from '../../lib/cn'
+import { formatCents, formatRMultiple } from '../../lib/formatters'
+import { ipc } from '../../lib/ipc'
+import { useSessionStore } from '../../stores/session-store'
+import { buildCleanClosePrefill } from './clean-close-prefill'
+
+interface Props {
+  open: boolean
+  trade: TradeListItem | null
+  onClose: () => void
+  onClosed: () => void
+}
+
+const EXIT_REASONS: { value: ExitReason; label: string }[] = [
+  { value: 'tp', label: 'Take Profit hit' },
+  { value: 'sl', label: 'Stop Loss hit' },
+  { value: 'manual', label: 'Manual close' },
+  { value: 'be', label: 'Break even' },
+  { value: 'partial_full', label: 'Partial then full' },
+  { value: 'timeout', label: 'Time-based exit' },
+]
+
+const SCREENSHOT_KINDS: { value: ScreenshotKind; label: string }[] = [
+  { value: 'htf_context', label: 'HTF context' },
+  { value: 'entry', label: 'Entry' },
+  { value: 'exit', label: 'Exit' },
+  { value: 'review', label: 'Review' },
+  { value: 'other', label: 'Other' },
+]
+
+function priceToDb(floatStr: string, pipDecimal: number): number {
+  const n = parseFloat(floatStr)
+  if (isNaN(n)) return 0
+  return Math.round(n * Math.pow(10, pipDecimal + 1))
+}
+
+function computePreview(
+  trade: TradeListItem,
+  exitPriceStr: string,
+  exitTimeMs: number,
+): { pnlCents: number; pnlR: number; pnlPctBps: number; durationMin: number } | null {
+  const exitPrice = priceToDb(exitPriceStr, trade.pairPipDecimal)
+  if (!exitPrice) return null
+  const signedTenths =
+    trade.direction === 'long' ? exitPrice - trade.entryPrice : trade.entryPrice - exitPrice
+  const pnlCents = Math.round((signedTenths * trade.lotSize * trade.pairPipValuePerLotCents) / 1000)
+  const pnlR = trade.slPips > 0 ? Math.round((signedTenths * 100) / trade.slPips) : 0
+  const pnlPctBps = 0 // unknown without account size at renderer level
+  const durationMin = Math.round((exitTimeMs - trade.createdAt) / 60000)
+  return { pnlCents, pnlR, pnlPctBps, durationMin }
+}
+
+function YesNo({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: boolean | null
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <div className="space-y-1.5">
+      <p className="text-caption font-medium text-text-secondary">{label}</p>
+      <div className="flex gap-2">
+        {(['Yes', 'No'] as const).map((opt) => {
+          const isYes = opt === 'Yes'
+          const selected = value === isYes
+          return (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => onChange(isYes)}
+              className={cn(
+                'flex-1 rounded-[8px] border py-1.5 text-caption font-medium transition-colors',
+                selected
+                  ? isYes
+                    ? 'border-accent-a bg-accent-a/10 text-accent-a'
+                    : 'border-danger bg-danger/10 text-danger'
+                  : 'border-border text-text-muted hover:border-border-strong hover:text-text-secondary',
+              )}
+            >
+              {opt}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function SectionHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="border-t border-border pt-5">
+      <p className="mb-4 text-caption font-semibold uppercase tracking-wide text-text-muted">
+        {children}
+      </p>
+    </div>
+  )
+}
+
+function SliderField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: number
+  onChange: (v: number) => void
+}) {
+  const pct = ((value - 1) / 9) * 100
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between">
+        <label className="text-caption text-text-secondary">{label}</label>
+        <span className="font-mono text-caption text-text-primary">{value}</span>
+      </div>
+      <div className="relative">
+        <input
+          type="range"
+          min={1}
+          max={10}
+          value={value}
+          onChange={(e) => onChange(parseInt(e.target.value))}
+          className="w-full appearance-none h-1.5 rounded-full cursor-pointer"
+          style={{
+            background: `linear-gradient(to right, var(--color-accent-a) ${pct}%, var(--color-surface) ${pct}%)`,
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
+function TagInput({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const [input, setInput] = useState('')
+  function add() {
+    const t = input.trim()
+    if (!t || value.includes(t)) {
+      setInput('')
+      return
+    }
+    onChange([...value, t])
+    setInput('')
+  }
+  return (
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+        {value.map((tag) => (
+          <span
+            key={tag}
+            className="flex items-center gap-1 rounded-[6px] bg-surface-elevated border border-border px-2 py-0.5 text-caption text-text-primary"
+          >
+            {tag}
+            <button type="button" onClick={() => onChange(value.filter((t) => t !== tag))}>
+              <X className="h-3 w-3 text-text-muted hover:text-text-primary" />
+            </button>
+          </span>
+        ))}
+      </div>
+      <input
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault()
+            add()
+          }
+          if (e.key === 'Backspace' && !input && value.length > 0) {
+            onChange(value.slice(0, -1))
+          }
+        }}
+        onBlur={add}
+        placeholder="Add tag, press Enter…"
+        className="w-full rounded-[10px] border border-border bg-surface-elevated py-2 px-3 text-body-sm text-text-primary placeholder:text-text-muted focus:border-accent-a focus:outline-none"
+      />
+    </div>
+  )
+}
+
+export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
+  const toast = useToast()
+  const bumpTradeVersion = useSessionStore((s) => s.bumpTradeVersion)
+  const { checkAndAlert } = useRAlerts()
+
+  // Close mode
+  const [closeMode, setCloseMode] = useState<'full' | 'partial'>('full')
+
+  // Partial close fields
+  const [partialLotsStr, setPartialLotsStr] = useState('')
+  const [partialNotes, setPartialNotes] = useState('')
+
+  // Exit details
+  const [exitPriceStr, setExitPriceStr] = useState('')
+  const [exitTimeStr, setExitTimeStr] = useState('')
+  const [exitReason, setExitReason] = useState<ExitReason | ''>('')
+  const [maePipsStr, setMaePipsStr] = useState('')
+  const [mfePipsStr, setMfePipsStr] = useState('')
+
+  // Honesty
+  const [followedPlan, setFollowedPlan] = useState<boolean | null>(null)
+  const [planChanges, setPlanChanges] = useState('')
+  const [slMoved, setSlMoved] = useState<boolean | null>(null)
+  const [slMovedReason, setSlMovedReason] = useState('')
+  const [enteredBeforeMss, setEnteredBeforeMss] = useState<boolean | null>(null)
+
+  // Rules broken
+  const [rulesBroken, setRulesBroken] = useState<string[]>([])
+  const [availableRules, setAvailableRules] = useState<Array<{ key: string; label: string }>>([])
+  // Planned-vs-actual divergences Cairn detected for this trade (pre-ticked).
+  const [detected, setDetected] = useState<CloseDetectionDTO[]>([])
+  const detectedByKey = new Map(detected.map((d) => [d.ruleKey, d.detail]))
+
+  // Reflection
+  const [postCalmScore, setPostCalmScore] = useState(7)
+  const [whatRight, setWhatRight] = useState('')
+  const [whatWrong, setWhatWrong] = useState('')
+  const [tags, setTags] = useState<string[]>([])
+
+  // Screenshots
+  const [screenshots, setScreenshots] = useState<
+    { sourcePath: string; kind: ScreenshotKind; preview: string }[]
+  >([])
+
+  const [saving, setSaving] = useState(false)
+  /** True when the rule engine recorded at least one violation for this trade while it was live. */
+  const [hasFlaggedViolations, setHasFlaggedViolations] = useState(false)
+  /**
+   * Two-phase logging: when fast-path is on, a full close captures only the exit
+   * facts and defers the reflection (honesty, rules-broken, MAE/MFE, notes) to the
+   * Review-screen queue. Defaults true (the app default); the open effect confirms
+   * from settings. Deferring never skips honesty — it just moves it.
+   */
+  const [fastPathEnabled, setFastPathEnabled] = useState(true)
+  const minimal = closeMode === 'full' && fastPathEnabled
+
+  // Populate defaults on open
+  useEffect(() => {
+    if (!open) return
+    setCloseMode('full')
+    setPartialLotsStr('')
+    setPartialNotes('')
+    const now = new Date()
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+    setExitTimeStr(local.toISOString().slice(0, 16))
+    setExitPriceStr('')
+    setExitReason('')
+    setMaePipsStr('')
+    setMfePipsStr('')
+    setFollowedPlan(null)
+    setPlanChanges('')
+    setSlMoved(null)
+    setSlMovedReason('')
+    setEnteredBeforeMss(null)
+    setRulesBroken([])
+    setPostCalmScore(7)
+    setWhatRight('')
+    setWhatWrong('')
+    setTags([])
+    setScreenshots([])
+    setHasFlaggedViolations(false)
+    setDetected([])
+
+    const tradeId = trade?.id
+    void Promise.all([
+      ipc.rules.listAvailable(),
+      tradeId ? ipc.trades.get(tradeId) : Promise.resolve(null),
+      tradeId ? ipc.rules.detectCloseViolations(tradeId) : Promise.resolve(null),
+      ipc.settings.get<boolean>('pre_trade.fast_path_enabled'),
+    ])
+      .then(([rulesRes, tradeDetailRes, detectRes, fastRes]) => {
+        // Default on; only an explicit `false` disables fast-path.
+        setFastPathEnabled(!(fastRes && fastRes.ok && fastRes.data === false))
+        if (rulesRes.ok)
+          setAvailableRules(rulesRes.data.map((r) => ({ key: r.key, label: r.label })))
+
+        const detectedItems = detectRes && detectRes.ok ? detectRes.data : []
+        setDetected(detectedItems)
+        // Pre-tick the checklist with whatever the engine detected. The trader
+        // still confirms or unticks each one — honesty stays with the human.
+        if (detectedItems.length > 0) {
+          setRulesBroken((prev) =>
+            Array.from(new Set([...prev, ...detectedItems.map((d) => d.ruleKey)])),
+          )
+        }
+
+        const recordedViolations =
+          tradeDetailRes && tradeDetailRes.ok ? tradeDetailRes.data.ruleViolations.length : 0
+        // Clean-close is only offered when nothing was flagged live AND nothing was
+        // detected at close.
+        setHasFlaggedViolations(recordedViolations > 0 || detectedItems.length > 0)
+      })
+      .catch(() => {
+        toast('Failed to load trade details.', 'error')
+      })
+  }, [open, trade?.id, toast])
+
+  // Auto-check rules based on honesty answers
+  useEffect(() => {
+    setRulesBroken((prev) => {
+      let next = [...prev]
+      if (slMoved === true && !next.includes('no_sl_widening')) next.push('no_sl_widening')
+      if (slMoved === false) next = next.filter((k) => k !== 'no_sl_widening')
+      if (enteredBeforeMss === true && !next.includes('require_mss_confirmation'))
+        next.push('require_mss_confirmation')
+      if (enteredBeforeMss === false) next = next.filter((k) => k !== 'require_mss_confirmation')
+      return next
+    })
+  }, [slMoved, enteredBeforeMss])
+
+  const exitTimeMs = exitTimeStr ? new Date(exitTimeStr).getTime() : Date.now()
+
+  const preview = trade ? computePreview(trade, exitPriceStr, exitTimeMs) : null
+
+  const canSubmit =
+    !!trade &&
+    exitPriceStr.trim() !== '' &&
+    !isNaN(parseFloat(exitPriceStr)) &&
+    exitReason !== '' &&
+    followedPlan !== null &&
+    (followedPlan || planChanges.trim().length > 0) &&
+    slMoved !== null &&
+    (!slMoved || slMovedReason.trim().length > 0) &&
+    enteredBeforeMss !== null &&
+    !saving
+
+  // Minimal (fast-path) close needs only the exit facts; reflection is deferred.
+  const canSubmitMinimal =
+    !!trade &&
+    exitPriceStr.trim() !== '' &&
+    !isNaN(parseFloat(exitPriceStr)) &&
+    exitReason !== '' &&
+    !saving
+
+  const partialLotsDb = Math.round(parseFloat(partialLotsStr) * 100)
+  const canSubmitPartial =
+    !!trade &&
+    exitPriceStr.trim() !== '' &&
+    !isNaN(parseFloat(exitPriceStr)) &&
+    partialLotsStr.trim() !== '' &&
+    !isNaN(parseFloat(partialLotsStr)) &&
+    partialLotsDb > 0 &&
+    partialLotsDb < trade.lotSize &&
+    !saving
+
+  function applyCleanClose(type: 'tp' | 'sl') {
+    if (!trade) return
+    const p = buildCleanClosePrefill(
+      type,
+      trade.takeProfitPrice,
+      trade.stopLossPrice,
+      trade.pairPipDecimal,
+    )
+    setExitPriceStr(p.exitPriceStr)
+    setExitTimeStr(p.exitTimeStr)
+    setExitReason(p.exitReason)
+    setFollowedPlan(p.followedPlan)
+    setPlanChanges(p.planChanges)
+    setSlMoved(p.slMoved)
+    setSlMovedReason(p.slMovedReason)
+    setEnteredBeforeMss(p.enteredBeforeMss)
+    setRulesBroken(p.rulesBroken)
+    setWhatRight(p.whatRight)
+  }
+
+  const handleAddScreenshots = useCallback(async () => {
+    if (!trade) return
+    const res = await ipc.trades.pickScreenshots(trade.id)
+    if (!res.ok || res.data.length === 0) return
+    const remaining = 4 - screenshots.length
+    const paths = res.data.slice(0, remaining)
+    const newItems = paths.map((p) => ({
+      sourcePath: p,
+      kind: 'other' as ScreenshotKind,
+      preview: `file://${p.replace(/\\/g, '/')}`,
+    }))
+    setScreenshots((prev) => [...prev, ...newItems])
+  }, [trade, screenshots.length])
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    if (!trade || screenshots.length >= 4) return
+    const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'))
+    const remaining = 4 - screenshots.length
+    const items = files.slice(0, remaining).map((f) => ({
+      // In Electron, File objects have a `.path` property
+      sourcePath: (f as File & { path: string }).path,
+      kind: 'other' as ScreenshotKind,
+      preview: URL.createObjectURL(f),
+    }))
+    setScreenshots((prev) => [...prev, ...items])
+  }
+
+  async function handlePartialSubmit() {
+    if (!trade || !canSubmitPartial) return
+    setSaving(true)
+
+    const exitPrice = priceToDb(exitPriceStr, trade.pairPipDecimal)
+    const input: PartialCloseInput = {
+      tradeId: trade.id,
+      closeLots: partialLotsDb,
+      exitPrice,
+      exitTime: exitTimeMs,
+      closePercent: (partialLotsDb / trade.lotSize) * 100,
+      ...(partialNotes.trim() ? { notes: partialNotes.trim() } : {}),
+    }
+
+    const res = await ipc.trades.partialClose(input)
+    if (!res.ok) {
+      toast(res.error.message, 'error')
+      setSaving(false)
+      return
+    }
+
+    bumpTradeVersion()
+    setSaving(false)
+    toast(`Partial close logged. ${(partialLotsDb / 100).toFixed(2)} lots closed.`, 'success')
+    onClosed()
+  }
+
+  async function handleMinimalSubmit() {
+    if (!trade || !canSubmitMinimal) return
+    setSaving(true)
+
+    const exitPrice = priceToDb(exitPriceStr, trade.pairPipDecimal)
+    const res = await ipc.trades.closeMinimal({
+      tradeId: trade.id,
+      exitPrice,
+      exitTime: exitTimeMs,
+      exitReason: exitReason as ExitReason,
+    })
+    if (!res.ok) {
+      toast(res.error.message, 'error')
+      setSaving(false)
+      return
+    }
+
+    // Real-time mechanisms still fire on close; reflection is what's deferred.
+    await ipc.rules.onTradeClosed(trade.id)
+    checkAndAlert(res.data.pnlR)
+
+    bumpTradeVersion()
+    setSaving(false)
+    toast('Trade closed. Reflection queued on the Review screen.', 'success')
+    onClosed()
+  }
+
+  async function handleSubmit() {
+    if (!trade || !canSubmit) return
+    setSaving(true)
+
+    const exitPrice = priceToDb(exitPriceStr, trade.pairPipDecimal)
+    const maePips = maePipsStr ? Math.round(parseFloat(maePipsStr) * 10) : undefined
+    const mfePips = mfePipsStr ? Math.round(parseFloat(mfePipsStr) * 10) : undefined
+
+    const res = await ipc.trades.close({
+      tradeId: trade.id,
+      exitPrice,
+      exitTime: exitTimeMs,
+      exitReason: exitReason as ExitReason,
+      ...(maePips !== undefined ? { maePips } : {}),
+      ...(mfePips !== undefined ? { mfePips } : {}),
+      followedPlanExactly: followedPlan ?? false,
+      ...(planChanges.trim() ? { planChangesDescription: planChanges.trim() } : {}),
+      slMoved: slMoved ?? false,
+      ...(slMovedReason.trim() ? { slMovedReason: slMovedReason.trim() } : {}),
+      enteredBeforeMss: enteredBeforeMss ?? false,
+      rulesBroken,
+      postCalmScore,
+      ...(whatRight.trim() ? { whatIDidRight: whatRight.trim() } : {}),
+      ...(whatWrong.trim() ? { whatIDidWrong: whatWrong.trim() } : {}),
+      ...(tags.length > 0 ? { tags } : {}),
+    })
+
+    if (!res.ok) {
+      toast(res.error.message, 'error')
+      setSaving(false)
+      return
+    }
+
+    // Upload screenshots sequentially
+    for (const ss of screenshots) {
+      if (ss.sourcePath) {
+        await ipc.trades.addScreenshot(trade.id, ss.kind, ss.sourcePath)
+      }
+    }
+
+    // Notify rules engine
+    await ipc.rules.onTradeClosed(trade.id)
+
+    checkAndAlert(res.data.pnlR)
+
+    bumpTradeVersion()
+    setSaving(false)
+    toast('Trade closed.', 'success')
+    onClosed()
+  }
+
+  if (!trade) return null
+
+  const pairLabel = `${trade.pairSymbol} ${trade.direction === 'long' ? 'Long' : 'Short'}`
+
+  return (
+    <Modal open={open} onClose={onClose} title={`Close Trade — ${pairLabel}`} maxWidth="640px">
+      <div className="max-h-[70vh] overflow-y-auto pr-1 space-y-0">
+        {/* Mode toggle */}
+        <div className="mb-5 grid grid-cols-2 gap-2">
+          {(['full', 'partial'] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setCloseMode(mode)}
+              className={cn(
+                'rounded-[8px] border py-2 text-body-sm font-medium transition-colors',
+                closeMode === mode
+                  ? 'border-accent-a bg-accent-a/10 text-accent-a'
+                  : 'border-border text-text-muted hover:border-border-strong hover:text-text-secondary',
+              )}
+            >
+              {mode === 'full' ? 'Full close' : 'Partial close'}
+            </button>
+          ))}
+        </div>
+
+        {/* Partial close form */}
+        {closeMode === 'partial' && (
+          <div className="space-y-4 mb-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-caption font-medium text-text-secondary">
+                  Lots to close
+                  <span className="ml-1 font-normal text-text-muted">
+                    (max {(trade.lotSize / 100).toFixed(2)})
+                  </span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={partialLotsStr}
+                  onChange={(e) => setPartialLotsStr(e.target.value)}
+                  placeholder="e.g. 0.50"
+                  className="w-full rounded-[10px] border border-border bg-surface-elevated py-2 px-3 font-mono text-body-sm text-text-primary placeholder:font-sans placeholder:text-text-muted focus:border-accent-a focus:outline-none"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-caption font-medium text-text-secondary">Exit price</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={exitPriceStr}
+                  onChange={(e) => setExitPriceStr(e.target.value)}
+                  placeholder="e.g. 1.0842"
+                  className="w-full rounded-[10px] border border-border bg-surface-elevated py-2 px-3 font-mono text-body-sm text-text-primary placeholder:font-sans placeholder:text-text-muted focus:border-accent-a focus:outline-none"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-caption font-medium text-text-secondary">Exit time</label>
+              <input
+                type="datetime-local"
+                value={exitTimeStr}
+                onChange={(e) => setExitTimeStr(e.target.value)}
+                className="w-full rounded-[10px] border border-border bg-surface-elevated py-2 px-3 text-body-sm text-text-primary focus:border-accent-a focus:outline-none"
+              />
+            </div>
+            {partialLotsStr && trade && !isNaN(parseFloat(partialLotsStr)) && (
+              <div className="rounded-[10px] border border-border bg-surface px-4 py-3 text-center">
+                <p className="text-micro text-text-muted">Remaining lots after close</p>
+                <p className="font-mono text-body-sm font-semibold text-text-primary">
+                  {Math.max(0, (trade.lotSize - partialLotsDb) / 100).toFixed(2)}
+                </p>
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <label className="text-caption font-medium text-text-secondary">
+                Notes <span className="font-normal text-text-muted">(optional)</span>
+              </label>
+              <input
+                value={partialNotes}
+                onChange={(e) => setPartialNotes(e.target.value)}
+                placeholder="e.g. Closed 50% at 1R…"
+                className="w-full rounded-[10px] border border-border bg-surface-elevated py-2 px-3 text-body-sm text-text-primary placeholder:text-text-muted focus:border-accent-a focus:outline-none"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Full close form */}
+        {closeMode === 'full' && (
+          <div className="space-y-4">
+            {/* Quick-close shortcuts (full reflection only — they pre-fill honesty) */}
+            {!minimal && (
+              <div className="space-y-1.5">
+                <p className="text-caption font-medium text-text-secondary">Quick close</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['tp', 'sl'] as const).map((type) => {
+                    const label = type === 'tp' ? 'Closed clean at TP' : 'Closed clean at SL'
+                    const disabled = hasFlaggedViolations
+                    const btn = (
+                      <button
+                        key={type}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => applyCleanClose(type)}
+                        className={cn(
+                          'w-full rounded-[8px] border py-2 text-caption font-medium transition-colors',
+                          disabled
+                            ? 'border-border text-text-muted opacity-40 cursor-not-allowed'
+                            : type === 'tp'
+                              ? 'border-accent-a/50 text-accent-a hover:bg-accent-a/10'
+                              : 'border-danger/50 text-danger hover:bg-danger/10',
+                        )}
+                      >
+                        {label}
+                      </button>
+                    )
+                    return disabled ? (
+                      <Tooltip
+                        key={type}
+                        content="This trade has at least one flagged action; close manually."
+                        side="top"
+                        wrapperClassName="w-full"
+                      >
+                        {btn}
+                      </Tooltip>
+                    ) : (
+                      btn
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-caption font-medium text-text-secondary">Exit price</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={exitPriceStr}
+                  onChange={(e) => setExitPriceStr(e.target.value)}
+                  placeholder="e.g. 1.0842"
+                  className="w-full rounded-[10px] border border-border bg-surface-elevated py-2 px-3 font-mono text-body-sm text-text-primary placeholder:font-sans placeholder:text-text-muted focus:border-accent-a focus:outline-none"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-caption font-medium text-text-secondary">Exit time</label>
+                <input
+                  type="datetime-local"
+                  value={exitTimeStr}
+                  onChange={(e) => setExitTimeStr(e.target.value)}
+                  className="w-full rounded-[10px] border border-border bg-surface-elevated py-2 px-3 text-body-sm text-text-primary focus:border-accent-a focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-caption font-medium text-text-secondary">Exit reason</label>
+              <div className="grid grid-cols-3 gap-2">
+                {EXIT_REASONS.map((r) => (
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => setExitReason(r.value)}
+                    className={cn(
+                      'rounded-[8px] border py-1.5 text-caption font-medium transition-colors',
+                      exitReason === r.value
+                        ? 'border-accent-a bg-accent-a/10 text-accent-a'
+                        : 'border-border text-text-muted hover:border-border-strong hover:text-text-secondary',
+                    )}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Live P&L preview */}
+            {preview && (
+              <div className="rounded-[10px] border border-border bg-surface px-4 py-3 grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <p className="text-micro text-text-muted">P&L</p>
+                  <p
+                    className={cn(
+                      'font-mono text-body-sm font-semibold',
+                      preview.pnlCents >= 0 ? 'text-accent-a' : 'text-danger',
+                    )}
+                  >
+                    {formatCents(preview.pnlCents)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-micro text-text-muted">R</p>
+                  <p
+                    className={cn(
+                      'font-mono text-body-sm font-semibold',
+                      preview.pnlR >= 0 ? 'text-accent-a' : 'text-danger',
+                    )}
+                  >
+                    {formatRMultiple(preview.pnlR)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-micro text-text-muted">Duration</p>
+                  <p className="font-mono text-body-sm text-text-primary">
+                    {preview.durationMin < 60
+                      ? `${preview.durationMin}m`
+                      : `${Math.floor(preview.durationMin / 60)}h ${preview.durationMin % 60}m`}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* MAE / MFE — deferred to reflection in fast-path mode */}
+            {!minimal && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-caption font-medium text-text-secondary">
+                    MAE pips <span className="font-normal text-text-muted">(optional)</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={maePipsStr}
+                    onChange={(e) => setMaePipsStr(e.target.value)}
+                    placeholder="e.g. 8.5"
+                    className="w-full rounded-[10px] border border-border bg-surface-elevated py-2 px-3 font-mono text-body-sm text-text-primary placeholder:font-sans placeholder:text-text-muted focus:border-accent-a focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-caption font-medium text-text-secondary">
+                    MFE pips <span className="font-normal text-text-muted">(optional)</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={mfePipsStr}
+                    onChange={(e) => setMfePipsStr(e.target.value)}
+                    placeholder="e.g. 22.0"
+                    className="w-full rounded-[10px] border border-border bg-surface-elevated py-2 px-3 font-mono text-body-sm text-text-primary placeholder:font-sans placeholder:text-text-muted focus:border-accent-a focus:outline-none"
+                  />
+                </div>
+              </div>
+            )}
+
+            {minimal && (
+              <div className="rounded-[10px] border border-border bg-surface px-4 py-3">
+                <p className="text-caption text-text-secondary">
+                  Exit recorded now. The honesty review, rules-broken checklist, MAE/MFE and notes
+                  are deferred to{' '}
+                  <span className="font-medium text-text-primary">Trades awaiting reflection</span>{' '}
+                  on the Review screen — clear them in one calm pass after the session.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {closeMode === 'full' && !minimal && (
+          <>
+            {/* Honesty section */}
+            <SectionHeader>Honesty</SectionHeader>
+            <div className="space-y-4">
+              <YesNo
+                label="Did you follow your plan exactly?"
+                value={followedPlan}
+                onChange={setFollowedPlan}
+              />
+              {followedPlan === false && (
+                <div className="space-y-1.5">
+                  <label className="text-caption font-medium text-text-secondary">
+                    What changed?
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={planChanges}
+                    onChange={(e) => setPlanChanges(e.target.value)}
+                    placeholder="Describe what you did differently from the plan…"
+                    className="w-full rounded-[10px] border border-border bg-surface-elevated px-3 py-2 text-body-sm text-text-primary placeholder:text-text-muted resize-none focus:border-accent-a focus:outline-none"
+                  />
+                </div>
+              )}
+
+              <YesNo label="Did you move your SL?" value={slMoved} onChange={setSlMoved} />
+              {slMoved === true && (
+                <div className="space-y-1.5">
+                  <label className="text-caption font-medium text-text-secondary">Why?</label>
+                  <input
+                    value={slMovedReason}
+                    onChange={(e) => setSlMovedReason(e.target.value)}
+                    placeholder="Reason for moving SL…"
+                    className="w-full rounded-[10px] border border-border bg-surface-elevated py-2 px-3 text-body-sm text-text-primary placeholder:text-text-muted focus:border-accent-a focus:outline-none"
+                  />
+                </div>
+              )}
+
+              <YesNo
+                label="Did you enter before MSS was confirmed?"
+                value={enteredBeforeMss}
+                onChange={setEnteredBeforeMss}
+              />
+            </div>
+
+            {/* Rules broken */}
+            <SectionHeader>Rules broken</SectionHeader>
+            {detected.length > 0 && (
+              <p className="mb-2 px-2 text-caption text-text-muted">
+                Cairn pre-ticked {detected.length} item{detected.length > 1 ? 's' : ''} from a
+                planned-vs-actual check. Confirm or untick — the call is yours.
+              </p>
+            )}
+            <div className="space-y-1.5">
+              {availableRules.map((rule) => {
+                const detail = detectedByKey.get(rule.key)
+                return (
+                  <label
+                    key={rule.key}
+                    className="flex items-center gap-3 rounded-[8px] px-2 py-1.5 hover:bg-surface-elevated cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={rulesBroken.includes(rule.key)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setRulesBroken((prev) => [...prev, rule.key])
+                        } else {
+                          setRulesBroken((prev) => prev.filter((k) => k !== rule.key))
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-border accent-[var(--color-accent-a)]"
+                    />
+                    <span className="text-body-sm text-text-secondary">{rule.label}</span>
+                    {detail !== undefined && (
+                      <Tooltip content={detail} side="top">
+                        <span
+                          data-testid={`detected-badge-${rule.key}`}
+                          className="ml-auto inline-flex items-center gap-1 rounded-full border border-accent-a/40 bg-accent-a/10 px-2 py-0.5 text-micro font-medium text-accent-a"
+                        >
+                          <Check className="h-3 w-3" strokeWidth={2.5} />
+                          detected by Cairn
+                        </span>
+                      </Tooltip>
+                    )}
+                  </label>
+                )
+              })}
+              {availableRules.length === 0 && (
+                <p className="text-caption text-text-muted px-2">Loading rules…</p>
+              )}
+            </div>
+
+            {/* Post-trade reflection */}
+            <SectionHeader>Reflection</SectionHeader>
+            <div className="space-y-4">
+              <SliderField
+                label="Post-trade calm score"
+                value={postCalmScore}
+                onChange={setPostCalmScore}
+              />
+
+              <div className="space-y-1.5">
+                <label className="text-caption font-medium text-text-secondary">
+                  What I did right
+                </label>
+                <input
+                  value={whatRight}
+                  onChange={(e) => setWhatRight(e.target.value)}
+                  placeholder="One sentence…"
+                  className="w-full rounded-[10px] border border-border bg-surface-elevated py-2 px-3 text-body-sm text-text-primary placeholder:text-text-muted focus:border-accent-a focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-caption font-medium text-text-secondary">
+                  What I did wrong
+                </label>
+                <input
+                  value={whatWrong}
+                  onChange={(e) => setWhatWrong(e.target.value)}
+                  placeholder="One sentence…"
+                  className="w-full rounded-[10px] border border-border bg-surface-elevated py-2 px-3 text-body-sm text-text-primary placeholder:text-text-muted focus:border-accent-a focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-caption font-medium text-text-secondary">Tags</label>
+                <TagInput value={tags} onChange={setTags} />
+              </div>
+            </div>
+
+            {/* Screenshots */}
+            <div className="flex items-center justify-between">
+              <SectionHeader>Screenshots</SectionHeader>
+              <button
+                type="button"
+                onClick={() => void handleAddScreenshots()}
+                disabled={screenshots.length >= 4}
+                className="flex items-center gap-1 text-caption text-text-muted hover:text-text-secondary transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              >
+                <Paperclip className="h-3.5 w-3.5" strokeWidth={1.5} />
+                Attach chart
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleDrop}
+                className={cn(
+                  'rounded-[12px] border-2 border-dashed border-border p-6 text-center transition-colors',
+                  screenshots.length >= 4 && 'opacity-50 pointer-events-none',
+                )}
+              >
+                <ImageIcon className="mx-auto h-8 w-8 text-text-muted" strokeWidth={1} />
+                <p className="mt-2 text-body-sm text-text-muted">
+                  Drag & drop screenshots here, or{' '}
+                  <button
+                    type="button"
+                    onClick={() => void handleAddScreenshots()}
+                    className="text-accent-a hover:underline"
+                  >
+                    pick files
+                  </button>
+                </p>
+                <p className="mt-1 text-caption text-text-muted">
+                  Up to 4 images. {screenshots.length}/4 added.
+                </p>
+              </div>
+
+              {screenshots.length > 0 && (
+                <div className="grid grid-cols-2 gap-3">
+                  {screenshots.map((ss, i) => (
+                    <div
+                      key={i}
+                      className="relative rounded-[10px] overflow-hidden border border-border"
+                    >
+                      <img
+                        src={ss.preview}
+                        alt={`Screenshot ${i + 1}`}
+                        className="w-full h-28 object-cover"
+                      />
+                      <div className="absolute inset-x-0 bottom-0 bg-background/80 backdrop-blur-sm p-2 flex items-center gap-2">
+                        <select
+                          value={ss.kind}
+                          onChange={(e) => {
+                            const next = [...screenshots]
+                            next[i] = { ...next[i], kind: e.target.value as ScreenshotKind }
+                            setScreenshots(next)
+                          }}
+                          className="flex-1 rounded-[6px] border border-border bg-surface py-1 px-2 text-caption text-text-primary focus:outline-none"
+                        >
+                          {SCREENSHOT_KINDS.map((k) => (
+                            <option key={k.value} value={k.value}>
+                              {k.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setScreenshots((prev) => prev.filter((_, idx) => idx !== i))
+                          }
+                          className="p-1 rounded-[6px] text-text-muted hover:text-danger"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Spacer */}
+        <div className="h-4" />
+      </div>
+
+      {/* Footer */}
+      <div className="mt-5 flex justify-end gap-2 border-t border-border pt-4">
+        <Button variant="secondary" onClick={onClose}>
+          Cancel
+        </Button>
+        {closeMode === 'partial' ? (
+          <Button
+            onClick={() => void handlePartialSubmit()}
+            loading={saving}
+            disabled={!canSubmitPartial}
+          >
+            Log partial close
+          </Button>
+        ) : minimal ? (
+          <Button
+            onClick={() => void handleMinimalSubmit()}
+            loading={saving}
+            disabled={!canSubmitMinimal}
+          >
+            Close trade
+          </Button>
+        ) : (
+          <Button onClick={() => void handleSubmit()} loading={saving} disabled={!canSubmit}>
+            Close trade
+          </Button>
+        )}
+      </div>
+    </Modal>
+  )
+}

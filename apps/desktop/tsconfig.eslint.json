@@ -1,0 +1,10 @@
+{
+  // Type-aware ESLint program. Covers every lintable file in apps/desktop/.
+  // scripts/ lives at the workspace root and is excluded here. Not used for
+  // the build — pnpm typecheck still runs tsconfig.json + tsconfig.node.json.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["vite/client", "node"]
+  },
+  "include": ["src", "electron", "shared", "tests", "*.config.ts", "*.config.js", "*.config.cjs"]
+}

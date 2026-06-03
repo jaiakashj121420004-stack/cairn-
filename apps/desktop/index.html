@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cairn</title>
+    <!--
+      No-flicker theme script: runs synchronously before first paint.
+      Reads the Zustand-persisted preference from localStorage and applies
+      data-theme to <html> before React hydrates. Prevents flash of wrong theme.
+    -->
+    <script>
+      ;(function () {
+        var theme = 'dark'
+        try {
+          var raw = localStorage.getItem('cairn-ui')
+          if (raw) {
+            var pref = JSON.parse(raw).state.themePreference
+            if (pref === 'light') {
+              theme = 'light'
+            } else if (pref === 'system' || pref === 'dark' || !pref) {
+              theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+            }
+          } else {
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+          }
+        } catch (_) {}
+        document.documentElement.setAttribute('data-theme', theme)
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
