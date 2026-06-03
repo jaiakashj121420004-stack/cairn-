@@ -278,7 +278,7 @@ DONE
 - Manual smoke test: open the app, place a trade, do a partial close, verify the partial appears with correct integer values in the DB (`sqlite3 <db> "select * from trade_partials"`).
 
 **After this prompt:** push. Check item 3 of `docs/roadmap-v1.2.md` §6.
-
+DONE
 ---
 
 ### Wave 0 — Prompt 3: Build the Review screen
@@ -317,7 +317,7 @@ DONE
 - Render tests pass.
 
 **After this prompt:** push. Check item 2 of `docs/roadmap-v1.2.md` §6.
-
+DONE
 ---
 
 ### Wave 0 — Prompt 4: Smoke E2E + housekeeping
@@ -379,7 +379,7 @@ DONE
 > NO-SLOP FOOTER applies.
 
 **Definition of done:** §6 item 5 of the roadmap is met; manual: place a trade, close the panel, reopen → pair/setup/mode are pre-filled with caption.
-
+DONE
 ---
 
 ### Wave 1 — Prompt 2: Invalidation quick-chips
@@ -528,7 +528,84 @@ DONE
 
 **Definition of done:** §6 item 10 met; calendar renders; click-through works; rollup query unit-tested.
 
-**After Wave 1:** push, take a half day off, manually click through every flow you just touched. Wave 2 starts next.
+**After Wave 1:** push, take a half day off, manually click through every flow you just touched. **Do NOT start Wave 2 until the Wave 1.5 remediation below is green.**
+
+---
+
+## 6.5 v1.2 — WAVE 1.5: REMEDIATION (run before Wave 2)
+
+**Why this exists:** the 2026-05-30 review (recorded in `CLAUDE.md` §17.6) confirmed all six Wave 1 features are implemented and wired, but found two real calendar bugs, two floating promises, a drift-prone test, and — critically — that the five quality gates were never run this cycle. Wave 1 is **functionally complete but not "done" by the §19 no-slop bar.** This wave closes that gap. It is local-only and zero-cost.
+
+**Wave goal:** fix every issue logged in `CLAUDE.md` §17.6, get all five gates green, commit, then Wave 2 is unblocked.
+
+**Wave duration estimate at 3–4 h/day:** 1 working day.
+
+### Wave 1.5 — Prompt 1: Fix the calendar timezone + bucketing bugs
+
+**Model:** Opus 4.6 (date/time + per-day correctness — same class as money math).
+**Estimated agent time:** 60 min. **Your time:** +30 min.
+**Prerequisites:** Wave 1 committed.
+
+**Prompt:**
+> Read `CLAUDE.md` §17.6 (issues 1 and 2), `docs/customization.md` v1.1 (timezone, default America/New_York), and `docs/rules-engine.md` v1.1 (how daily-trade-limit and max-daily-loss bucket "day"). Then fix `getDailyHeatmap` in `electron/services/analytics/performance.ts`:
+>
+> 1. **Timezone bug:** the query buckets days with `strftime('%Y-%m-%d', updated_at/1000, 'unixepoch')` — that's UTC. Bucket by the user's **configured timezone** instead, the SAME way the per-day rules engine buckets a day. Do not invent a second definition of "day" — find the one the rules engine already uses and reuse it. If that logic isn't shared, extract it to one helper and call it from both places.
+> 2. **Wrong-column bug:** closed trades are bucketed by `updated_at`, which moves whenever a trade is later edited. Bucket closed trades by `exit_time` (the column exists). Decide and document how open/draft trades (null `exit_time`) are handled — they should not appear as phantom days.
+> 3. Update the existing rollup unit test to cover: (a) a trade whose `exit_time` is near local midnight lands on the correct local day, NOT the UTC day; (b) editing a closed trade (bumping `updated_at`) does not move its calendar cell; (c) the calendar day for a trade matches the day the rules engine assigns it.
+>
+> NO-SLOP FOOTER applies. This is correctness-critical: a calendar that disagrees with the rules engine erodes trust in both.
+
+**Definition of done:** §17.6 issues 1 + 2 resolved; calendar day == rules-engine day in tests; rollup test covers timezone + edit-stability + exit_time bucketing.
+
+---
+
+### Wave 1.5 — Prompt 2: Kill the floating promises + de-drift the clean-close test
+
+**Model:** Sonnet 4.6.
+**Estimated agent time:** 45 min. **Your time:** +20 min.
+**Prerequisites:** Wave 1.5 Prompt 1.
+
+**Prompt:**
+> Read `CLAUDE.md` §17.6 (issues 3, 4, 5, 6) and §2.12 / §19 (no floating promises, every async path awaited or explicitly void-ed with rejection handled).
+>
+> 1. **Floating promises (issue 3):** in `src/features/command-palette/CommandPalette.tsx` (~L50, `ipc.accounts.list().then(...)`) and `src/features/post-trade/CloseTradeModal.tsx` (~L267, `Promise.all([...]).then(...)`), handle rejection — `void`-prefix AND add a `.catch` that surfaces the error (toast or logged), or convert to `await` inside a guarded async effect. No naked floating promise may remain.
+> 2. **Test drift (issue 4):** `tests/unit/post-trade/close-clean-prefill.test.ts` re-implements `applyCleanClose` and `dbToDisplayPrice` inline. Extract the real prefill logic from `CloseTradeModal.tsx` into a pure module `src/features/post-trade/clean-close-prefill.ts` (exporting `buildCleanClosePrefill` and the price helper), have the component import and use it, and rewrite the test to import from that module so it can never drift from the component again.
+> 3. **Minor (issues 5, 6):** reconcile the `last-trade-context.ts` JSDoc with actual behaviour (placed-only, not drafts). Remove the one duplicated import line in `tests/unit/analytics/adherence.test.ts` and `tests/unit/analytics/performance.test.ts`. Leave `matchCommand` as-is (shadcn `<Command>` provides fuzzy filtering) but add a one-line comment noting why substring is acceptable.
+>
+> NO-SLOP FOOTER applies.
+
+**Definition of done:** zero floating promises in the Wave 1 files; clean-close logic lives in one pure module imported by both component and test; minor items cleared.
+
+---
+
+### Wave 1.5 — Prompt 3: Run all five gates green, then close out
+
+**Model:** Sonnet 4.6.
+**Estimated agent time:** 45 min. **Your time:** +30 min (you run the gates locally).
+**Prerequisites:** Wave 1.5 Prompts 1 + 2.
+
+**Prompt:**
+> Read `CLAUDE.md` §17.6 ("Verification NOT run" + "Wave 2 readiness verdict") and `docs/testing.md`.
+>
+> The five quality gates were never executed this cycle because the review ran in a sandbox that couldn't resolve the Windows-symlinked `node_modules`. They MUST be run locally now and all pass:
+>
+> 1. `pnpm typecheck`
+> 2. `pnpm lint` (max-warnings 0)
+> 3. `pnpm test:unit`
+> 4. `pnpm build`
+> 5. `pnpm test:e2e` (smoke)
+>
+> Fix whatever they surface. Do not weaken a gate to make it pass (no `--max-warnings` bump, no skipped tests, no `@ts-ignore`). If the smoke E2E is flaky, fix the flake — it gates every subsequent wave.
+>
+> When all five are green: update `CLAUDE.md` §17.6 — move issues 1–6 from "to fix" into a "Resolved" subsection with the fixing commit hashes, change the "Verification NOT run" block to record the date the gates passed, and change the Wave 2 readiness verdict to "Wave 1 DONE — gates green on <date>, Wave 2 unblocked." Tick the relevant §6 end-state items in `docs/roadmap-v1.2.md`.
+>
+> NO-SLOP FOOTER applies.
+
+**Definition of done:** all five gates green locally; §17.6 updated to "Wave 1 DONE"; roadmap items ticked; committed and pushed.
+
+**Repo hygiene note (one-time, do this first if `git status` errors):** the `.git/index` was corrupted during the 2026-05-30 review (a Windows-mount permissions quirk). History and objects are intact. To rebuild the index: in the project folder run `del .git\index` (PowerShell: `Remove-Item .git\index*`), delete any `.git\index.lock` / `.git\index.stash.*`, then `git reset`. Also confirm the 12 previously-corrupted working-tree files are at their committed content before starting.
+
+**After Wave 1.5:** Wave 1 is genuinely done. Now start Wave 2.
 
 ---
 
@@ -923,6 +1000,85 @@ DONE
 **After Wave 3:** push, take 2–3 days off. v1.2 is **done** if every §6 item in `docs/roadmap-v1.2.md` is now true. Verify them one by one. Update CLAUDE.md §17 with a v1.2 Change Log. Tag the commit `v1.2.0`.
 
 **Wave 4 (live broker integration) is OPTIONAL and PAID — see CLAUDE.md §17.5 / roadmap §4 Wave 4. It is not scoped here. Decide separately whether to do it before, after, or instead of v2.0's cloud rebuild.**
+
+---
+
+## 8.5 v0.1.1 RELEASE HOTFIX — PACKAGED MIGRATION PATH (DONE 2026-06-03)
+
+**Status:** ✅ APPLIED to this folder on 2026-06-03. This documents a release-blocking bug that was first found and fixed in a *separate copy* of this repo (the one published to GitHub and installed), then replicated here so both trees match. No behavioural change in `pnpm dev`; the fix only affects packaged installer builds.
+
+### The bug
+
+The app worked perfectly in `pnpm dev` but the **packaged Windows installer failed on first launch** during onboarding with:
+
+```
+Error: Can't find meta/_journal.json file
+```
+
+Database initialization threw inside `migrate(db, { migrationsFolder })` because Drizzle could not locate the migrations directory in the installed app.
+
+### Root cause
+
+Path mismatch in the packaged build. Drizzle migrations are bundled **inside the asar archive** at:
+
+```
+resources/app.asar/electron/db/migrations
+```
+
+but the runtime was looking for them at:
+
+```
+resources/migrations        ← join(process.resourcesPath, 'migrations')
+```
+
+`process.resourcesPath` resolves to `<install>/resources`, so the lookup pointed at a folder that does not exist. Compounding it, `electron-builder.yml` never explicitly listed the migration folder in `files`, so it was not guaranteed to be packaged at all. Dev mode worked because it used the `__dirname`-relative branch, which resolves correctly from `out/main/`.
+
+### The fix (two files)
+
+**1. `electron/db/index.ts`** — point the packaged branch at the real location inside the asar:
+
+```ts
+// before
+const migrationsFolder = app.isPackaged
+  ? join(process.resourcesPath, 'migrations')
+  : join(__dirname, '..', '..', 'electron', 'db', 'migrations')
+
+// after
+const migrationsFolder = app.isPackaged
+  ? join(process.resourcesPath, 'app.asar', 'electron', 'db', 'migrations')
+  : join(__dirname, '..', '..', 'electron', 'db', 'migrations')
+```
+
+**2. `electron-builder.yml`** — explicitly package the migration folder so it is always copied into the asar:
+
+```yaml
+files:
+  - out/**/*
+  - electron/db/**/*        # ← added
+  - package.json
+  - "!**/.{git,svn}"
+  - "!**/node_modules/.cache"
+```
+
+### Prompt used to replicate (for reference / re-running)
+
+> Read `CLAUDE.md` §2.5 (data integrity) and the v0.1.1 launch-failure analysis. The packaged Windows installer fails on first launch with `Can't find meta/_journal.json file` because Drizzle migrations are packaged inside `resources/app.asar/electron/db/migrations` but the runtime looks for them at `resources/migrations`. Apply exactly two changes: (1) in `electron/db/index.ts`, change the `app.isPackaged` migrations path from `join(process.resourcesPath, 'migrations')` to `join(process.resourcesPath, 'app.asar', 'electron', 'db', 'migrations')`; (2) in `electron-builder.yml`, add `- electron/db/**/*` to the `files` list. Do not change the dev (`__dirname`-relative) branch. Then run the five quality gates and verify the migration files appear in the asar.
+
+### Definition of done / verification
+
+```
+[ ] pnpm typecheck && pnpm lint --max-warnings 0 && pnpm test   — all green
+[ ] pnpm dev still launches and onboards (regression check)
+[ ] pnpm dist (or pnpm build && electron-builder) produces an installer
+[ ] npx asar list dist/win-unpacked/resources/app.asar | findstr migrations
+       → shows electron\db\migrations\meta\_journal.json and the .sql files
+[ ] Install the .exe on a clean machine → onboarding completes, no _journal.json error
+[ ] git commit -m "fix(build): resolve packaged migrations path inside app.asar (v0.1.1)"
+```
+
+> Note: the GitHub-published copy was already fixed and confirmed working after reinstall. This folder now carries the identical change.
+
+**Model:** Sonnet 4.6 (mechanical two-line fix); no Opus needed.
 
 ---
 
@@ -1586,70 +1742,4 @@ For when you ship a feature, push, walk away, come back later and something is w
 
 ### Debug Prompt — "Sync conflict not resolving"
 
-> User reports that after editing trade `<id>` on two devices, both devices show the trade in conflict and resolving on one doesn't clear it on the other. Read `apps/desktop/electron/services/sync/conflict.ts`. Reason about the resolution-write path: does it produce a new op whose vector clock dominates both heads? Does that op actually push? Does the other device pull and recognize it as the conflict-closer? Add a vitest scenario that simulates the full round-trip across two in-memory clients and asserts both end up resolved. Fix.
-
-**Model:** Opus 4.6.
-
-### Debug Prompt — "Rate-limited mid-prompt"
-
-You sent a prompt; Claude Code reports rate-limited. Do not panic. Do not try a smaller model and burn the same prompt — you'll just produce a worse outcome.
-
-Steps:
-1. Note exactly which prompt you were on (write it down outside Claude).
-2. Run `git stash` if there are uncommitted changes from the agent's work-in-progress; tag the stash with the prompt name (`git stash push -m "stash: stage6-prompt1-wip"`).
-3. Read the agent's last message; capture any TodoWrite it had open in a comment-pinned scratch file.
-4. Wait for the reset.
-5. Resume with a fresh prompt that begins with: `Continuing Stage X Prompt Y from a rate-limit interruption. Read the stash named "stash: stageX-promptY-wip" via "git stash show -p" and reconstruct context. The remaining work is: <copy from your written-down list>.`
-6. The new model session has a fresh context window. Do NOT assume it remembers anything.
-
-**Model:** same as the interrupted prompt. Never downgrade.
-
-### Debug Prompt — "I broke something with a force-push or a bad merge"
-
-> The branch `<name>` got into a bad state. Reflog has commits I want back. Help me reason through `git reflog` to find the last known-good SHA, create a recovery branch from it, and cherry-pick or interactive-rebase the changes I want to keep. NEVER force-push to `main`. NEVER suggest `git reset --hard origin/main` without first confirming nothing is unique to my local copy.
-
-**Model:** Sonnet 4.6. Reflog work is mechanical but worth being careful.
-
-### Debug Prompt — "Something fishy is in production"
-
-> Sentry shows an uncaught exception in production: `<paste stack trace>`. Read the relevant file at the SHA of the deployed build (check the release tag). Reason about under what input this code path errors. If the input is user-controlled, this is a security-adjacent bug — open a P1 incident note in `docs/runbook.md` incidents section. Reproduce locally with a test that fails before your fix and passes after. Patch. Cut a hotfix release per `docs/runbook.md`'s release procedure.
-
-**Model:** Opus 4.6 for the patch; Sonnet 4.6 for the runbook write-up.
-
----
-
-## 19. APPENDIX — CHECKLIST WHEN STARTING ANY PROMPT
-
-Print this. Tape it to your monitor.
-
-```
-BEFORE I SEND THE PROMPT:
-[ ] CLAUDE.md is open in another tab. The agent will reference it.
-[ ] I have the prompt's prerequisites complete and pushed.
-[ ] Current session usage allows ≥ 60 % budget for this prompt.
-[ ] The model I picked matches the §2 table.
-[ ] I've decided what "definition of done" means — written it down.
-
-WHILE THE AGENT WORKS:
-[ ] I'm reading what it's doing, not scrolling Twitter.
-[ ] If it goes off-spec, I interrupt with: "Stop. Re-read <file:section>. The spec says X."
-[ ] If it asks a question, I never say "use your best judgement." I answer or escalate.
-
-AFTER THE AGENT SAYS DONE:
-[ ] git status — read every modified file path.
-[ ] git diff — read every change.
-[ ] pnpm typecheck && pnpm lint --max-warnings 0 && pnpm test — all green.
-[ ] Definition-of-done items, one by one, ticked.
-[ ] Manual smoke test of the affected screen / flow.
-[ ] git commit with Conventional Commit message.
-[ ] git push.
-[ ] Update CLAUDE.md or docs/ if the implementation revealed something the spec didn't cover.
-
-IF ANY BOX IS UNCHECKED: THE PROMPT IS NOT DONE. Fix, don't move on.
-```
-
----
-
-*A cairn is a stack of stones placed on a trail to mark the way. Each stone is deliberate. Each stone stays where it's placed.*
-
-*Build the stack.*
+> User reports that after editing trade `<id>` on two devices, both devices show the trade in conflict and resolving on one doesn't clear it on the other. Read `apps/desktop/electron/services/sync/conflict.ts`. Reason about the resolution-write path: does it produce a new op whose vector clock dominates both heads

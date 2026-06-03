@@ -8,6 +8,7 @@ directories:
 
 files:
   - out/**/*
+  - electron/db/**/*
   - package.json
   - "!**/.{git,svn}"
   - "!**/node_modules/.cache"
@@ -41,4 +42,4 @@ nsis:
   createDesktopShortcut: true
 
 dmg:
-  writeUpdateInfo: false
+  wr

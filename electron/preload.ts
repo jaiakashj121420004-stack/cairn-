@@ -122,6 +122,8 @@ const api = {
     update: (input: UpdateAccountInput): Promise<IpcResponse<Account>> =>
       ipcRenderer.invoke('accounts:update', input),
     stats: (): Promise<IpcResponse<AccountStats[]>> => ipcRenderer.invoke('accounts:stats'),
+    delete: (id: string): Promise<IpcResponse<{ ok: true }>> =>
+      ipcRenderer.invoke('accounts:delete', { id }),
   },
 
   pairs: {

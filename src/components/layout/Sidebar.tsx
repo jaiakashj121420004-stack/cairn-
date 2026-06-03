@@ -19,7 +19,6 @@ import { useUiStore } from '../../stores/ui-store'
 import { useReflectionStore } from '../../stores/reflection-store'
 import { eventBus } from '../../lib/event-bus'
 import { ThemeToggle } from '../shared/ThemeToggle'
-import { CairnLogo } from '../shared/CairnLogo'
 import { Tooltip } from '../ui/tooltip'
 
 interface NavItemDef {
@@ -61,42 +60,38 @@ export function Sidebar() {
       className="relative flex h-full shrink-0 flex-col overflow-hidden border-r glass-sidebar"
       style={{ borderColor: 'var(--glass-border)' }}
     >
-      {/* Brand mark — Cairn logo + wordmark */}
+      {/* Brand mark — wordmark only */}
       <div className="flex h-16 shrink-0 items-center px-3">
-        <div className={cn('flex items-center gap-2.5', sidebarCollapsed && 'mx-auto')}>
-          <CairnLogo size={28} />
-          <AnimatePresence initial={false}>
-            {!sidebarCollapsed && (
-              <motion.div
-                initial={{ opacity: 0, x: -4 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -4 }}
-                transition={TEXT_TRANSITION}
-                className="select-none"
+        <AnimatePresence initial={false}>
+          {!sidebarCollapsed && (
+            <motion.div
+              initial={{ opacity: 0, x: -4 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -4 }}
+              transition={TEXT_TRANSITION}
+              className="select-none"
+            >
+              <span
+                className="block font-sans text-h3 font-bold leading-none"
+                style={{
+                  color: 'hsl(var(--text-primary))',
+                  letterSpacing: '-0.02em',
+                }}
               >
-                <span
-                  className="block font-sans text-h3 font-bold leading-none"
-                  style={{
-                    color: 'hsl(var(--text-primary))',
-                    letterSpacing: '-0.02em',
-                  }}
-                >
-                  Cairn
-                </span>
-                <span
-                  className="block text-[9.5px] font-semibold uppercase leading-none mt-1"
-                  style={{
-                    color: 'hsl(74,74%,62%)',
-                    letterSpacing: '0.18em',
-                    textShadow: '0 0 12px hsl(74,74%,59%,0.50)',
-                  }}
-                >
-                  Discipline · Logged
-                </span>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+                Cairn
+              </span>
+              <span
+                className="block text-[9.5px] font-semibold uppercase leading-none mt-1"
+                style={{
+                  color: 'hsl(74,55%,36%)',
+                  letterSpacing: '0.18em',
+                }}
+              >
+                Discipline · Logged
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
         {!sidebarCollapsed && (
           <button
             type="button"

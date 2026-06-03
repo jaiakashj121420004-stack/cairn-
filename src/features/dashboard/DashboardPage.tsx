@@ -199,10 +199,14 @@ function StatCard({
 
       {/* Bottom chart area */}
       <div className="relative h-14 w-full overflow-hidden">
-        {sparkData && sparkData.length >= 2
-          ? <SparklineArea data={sparkData} color={colorHsl} id={label.replace(/\s/g, '')} />
-          : <DecorativeWave color={colorHsl} id={label.replace(/\s/g, '')} />
-        }
+        {(() => {
+          // Strip all non-alphanumeric chars so SVG gradient IDs and url() refs are valid.
+          // "Today's P&L" → "TodaysPL"; the & in P&L would otherwise break the CSS url() reference.
+          const safeId = label.replace(/[^a-zA-Z0-9]/g, '')
+          return sparkData && sparkData.length >= 2
+            ? <SparklineArea data={sparkData} color={colorHsl} id={safeId} />
+            : <DecorativeWave color={colorHsl} id={safeId} />
+        })()}
       </div>
     </motion.div>
   )

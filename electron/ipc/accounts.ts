@@ -225,6 +225,23 @@ export function registerAccountHandlers(): void {
     }
   })
 
+  ipcMain.handle('accounts:delete', (_e, raw: unknown): IpcResponse<{ ok: true }> => {
+    const parsed = z.object({ id: z.string().uuid() }).safeParse(raw)
+    if (!parsed.success) {
+      return { ok: false, error: { code: 'VALIDATION_ERROR', message: parsed.error.message } }
+    }
+    try {
+      const db = getDb()
+      db.update(schema.accounts)
+        .set({ deletedAt: Date.now(), updatedAt: Date.now() })
+        .where(eq(schema.accounts.id, parsed.data.id))
+        .run()
+      return { ok: true, data: { ok: true } }
+    } catch (err) {
+      return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
+    }
+  })
+
   ipcMain.handle('accounts:update', (_e, raw: UpdateAccountInput): IpcResponse<Account> => {
     const parsed = UpdateAccountSchema.safeParse(raw)
     if (!parsed.success) {

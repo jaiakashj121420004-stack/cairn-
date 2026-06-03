@@ -49,7 +49,10 @@ export function getDb(): CairnDb {
   // _db is set AFTER migrate() so a failed migration never caches an un-migrated DB.
 
   const migrationsFolder = app.isPackaged
-    ? join(process.resourcesPath, 'migrations')
+    // Packaged: migrations live inside the asar archive under resources/app.asar.
+    // process.resourcesPath -> <install>/resources, so point at the actual location
+    // electron-builder copies electron/db/** into the asar.
+    ? join(process.resourcesPath, 'app.asar', 'electron', 'db', 'migrations')
     // __dirname is out/main/ in the built bundle; ../../electron/db/migrations resolves
     // reliably regardless of what app.getAppPath() returns at runtime.
     : join(__dirname, '..', '..', 'electron', 'db', 'migrations')
@@ -113,11 +116,4 @@ function createPreMigrationBackup(dbPath: string, dbDir: string): void {
   try {
     const backupDir = join(dbDir, 'backups', 'pre-migration')
     mkdirSync(backupDir, { recursive: true })
-    const ts = new Date().toISOString().replace(/[:.]/g, '-')
-    const backupPath = join(backupDir, `journal_${ts}.db`)
-    copyFileSync(dbPath, backupPath)
-    log.info(`[db] Pre-migration backup: ${backupPath}`)
-  } catch (err) {
-    log.warn('[db] Pre-migration backup failed (non-fatal):', err)
-  }
-}
+    const ts = new Date().toISOString().replace

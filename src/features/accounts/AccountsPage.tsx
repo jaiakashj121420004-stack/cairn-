@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Plus, Pencil, ChevronRight } from 'lucide-react'
+import { Plus, Pencil, ChevronRight, Trash2 } from 'lucide-react'
 import { ipc } from '../../lib/ipc'
 import { Button, Badge, Modal, Input, Select } from '../../components/ui'
 import { useToast } from '../../components/ui'
@@ -104,6 +104,9 @@ export function AccountsPage() {
   const [editMaxLossPct, setEditMaxLossPct] = useState('0')
   const [form, setForm] = useState<CreateForm>(BLANK_FORM)
   const [saving, setSaving] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Account | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleting, setDeleting] = useState(false)
   const [showAll, setShowAll] = useState(false)
   const toast = useToast()
 
@@ -147,8 +150,17 @@ export function AccountsPage() {
     return accounts.filter((a) => showAll || a.status === 'active' || a.status === 'paused')
   }, [accounts, showAll])
 
-  function openCreate() {
-    setForm({ ...BLANK_FORM, propFirmId: firms[0]?.id ?? '' })
+  async function openCreate() {
+    let firmId = firms[0]?.id ?? ''
+    // If no prop firm exists yet, create a sensible default so the user doesn't
+    // have to navigate to Settings → Prop Firms before adding their first account.
+    if (!firmId) {
+      const res = await ipc.propFirms.create({ name: 'My Firm', defaultStepCount: 2 })
+      if (!res.ok) { toast('Could not create a default firm. Go to Settings → Prop Firms first.', 'error'); return }
+      await load()
+      firmId = res.data.id
+    }
+    setForm({ ...BLANK_FORM, propFirmId: firmId })
     setCreateOpen(true)
   }
 
@@ -268,6 +280,22 @@ export function AccountsPage() {
     setSaving(false)
   }
 
+  async function handleDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    const res = await ipc.accounts.delete(deleteTarget.id)
+    if (res.ok) {
+      toast('Account deleted', 'success')
+      await load()
+      setDeleteTarget(null)
+      setEditTarget(null)
+      setDeleteConfirm('')
+    } else {
+      toast(res.error.message, 'error')
+    }
+    setDeleting(false)
+  }
+
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-border px-6 py-5 flex items-center justify-between">
@@ -280,7 +308,7 @@ export function AccountsPage() {
           >
             {showAll ? 'Active only' : 'Show all'}
           </button>
-          <Button size="sm" onClick={openCreate} disabled={firms.length === 0}>
+          <Button size="sm" onClick={() => void openCreate()}>
             <Plus className="h-4 w-4" strokeWidth={1.5} />
             Add account
           </Button>
@@ -288,12 +316,6 @@ export function AccountsPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
-        {firms.length === 0 && (
-          <p className="text-caption text-text-muted mb-4">
-            Add a prop firm in Settings → Prop Firms before creating accounts.
-          </p>
-        )}
-
         {visible.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
             <p className="text-body text-text-muted">No accounts yet. Add one to get started.</p>
@@ -534,9 +556,56 @@ export function AccountsPage() {
               className="w-full rounded-[10px] border border-border bg-surface-elevated px-3 py-2 text-body text-text-primary placeholder:text-text-muted resize-none focus:border-accent-a focus:outline-none"
             />
           </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={() => setEditTarget(null)}>Cancel</Button>
-            <Button onClick={() => void handleEditSave()} loading={saving}>Save changes</Button>
+          <div className="flex items-center justify-between pt-2">
+            <button
+              type="button"
+              onClick={() => { setDeleteTarget(editTarget); setDeleteConfirm('') }}
+              className="flex items-center gap-1.5 rounded-[8px] px-3 py-1.5 text-caption text-danger hover:bg-danger/10 transition-colors"
+            >
+              <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Delete account
+            </button>
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setEditTarget(null)}>Cancel</Button>
+              <Button onClick={() => void handleEditSave()} loading={saving}>Save changes</Button>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete confirmation modal */}
+      <Modal
+        open={deleteTarget !== null}
+        onClose={() => { setDeleteTarget(null); setDeleteConfirm('') }}
+        title={`Delete ${deleteTarget?.displayName ?? ''}`}
+        maxWidth="400px"
+      >
+        <div className="space-y-4">
+          <p className="text-caption text-text-muted">
+            This permanently removes the account and all its trades, sessions, and rule history. This cannot be undone.
+          </p>
+          <div className="space-y-2">
+            <p className="text-caption text-text-secondary">
+              Type <span className="font-mono font-semibold text-text-primary">{deleteTarget?.displayName}</span> to confirm.
+            </p>
+            <input
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              placeholder={deleteTarget?.displayName ?? ''}
+              className="w-full rounded-[10px] border border-border bg-surface-elevated px-3 py-2 text-body text-text-primary placeholder:text-text-muted focus:border-danger focus:outline-none"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => { setDeleteTarget(null); setDeleteConfirm('') }}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteConfirm !== deleteTarget?.displayName}
+              loading={deleting}
+              onClick={() => void handleDelete()}
+            >
+              <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+              Delete
+            </Button>
           </div>
         </div>
       </Modal>
