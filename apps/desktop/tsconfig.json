@@ -23,7 +23,11 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@shared/*": ["./shared/*"]
+      "@shared/*": ["./shared/*"],
+      // Type-only redirect: use the narrow shim in types/ instead of the package's
+      // ~120 KB generated declaration, which OOMs the type-aware ESLint checker.
+      // Runtime/bundler resolution is unaffected. See types/libsodium-wrappers-sumo.d.ts.
+      "libsodium-wrappers-sumo": ["./types/libsodium-wrappers-sumo.d.ts"]
     }
   },
   "include": ["src", "shared"]

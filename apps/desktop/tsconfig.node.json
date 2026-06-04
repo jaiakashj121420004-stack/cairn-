@@ -19,7 +19,9 @@
 
     "baseUrl": ".",
     "paths": {
-      "@shared/*": ["./shared/*"]
+      "@shared/*": ["./shared/*"],
+      // Type-only redirect to the narrow libsodium shim. See tsconfig.json for why.
+      "libsodium-wrappers-sumo": ["./types/libsodium-wrappers-sumo.d.ts"]
     }
   },
   "include": ["electron", "shared", "*.config.ts", "*.config.js"]
