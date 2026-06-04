@@ -11,14 +11,15 @@
   "scripts": {
     "dev": "pnpm --filter @cairn/desktop run dev",
     "build": "pnpm --filter @cairn/desktop run build",
-    "typecheck": "pnpm --filter @cairn/desktop run typecheck",
-    "lint": "pnpm --filter @cairn/desktop run lint",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "lint": "pnpm -r --if-present run lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "pnpm --filter @cairn/desktop run test",
     "test:unit": "pnpm --filter @cairn/desktop run test:unit",
     "test:coverage": "pnpm --filter @cairn/desktop run test:coverage",
     "test:e2e": "pnpm --filter @cairn/desktop run test:e2e",
+    "test:server": "pnpm --filter @cairn/server run test",
     "check-licenses": "tsx scripts/check-licenses.ts",
     "prepare": "husky"
   },
@@ -31,10 +32,13 @@
     "tsx": "^4.22.4"
   },
   "pnpm": {
-    "overrides": {},
+    "overrides": {
+      "zod": "3.24.1"
+    },
     "onlyBuiltDependencies": [
       "electron",
-      "esbuild"
+      "esbuild",
+      "keytar"
     ]
   }
 }
