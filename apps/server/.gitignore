@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+
+# Vitest writes transient compiled-config files next to vitest.config.ts
+vitest.config.ts.timestamp-*.mjs

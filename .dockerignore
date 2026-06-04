@@ -1,0 +1,13 @@
+# Keep build contexts small and avoid copying host-installed deps / build output into
+# images (the Cairn API image reinstalls deps from the lockfile). See apps/server/Dockerfile.
+**/node_modules
+**/dist
+**/release
+**/out
+**/.turbo
+**/.vite
+**/coverage
+.git
+**/*.log
+apps/desktop/release
+apps/desktop/out

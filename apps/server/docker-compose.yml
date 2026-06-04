@@ -1,0 +1,69 @@
+# Local dev + integration-test infra for the Cairn server (CLAUDE.md §18.5, §19.10).
+# Integration tests run against the real Postgres here — the database is never mocked.
+#
+#   docker compose up -d                 # Postgres + Mailpit (for running tests on host)
+#   pnpm --filter @cairn/server run migrate
+#   pnpm --filter @cairn/server run test
+#
+#   docker compose --profile api up      # additionally build + run the API container
+#
+# Mailpit captures outbound email in dev (SMTP 1025, web UI 8025). Tests use the
+# in-process `memory` email provider instead and do not need Mailpit. The `api` service
+# lives behind a compose profile so the default `up` stays lightweight for the test loop.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cairn
+      POSTGRES_PASSWORD: cairn
+      POSTGRES_DB: cairn
+    ports:
+      # Host port is overridable (POSTGRES_PORT) for machines already running a
+      # Postgres on 5432; the in-container port stays 5432.
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - cairn_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U cairn -d cairn']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - '1025:1025' # SMTP
+      - '8025:8025' # web UI
+    environment:
+      MP_MAX_MESSAGES: '500'
+
+  api:
+    profiles: ['api']
+    build:
+      context: ../..
+      dockerfile: apps/server/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: '3000'
+      # In-container the DB is reachable at the service name on the standard port.
+      DATABASE_URL: postgres://cairn:cairn@postgres:5432/cairn
+      # Dev-only defaults; override in any real environment (both must be ≥ 32 chars).
+      PASSWORD_PEPPER: ${PASSWORD_PEPPER:-dev-pepper-change-me-0000000000000000}
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me-000000000000}
+      EMAIL_PROVIDER: console
+      APP_URL: http://localhost:5173
+      CORS_ORIGINS: http://localhost:5173
+      COOKIE_SECURE: 'false'
+    ports:
+      - '${API_PORT:-3000}:3000'
+
+volumes:
+  cairn_pgdata:
