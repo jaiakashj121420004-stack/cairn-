@@ -118,9 +118,19 @@ libsodium-based client crypto per `docs/security.md`: Argon2id KDF → KEK, data
 
 ### Stage 18.5 / 18.6 (server half) — Fastify backend — committed `91c0fb2`
 
-Fastify API: auth (Argon2id + pepper, JWT access ≤15 min + opaque rotating refresh with reuse-detection), billing (BillingProvider + entitlements), vault (ciphertext push/pull), devices, signature-verified idempotent webhooks. Server stores ciphertext only; never decrypts user content.
+Fastify API: auth (Argon2id + pepper, JWT access ≤15 min + opaque rotating refresh with reuse-detection), billing (BillingProvider + entitlements), vault (ciphertext push/pull), devices, signature-verified idempotent webhooks. Server stores ciphertext only; never decrypts user content. Vault key-material endpoints (`/vault/key` GET/PUT) + password reset landed in follow-up `15299b3`.
 
-### Stage 18.6 (client sync half) — push / pull / merge slice — NOT YET COMMITTED (this is the pending working tree)
+### Stage 18.5 — OpenAPI 3.1 spec + Scalar API reference docs — pending working tree (this change)
+
+Closes the one outstanding Stage 18.5 (Stage 3) scope item: "OpenAPI / Scalar docs". The routes validate with Zod at the boundary rather than attaching Fastify JSON schemas, so there is nothing for a schema-introspecting generator to read — the contract is therefore **hand-authored and reviewed** in `apps/server/src/docs/openapi.ts` (typed `as const`, no `any`), covering all 25 registered HTTP paths (health, auth, devices, vault, billing, webhooks, admin) with the universal `Result<T>` envelope and bearer/admin security schemes.
+
+- **Serving (`apps/server/src/docs/routes.ts`)** — `GET /openapi.json` (raw spec for any OpenAPI tooling), `GET /docs` (Scalar UI), `GET /docs/standalone.js` (the vendored Scalar bundle). Gated by new env `ENABLE_API_DOCS` (default `true`; `false` → routes 404, revealing nothing).
+- **Self-hosted, offline** — Scalar's browser bundle (`@scalar/api-reference` 1.32.0, MIT) is **vendored** at `apps/server/src/docs/scalar-standalone.js` and served same-origin. No CDN, so no Subresource-Integrity gap and no external runtime dependency. (pnpm could not add a runtime dep from the Linux build sandbox — EPERM on the Windows-mounted store — so vendoring is also the only verifiable path here.)
+- **CSP** — the global helmet policy is `default-src 'none'`; the three doc routes relax CSP to *same-origin* sources only (the narrowest policy that lets Scalar render), since they serve no secrets and no user content.
+- **Tests** — `apps/server/tests/integration/docs.test.ts` (6 cases, **DB-free**): valid OpenAPI 3.1 doc; documented-paths == registered-paths drift guard; bearer security on authed endpoints; `/docs` HTML + relaxed-CSP override; vendored bundle served; all doc routes 404 when disabled.
+- **Verification** — the 6 docs tests pass and the new files typecheck clean under the repo's exact strict flags, run in a throwaway pinned-version project in the build sandbox (the repo's own `node_modules` are Windows symlinks the Linux sandbox can't resolve — same limitation noted in the 2026-05-30/31 review). **The five repo gates (typecheck · lint · full vitest · build · smoke E2E) still need a run on the Windows host** — the full server suite needs the Docker Compose Postgres, and the desktop build/E2E can't run in the sandbox.
+
+### Stage 18.6 (client sync half) — push / pull / merge slice — committed `363f8c8`
 
 Vertical sync slice for the **`trades` table only** (intentionally one table end-to-end; other tables follow in the next prompt). On disk under `apps/desktop/electron/services/sync/` (`enqueue`, `pull`, `cycle`, `push`, `clock`, `canonical`, `serialize`, `store`, `runner`, `http`, `queue`, `types`, `index`):
 

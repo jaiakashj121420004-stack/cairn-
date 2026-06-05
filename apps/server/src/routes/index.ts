@@ -2,6 +2,7 @@ import { registerAdminRoutes } from '../admin/routes'
 import { registerAuthRoutes } from '../auth/routes'
 import { registerBillingRoutes } from '../billing/routes'
 import { registerDeviceRoutes } from '../devices/routes'
+import { registerDocsRoutes } from '../docs/routes'
 import { sendOk } from '../lib/http'
 import { registerVaultRoutes } from '../vault/routes'
 import { registerWebhookRoutes } from '../webhooks/routes'
@@ -30,14 +31,10 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     sendOk(reply, { status: 'ok' })
   })
 
+  // API docs: OpenAPI spec + Scalar UI (gated by ENABLE_API_DOCS, default on).
+  registerDocsRoutes(app, { enabled: deps.env.ENABLE_API_DOCS })
+
   registerAuthRoutes(app, { authService: deps.authService, env: deps.env, limiter: deps.limiter })
   registerDeviceRoutes(app, { db: deps.db, env: deps.env })
   registerVaultRoutes(app, { db: deps.db, env: deps.env })
-  registerWebhookRoutes(app, { db: deps.db, env: deps.env })
-  registerBillingRoutes(app, {
-    db: deps.db,
-    env: deps.env,
-    billingProviders: deps.billingProviders,
-  })
-  registerAdminRoutes(app, { db: deps.db, env: deps.env })
-}
+  registerWebhookRoutes(app, { db: deps.d

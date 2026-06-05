@@ -64,6 +64,17 @@ const envSchema = z.object({
     .positive()
     .default(64 * 1024),
 
+  /**
+   * Serve the OpenAPI spec (`/openapi.json`) and the Scalar API reference UI (`/docs`).
+   * The docs describe only the public HTTP contract — no secrets, no user content — so
+   * they default on in every environment. Set to `false` to hide them entirely (the
+   * routes then 404, revealing nothing).
+   */
+  ENABLE_API_DOCS: z
+    .enum(['true', 'false'])
+    .transform((v) => v === 'true')
+    .default('true'),
+
   // ── Billing ──────────────────────────────────────────────────────────────────────────
   /** Stripe secret API key. Required to enable Stripe billing + webhooks. */
   STRIPE_SECRET_KEY: z.string().optional(),
@@ -117,18 +128,4 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     const issues = parsed.error.issues
       .map((i) => `  - ${i.path.join('.') || '(root)'}: ${i.message}`)
       .join('\n')
-    throw new Error(`Invalid environment configuration:\n${issues}`)
-  }
-  if (parsed.data.EMAIL_PROVIDER === 'resend' && !parsed.data.RESEND_API_KEY) {
-    throw new Error(
-      'Invalid environment configuration:\n  - RESEND_API_KEY: required when EMAIL_PROVIDER=resend',
-    )
-  }
-  cached = Object.freeze(parsed.data)
-  return cached
-}
-
-/** Test-only: drop the cached env so a test can rebuild with fresh values. */
-export function resetEnvCache(): void {
-  cached = null
-}
+    throw new Error(`Invalid environment configura
