@@ -1358,27 +1358,27 @@ files:
 **Prerequisites:** Stage 3 Prompt 2.
 
 **Prompt:**
-> Read `CLAUDE.md` §3.1b, §18.5, §20.4.
->
-> Implement:
->
-> 1. **`/devices`** routes — `POST` (register), `GET` (list), `DELETE /:id` (revoke). Each requires auth + verified email.
-> 2. **`/vault/manifest`** `GET` — returns `{ key_version, schema_version, latest_op_id_per_table }` so a client knows what to pull.
-> 3. **`/vault/push`** `POST` — body is `{ device_id, ops: EncryptedOp[] }`. Server validates the shape, asserts `device_id` belongs to the user, appends each op to `vault_blob`. The server NEVER inspects payload_ciphertext. Size limit 5 MB per request; reject larger with 413. Atomicity: a single SQL transaction per request.
-> 4. **`/vault/pull`** `POST` — body `{ since_op_id_per_table? }`. Returns ops newer than the cursors. Pagination: 500 ops per response, `next_cursor` returned. Server still does not inspect content.
-> 5. **Stripe webhook** `POST /webhooks/stripe`: raw-body parser (not JSON) so signature verification works. `stripe.webhooks.constructEvent` with `STRIPE_WEBHOOK_SECRET`. On valid event: INSERT into `webhook_event` with `ON CONFLICT (provider, external_id) DO NOTHING`; if the insert returned 0 rows, the event was already processed — return 200 without acting. Otherwise dispatch to a typed handler. Write an `audit_log` row.
-> 6. **Razorpay webhook** `POST /webhooks/razorpay`: same shape, Razorpay signature verify (HMAC-SHA256 of body with secret, constant-time compare).
-> 7. **Idempotency test (Opus pass):** simulate Stripe sending the same event twice 10ms apart — assert only one state change. Simulate a webhook arriving BEFORE the matching `/billing/checkout` callback — assert eventual consistency (next `/billing/status` poll matches). Hammer test: 200 concurrent webhook deliveries of the same id → exactly one row in `webhook_event`.
-> 8. **Audit log query:** `GET /admin/audit-log` requires admin token; returns recent rows. Protected by env `ADMIN_TOKEN`; do NOT expose without it.
->
-> Tests in `tests/integration/vault.test.ts` and `tests/integration/webhooks.test.ts`. Use a Stripe mock (no real network).
->
-> NO-SLOP FOOTER applies. Plus: every endpoint has a Zod input AND output schema. Drift between them is a tested error.
+   > Read `CLAUDE.md` §3.1b, §18.5, §20.4.
+   >
+   > Implement:
+   >
+   > 1. **`/devices`** routes — `POST` (register), `GET` (list), `DELETE /:id` (revoke). Each requires auth + verified email.
+   > 2. **`/vault/manifest`** `GET` — returns `{ key_version, schema_version, latest_op_id_per_table }` so a client knows what to pull.
+   > 3. **`/vault/push`** `POST` — body is `{ device_id, ops: EncryptedOp[] }`. Server validates the shape, asserts `device_id` belongs to the user, appends each op to `vault_blob`. The server NEVER inspects payload_ciphertext. Size limit 5 MB per request; reject larger with 413. Atomicity: a single SQL transaction per request.
+   > 4. **`/vault/pull`** `POST` — body `{ since_op_id_per_table? }`. Returns ops newer than the cursors. Pagination: 500 ops per response, `next_cursor` returned. Server still does not inspect content.
+   > 5. **Stripe webhook** `POST /webhooks/stripe`: raw-body parser (not JSON) so signature verification works. `stripe.webhooks.constructEvent` with `STRIPE_WEBHOOK_SECRET`. On valid event: INSERT into `webhook_event` with `ON CONFLICT (provider, external_id) DO NOTHING`; if the insert returned 0 rows, the event was already processed — return 200 without acting. Otherwise dispatch to a typed handler. Write an `audit_log` row.
+   > 6. **Razorpay webhook** `POST /webhooks/razorpay`: same shape, Razorpay signature verify (HMAC-SHA256 of body with secret, constant-time compare).
+   > 7. **Idempotency test (Opus pass):** simulate Stripe sending the same event twice 10ms apart — assert only one state change. Simulate a webhook arriving BEFORE the matching `/billing/checkout` callback — assert eventual consistency (next `/billing/status` poll matches). Hammer test: 200 concurrent webhook deliveries of the same id → exactly one row in `webhook_event`.
+   > 8. **Audit log query:** `GET /admin/audit-log` requires admin token; returns recent rows. Protected by env `ADMIN_TOKEN`; do NOT expose without it.
+   >
+   > Tests in `tests/integration/vault.test.ts` and `tests/integration/webhooks.test.ts`. Use a Stripe mock (no real network).
+   >
+   > NO-SLOP FOOTER applies. Plus: every endpoint has a Zod input AND output schema. Drift between them is a tested error.
 
 **Definition of done:** vault round-trip works against compose; webhooks reject bad signatures, dedupe correctly, survive the hammer test.
 
 **After Stage 3:** push. Backend is alive locally. Pen-test it mentally — what would a hostile client try? Nothing in production yet.
-
+DONEEEEEEEEEEEEEEEEEEEEEEE
 ---
 
 ## 13. v2.0 — STAGE 4: SYNC ENGINE

@@ -72,6 +72,13 @@ import type {
   TvPreviewInput,
   TvCommitInput,
 } from '@shared/types/index'
+import type { PublicSession, SignupResult } from '@cairn/shared-types'
+import type {
+  SignupInput,
+  LoginInput,
+  ForgotPasswordInput,
+  ResetPasswordInput,
+} from '@cairn/shared-zod'
 
 export interface DbStatus {
   integrityOk: boolean
@@ -236,6 +243,16 @@ declare global {
         commitCtrader: (input: CTraderCommitInput) => Promise<IpcResponse<ImportCommitResult>>
         previewTradingView: (input: TvPreviewInput) => Promise<IpcResponse<ImportPreview>>
         commitTradingView: (input: TvCommitInput) => Promise<IpcResponse<ImportCommitResult>>
+      }
+      auth: {
+        signup: (input: SignupInput) => Promise<IpcResponse<SignupResult>>
+        login: (input: LoginInput) => Promise<IpcResponse<PublicSession>>
+        logout: () => Promise<IpcResponse<void>>
+        getSession: () => Promise<IpcResponse<PublicSession | null>>
+        restore: () => Promise<IpcResponse<PublicSession | null>>
+        verifyEmail: (token: string) => Promise<IpcResponse<{ verified: boolean }>>
+        forgotPassword: (input: ForgotPasswordInput) => Promise<IpcResponse<{ sent: true }>>
+        resetPassword: (input: ResetPasswordInput) => Promise<IpcResponse<{ reset: true }>>
       }
       events: {
         on: (name: string, cb: (payload: unknown) => void) => () => void
@@ -467,6 +484,21 @@ export const ipc = {
       window.api.import.previewTradingView(input),
     commitTradingView: (input: TvCommitInput): Promise<IpcResponse<ImportCommitResult>> =>
       window.api.import.commitTradingView(input),
+  },
+
+  auth: {
+    signup: (input: SignupInput): Promise<IpcResponse<SignupResult>> =>
+      window.api.auth.signup(input),
+    login: (input: LoginInput): Promise<IpcResponse<PublicSession>> => window.api.auth.login(input),
+    logout: (): Promise<IpcResponse<void>> => window.api.auth.logout(),
+    getSession: (): Promise<IpcResponse<PublicSession | null>> => window.api.auth.getSession(),
+    restore: (): Promise<IpcResponse<PublicSession | null>> => window.api.auth.restore(),
+    verifyEmail: (token: string): Promise<IpcResponse<{ verified: boolean }>> =>
+      window.api.auth.verifyEmail(token),
+    forgotPassword: (input: ForgotPasswordInput): Promise<IpcResponse<{ sent: true }>> =>
+      window.api.auth.forgotPassword(input),
+    resetPassword: (input: ResetPasswordInput): Promise<IpcResponse<{ reset: true }>> =>
+      window.api.auth.resetPassword(input),
   },
 
   backup: {

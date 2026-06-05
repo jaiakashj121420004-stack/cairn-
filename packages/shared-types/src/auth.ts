@@ -34,3 +34,17 @@ export interface AuthSession {
   /** Echo of the authenticated user's claims for convenience. */
   readonly user: AccessTokenClaims
 }
+
+/**
+ * Renderer-/web-safe snapshot of the desktop session (CLAUDE.md §18.5). Crosses the
+ * IPC/HTTP boundary, so it carries identity and status only — never the access or
+ * refresh token, which stay in the main process / `__Host-` cookie.
+ */
+export interface PublicSession {
+  readonly userId: string
+  readonly email: string
+  readonly emailVerified: boolean
+  readonly entitlement: Entitlement
+  /** True once a vault data key is loaded (Stage 3); false = signed in, vault locked. */
+  readonly vaultUnlocked: boolean
+}

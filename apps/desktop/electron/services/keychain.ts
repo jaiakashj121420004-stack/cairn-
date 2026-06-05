@@ -18,6 +18,10 @@ function accountFor(userId: string): string {
   return `dataKey:${userId}`
 }
 
+function refreshAccountFor(userId: string): string {
+  return `refresh:${userId}`
+}
+
 /** The subset of `keytar` this module uses. Keeps the dependency injectable for tests. */
 export interface KeytarLike {
   getPassword(service: string, account: string): Promise<string | null>
@@ -98,5 +102,45 @@ export async function clearDataKey(userId: string): Promise<Result<boolean>> {
     return ok(deleted)
   } catch {
     return err('KEYCHAIN_ERROR', 'failed to clear data key from OS keychain')
+  }
+}
+
+// ── Refresh token ─────────────────────────────────────────────────────────────
+// The opaque rotating refresh token is the desktop's only persisted auth secret
+// (CLAUDE.md §2.13, §18.5). It is stored under account `refresh:<userId>` so an app
+// restart can re-establish a session without re-prompting for the password. The vault
+// data key (above) remains separate — auth and vault-unlock are independent concerns.
+
+/** Persist the (rotated) refresh token for `userId`. */
+export async function storeRefreshToken(userId: string, token: string): Promise<Result<void>> {
+  const keytar = await loadKeytar()
+  if (!keytar) return err('KEYCHAIN_UNAVAILABLE', 'OS keychain backend is not available')
+  try {
+    await keytar.setPassword(SERVICE, refreshAccountFor(userId), token)
+    return ok(undefined)
+  } catch {
+    return err('KEYCHAIN_ERROR', 'failed to store refresh token in OS keychain')
+  }
+}
+
+/** Read the persisted refresh token for `userId`, or `ok(null)` if none exists. */
+export async function readRefreshToken(userId: string): Promise<Result<string | null>> {
+  const keytar = await loadKeytar()
+  if (!keytar) return err('KEYCHAIN_UNAVAILABLE', 'OS keychain backend is not available')
+  try {
+    return ok(await keytar.getPassword(SERVICE, refreshAccountFor(userId)))
+  } catch {
+    return err('KEYCHAIN_ERROR', 'failed to read refresh token from OS keychain')
+  }
+}
+
+/** Remove the persisted refresh token for `userId`. Call on logout. */
+export async function clearRefreshToken(userId: string): Promise<Result<boolean>> {
+  const keytar = await loadKeytar()
+  if (!keytar) return err('KEYCHAIN_UNAVAILABLE', 'OS keychain backend is not available')
+  try {
+    return ok(await keytar.deletePassword(SERVICE, refreshAccountFor(userId)))
+  } catch {
+    return err('KEYCHAIN_ERROR', 'failed to clear refresh token from OS keychain')
   }
 }

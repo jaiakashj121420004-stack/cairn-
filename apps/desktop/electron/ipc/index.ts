@@ -2,6 +2,7 @@ import { registerAccountRulesHandlers } from './account-rules'
 import { registerAccountTemplateHandlers } from './account-templates'
 import { registerAccountHandlers } from './accounts'
 import { registerAnalyticsHandlers } from './analytics'
+import { registerAuthHandlers } from './auth'
 import { registerBackupHandlers } from './backup'
 import { registerDashboardHandlers } from './dashboard'
 import { registerDataHandlers } from './data'
@@ -45,4 +46,5 @@ export function setupIpcHandlers(): void {
   registerImportHandlers()
   registerPlaybookHandlers()
   registerSyncHandlers()
+  registerAuthHandlers()
 }

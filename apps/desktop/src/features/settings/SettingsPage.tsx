@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Tabs } from '../../components/ui'
 import { useUiStore } from '../../stores/ui-store'
+import { AccountTab } from './tabs/AccountTab'
 import { AlertsTab } from './tabs/AlertsTab'
 import { BackupsTab } from './tabs/BackupsTab'
 import { DataTab } from './tabs/DataTab'
@@ -28,6 +29,7 @@ const TABS: TabItem[] = [
   { id: 'shortcuts', label: 'Shortcuts' },
   { id: 'data', label: 'Data' },
   { id: 'backups', label: 'Backups' },
+  { id: 'account', label: 'Account & Sync' },
 ]
 
 export function SettingsPage() {
@@ -60,6 +62,7 @@ export function SettingsPage() {
         {activeTab === 'import' && <ImportTab />}
         {activeTab === 'data' && <DataTab />}
         {activeTab === 'backups' && <BackupsTab />}
+        {activeTab === 'account' && <AccountTab />}
       </div>
     </div>
   )

@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { DbStatus } from './ipc/db'
 import type { SyncNowResult } from './ipc/sync'
+import type { PublicSession } from './services/session'
 import type { IpcResponse } from '../shared/types/index'
 import type {
   BackupLogEntry,
@@ -77,6 +78,13 @@ import type {
   UpdateNotebookEntryInput,
   NotebookSearchInput,
 } from '../shared/types/index'
+import type { SignupResult } from '@cairn/shared-types'
+import type {
+  ForgotPasswordInput,
+  LoginInput,
+  ResetPasswordInput,
+  SignupInput,
+} from '@cairn/shared-zod'
 
 // ── cairn:event push channel ─────────────────────────────────────────────────
 // Main process sends { name, payload } after every DB-mutating trade operation.
@@ -340,6 +348,23 @@ const api = {
   sync: {
     // Manual sync trigger (spec shorthand: cairn.sync.now()).
     now: (): Promise<IpcResponse<SyncNowResult>> => ipcRenderer.invoke('sync:now'),
+  },
+
+  auth: {
+    signup: (input: SignupInput): Promise<IpcResponse<SignupResult>> =>
+      ipcRenderer.invoke('auth:signup', input),
+    login: (input: LoginInput): Promise<IpcResponse<PublicSession>> =>
+      ipcRenderer.invoke('auth:login', input),
+    logout: (): Promise<IpcResponse<void>> => ipcRenderer.invoke('auth:logout'),
+    getSession: (): Promise<IpcResponse<PublicSession | null>> =>
+      ipcRenderer.invoke('auth:getSession'),
+    restore: (): Promise<IpcResponse<PublicSession | null>> => ipcRenderer.invoke('auth:restore'),
+    verifyEmail: (token: string): Promise<IpcResponse<{ verified: boolean }>> =>
+      ipcRenderer.invoke('auth:verifyEmail', { token }),
+    forgotPassword: (input: ForgotPasswordInput): Promise<IpcResponse<{ sent: true }>> =>
+      ipcRenderer.invoke('auth:forgotPassword', input),
+    resetPassword: (input: ResetPasswordInput): Promise<IpcResponse<{ reset: true }>> =>
+      ipcRenderer.invoke('auth:resetPassword', input),
   },
 
   events: {
