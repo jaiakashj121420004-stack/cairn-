@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { getDb } from '../db/index'
 import * as schema from '../db/schema'
 import { calculatePnl, calculateDurationMinutes } from '../services/pnl-calculator'
+import { enqueueSyncOp } from '../services/sync'
 import { computeTradeGrade, countRulesBroken } from '../services/trade-grade'
 import type {
   IpcResponse,
@@ -410,6 +411,7 @@ export function registerTradeHandlers(): void {
 
       const row = db.select().from(schema.trades).where(eq(schema.trades.id, id)).get()
       if (!row) return { ok: false, error: { code: 'DB_ERROR', message: 'Insert failed' } }
+      enqueueSyncOp('trades', id, 'upsert', row)
       if (!e.sender.isDestroyed()) {
         e.sender.send('cairn:event', {
           name: 'trade.placed',
@@ -458,6 +460,7 @@ export function registerTradeHandlers(): void {
 
         const row = db.select().from(schema.trades).where(eq(schema.trades.id, raw.tradeId)).get()
         if (!row) return { ok: false, error: { code: 'NOT_FOUND', message: 'Trade not found' } }
+        enqueueSyncOp('trades', raw.tradeId, 'upsert', row)
         if (!e.sender.isDestroyed()) {
           e.sender.send('cairn:event', {
             name: 'trade.placed',
@@ -617,6 +620,7 @@ export function registerTradeHandlers(): void {
 
       const row = db.select().from(schema.trades).where(eq(schema.trades.id, d.tradeId)).get()
       if (!row) return { ok: false, error: { code: 'DB_ERROR', message: 'Close failed' } }
+      enqueueSyncOp('trades', d.tradeId, 'upsert', row)
       if (!e.sender.isDestroyed()) {
         e.sender.send('cairn:event', {
           name: 'trade.closed',
@@ -736,6 +740,7 @@ export function registerTradeHandlers(): void {
 
       const row = db.select().from(schema.trades).where(eq(schema.trades.id, d.tradeId)).get()
       if (!row) return { ok: false, error: { code: 'DB_ERROR', message: 'Close failed' } }
+      enqueueSyncOp('trades', d.tradeId, 'upsert', row)
       if (!e.sender.isDestroyed()) {
         e.sender.send('cairn:event', {
           name: 'trade.closed',
@@ -824,6 +829,7 @@ export function registerTradeHandlers(): void {
 
       const row = db.select().from(schema.trades).where(eq(schema.trades.id, d.tradeId)).get()
       if (!row) return { ok: false, error: { code: 'DB_ERROR', message: 'Reflection failed' } }
+      enqueueSyncOp('trades', d.tradeId, 'upsert', row)
       if (!e.sender.isDestroyed()) {
         e.sender.send('cairn:event', {
           name: 'trade.reflected',
@@ -927,6 +933,7 @@ export function registerTradeHandlers(): void {
 
       const row = db.select().from(schema.trades).where(eq(schema.trades.id, raw.tradeId)).get()
       if (!row) return { ok: false, error: { code: 'DB_ERROR', message: 'Update failed' } }
+      enqueueSyncOp('trades', raw.tradeId, 'upsert', row)
       if (!e.sender.isDestroyed()) {
         e.sender.send('cairn:event', {
           name: 'trade.partial-closed',
@@ -1165,6 +1172,7 @@ export function registerTradeHandlers(): void {
         .set({ deletedAt: Date.now(), updatedAt: Date.now() })
         .where(eq(schema.trades.id, raw.tradeId))
         .run()
+      enqueueSyncOp('trades', raw.tradeId, 'delete', null)
       return { ok: true, data: { ok: true } }
     } catch (err) {
       return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }

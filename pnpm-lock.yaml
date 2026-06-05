@@ -35,6 +35,12 @@ importers:
       '@cairn/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      '@cairn/shared-zod':
+        specifier: workspace:*
+        version: link:../../packages/shared-zod
+      '@cairn/sync-protocol':
+        specifier: workspace:*
+        version: link:../../packages/sync-protocol
       '@fontsource-variable/inter':
         specifier: ^5.2.8
         version: 5.2.8

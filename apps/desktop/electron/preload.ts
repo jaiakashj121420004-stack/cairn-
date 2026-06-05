@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { DbStatus } from './ipc/db'
+import type { SyncNowResult } from './ipc/sync'
 import type { IpcResponse } from '../shared/types/index'
 import type {
   BackupLogEntry,
@@ -334,6 +335,11 @@ const api = {
       ipcRenderer.invoke('import:previewTradingView', input),
     commitTradingView: (input: TvCommitInput): Promise<IpcResponse<ImportCommitResult>> =>
       ipcRenderer.invoke('import:commitTradingView', input),
+  },
+
+  sync: {
+    // Manual sync trigger (spec shorthand: cairn.sync.now()).
+    now: (): Promise<IpcResponse<SyncNowResult>> => ipcRenderer.invoke('sync:now'),
   },
 
   events: {

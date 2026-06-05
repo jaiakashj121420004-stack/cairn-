@@ -78,6 +78,8 @@ describe('migration journal wiring', () => {
       '0008_external_ref',
       '0009_phase2',
       '0010_playbooks',
+      '0011_sync',
+      '0012_sync_merge',
     ])
     // Every journaled tag must resolve to a non-empty .sql file.
     for (const tag of orderedTags()) {
@@ -373,6 +375,36 @@ describe('migration 0010: playbooks table', () => {
     expect(tables).toContain('trades')
     expect(tables).toContain('notebook_entries')
     expect(tables).toContain('trade_partials')
+    sqlite.close()
+  })
+})
+
+describe('migration 0012: sync merge tables', () => {
+  it('creates the conflict, quarantine, audit, and state tables', () => {
+    const sqlite = new SQL.Database()
+    for (const tag of orderedTags()) applyMigration(sqlite, tag)
+
+    const tables = tableNames(sqlite)
+    expect(tables).toContain('sync_conflicts')
+    expect(tables).toContain('sync_quarantine')
+    expect(tables).toContain('sync_audit')
+    expect(tables).toContain('sync_state')
+
+    // Quarantine keeps the raw ciphertext as text (never re-encoded) + a reason.
+    const qInfo = sqlite.exec('PRAGMA table_info(`sync_quarantine`)')
+    const qCols = new Map(
+      (qInfo[0]?.values ?? []).map((r) => [r[1] as string, (r[2] as string).toLowerCase()]),
+    )
+    expect(qCols.get('payload_ciphertext')).toBe('text')
+    expect(qCols.get('reason')).toBe('text')
+    expect(qCols.has('remote_op_id')).toBe(true)
+
+    // Conflicts retain both clocks + both payloads.
+    const cInfo = sqlite.exec('PRAGMA table_info(`sync_conflicts`)')
+    const cCols = new Set((cInfo[0]?.values ?? []).map((r) => r[1] as string))
+    for (const col of ['local_clock', 'remote_clock', 'local_payload', 'remote_payload']) {
+      expect(cCols.has(col)).toBe(true)
+    }
     sqlite.close()
   })
 })

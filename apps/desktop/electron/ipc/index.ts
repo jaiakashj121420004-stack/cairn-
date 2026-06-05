@@ -18,6 +18,7 @@ import { registerRulesHandlers } from './rules'
 import { registerSessionHandlers } from './sessions'
 import { registerPingHandler, registerSettingsHandlers } from './settings'
 import { registerSetupHandlers } from './setups'
+import { registerSyncHandlers } from './sync'
 import { registerTradeHandlers } from './trades'
 
 export function setupIpcHandlers(): void {
@@ -43,4 +44,5 @@ export function setupIpcHandlers(): void {
   registerBackupHandlers()
   registerImportHandlers()
   registerPlaybookHandlers()
+  registerSyncHandlers()
 }

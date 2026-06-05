@@ -107,3 +107,33 @@ All five gates green post-commit: typecheck · lint · 258 tests · build · smo
 - **24 (Playbooks):** Migration 0010 adds `playbooks` table. `electron/ipc/playbooks.ts` CRUD handlers (Zod-validated). `PlaybooksTab.tsx` in Settings. `src/lib/playbook-prefill.ts` — pure `buildPlaybookPatch`; applied in PreTradePanel on inline `<select>` change and on `initialPlaybookId` from ⌘K `playbookIdRequested` store signal. Analytics: `playbook-analytics.test.ts` (6 tests), `playbooks.test.ts` integration (11 tests), `playbook-prefill.test.ts` unit (12 tests).
 
 ---
+
+## v2.0 — Cloud / Sync / Billing (Stage 18.x, in progress)
+
+The v2.0 rebuild (CLAUDE.md §18 / `docs/roadmap-v2.0.md`) is underway on top of the v1.2 feature-complete base. Stages 18.0–18.3 (monorepo move, shared types/Zod, P&L → decimal.js) landed earlier; the entries below cover the crypto / server / sync stages.
+
+### Stage 18.4 — client-side E2E crypto + OS keychain — committed `e812589`
+
+libsodium-based client crypto per `docs/security.md`: Argon2id KDF → KEK, data-key wrap/unwrap, XChaCha20-Poly1305 AEAD, recovery phrase. OS keychain (keytar) caches the unwrapped data key at rest. Shared result/error/crypto/auth types + auth/billing/devices/vault Zod schemas landed alongside in `9c73422`.
+
+### Stage 18.5 / 18.6 (server half) — Fastify backend — committed `91c0fb2`
+
+Fastify API: auth (Argon2id + pepper, JWT access ≤15 min + opaque rotating refresh with reuse-detection), billing (BillingProvider + entitlements), vault (ciphertext push/pull), devices, signature-verified idempotent webhooks. Server stores ciphertext only; never decrypts user content.
+
+### Stage 18.6 (client sync half) — push / pull / merge slice — NOT YET COMMITTED (this is the pending working tree)
+
+Vertical sync slice for the **`trades` table only** (intentionally one table end-to-end; other tables follow in the next prompt). On disk under `apps/desktop/electron/services/sync/` (`enqueue`, `pull`, `cycle`, `push`, `clock`, `canonical`, `serialize`, `store`, `runner`, `http`, `queue`, `types`, `index`):
+
+- **Encryption-on-write (`enqueue.ts`)** — single `enqueueSyncOp(table, record_id, op_type, plaintext_row)` helper; the only way to enqueue. After a handler's DB commit it bumps the record's vector clock, wraps the row in a canonical-JSON envelope, appends to `sync_queue`. No-ops until sync is enrolled, so the offline-first app is untouched. Currently wired into the seven mutating **trades** handlers in `ipc/trades.ts` only.
+- **Pull (`pull.ts`)** — `/vault/pull` with persisted cursor; per page: decrypt (AD = `table:record_id`) → validate the table's Zod schema → compare clocks → apply / ignore / conflict / quarantine. Whole page applied in one transaction; schema failures are **quarantined + audit-logged, never discarded**.
+- **Merge/conflict (`compareClocks`)** — ancestor→apply, descendant→skip, concurrent→**both versions retained** in `sync_conflicts` + audit line (resolution modal is the next prompt).
+- **Runner (`cycle.ts`)** — each tick is a push→pull cycle; `wrong-key` pause path on decrypt-of-own-op failure.
+- **Migrations** — `0011_sync.sql` (`sync_queue`), `0012_sync_merge.sql` (`sync_conflicts`, `sync_quarantine`, `sync_audit`, `sync_state` cursor). Both additive + idempotent; empty on existing installs until sync is enrolled.
+- **Decrypt-failure policy** — a *foreign* device's undecryptable op → quarantine (single tampered/misrouted row); our *own* op failing → wrong-key halt. Whole-vault rotation caught upstream by `key_version` manifest check.
+- **Robustness (from §19.11 review)** — upsert uses `ON CONFLICT DO UPDATE` (not `INSERT OR REPLACE`, which would cascade-delete a trade's child rows); enqueue is best-effort (swallows + logs) so a sync hiccup can never break the canonical local write.
+
+**Tests:** ~74 sync test cases (`tests/unit/sync/`: canonical, clock, vector-clock, enqueue, push, merge, runner, serialize, cycle) — the four required scenarios pass (two-device→conflict in both DBs; linear→no conflict + B sees A's change; wrong-AD→quarantined; server-can't-decrypt), plus schema-invalid, wrong-key, cycle, and canonical-JSON.
+
+**Gates (as reported by the build session, not independently re-run here):** typecheck ×2 · lint 0 · 791 unit tests · build · smoke E2E not re-run.
+
+**Known scope boundary (next prompt):** only `trades` is in the `store.ts` apply registry (`TABLE_SPECS`) and only `trades.ts` is wired to `enqueueSyncOp`. Registering the other syncable tables (accounts, sessions, playbooks, notebook…), the main-process wiring (`SyncWriteContext` + `createSyncRunner` in `index.ts`, device id + data key + token refresh), and the conflict-resolution modal are still pending.

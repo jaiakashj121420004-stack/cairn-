@@ -71,6 +71,20 @@
       "when": 1778112000000,
       "tag": "0010_playbooks",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1778198400000,
+      "tag": "0011_sync",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1778284800000,
+      "tag": "0012_sync_merge",
+      "breakpoints": true
     }
   ]
 }

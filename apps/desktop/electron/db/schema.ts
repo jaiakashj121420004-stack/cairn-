@@ -359,6 +359,82 @@ export const notebookEntries = sqliteTable('notebook_entries', {
   deletedAt: integer('deleted_at'),
 })
 
+/**
+ * Outbound sync queue (v2.0 Stage 18.6, docs/sync-protocol.md §2.3). The write path
+ * (next stage) appends one row per local mutation; the push service drains it in
+ * `created_at` order, encrypts each row's plaintext `payload` with the data key, and
+ * deletes the row only after the server acknowledges the op. Stores plaintext on
+ * purpose — the device is the only place plaintext ever exists; encryption happens at
+ * push time so a key rotation re-encrypts the queue, not the journal.
+ */
+export const syncQueue = sqliteTable('sync_queue', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  tableName: text('table_name').notNull(),
+  recordId: text('record_id').notNull(),
+  /** 'upsert' | 'delete'. */
+  opType: text('op_type').notNull(),
+  /** Plaintext sync envelope (docs/sync-protocol.md §2.2) to encrypt at push; '' for a bare delete. */
+  payload: text('payload').notNull().default(''),
+  createdAt: integer('created_at').notNull(),
+})
+
+/**
+ * Concurrent-edit conflicts retained for the user to resolve (v2.0 Stage 18.6,
+ * docs/sync-protocol.md §4–5). A conflict is written when a pulled op's vector clock is
+ * concurrent with the local record's clock — neither dominates. BOTH sides are kept
+ * verbatim (provisional LWW never deletes the losing side); the Review-screen modal
+ * surfaces them. `local_clock`/`remote_clock` are JSON vector clocks; `*_payload` are
+ * the canonical envelope (remote) / local-row snapshot.
+ */
+export const syncConflicts = sqliteTable('sync_conflicts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  tableName: text('table_name').notNull(),
+  recordId: text('record_id').notNull(),
+  localClock: text('local_clock').notNull(),
+  remoteClock: text('remote_clock').notNull(),
+  localPayload: text('local_payload').notNull(),
+  remotePayload: text('remote_payload').notNull(),
+  remoteOpId: integer('remote_op_id').notNull(),
+  remoteDeviceId: text('remote_device_id').notNull(),
+  detectedAt: integer('detected_at').notNull(),
+  resolvedAt: integer('resolved_at'),
+})
+
+/**
+ * Pulled ops that could not be applied — set aside instead of silently dropped
+ * (docs/sync-protocol.md §7.4, §8). `reason` is `DECRYPT_FAILED` (a foreign op whose
+ * AEAD associated data didn't bind — likely a tampered/misrouted row) or `SCHEMA_INVALID`
+ * (decrypted but failed the table's Zod schema). The raw `payload_ciphertext` is kept so
+ * the op can be inspected or re-tried after a fix.
+ */
+export const syncQuarantine = sqliteTable('sync_quarantine', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  tableName: text('table_name').notNull(),
+  recordId: text('record_id').notNull(),
+  remoteOpId: integer('remote_op_id').notNull(),
+  remoteDeviceId: text('remote_device_id').notNull(),
+  reason: text('reason').notNull(),
+  detail: text('detail').notNull(),
+  payloadCiphertext: text('payload_ciphertext').notNull(),
+  createdAt: integer('created_at').notNull(),
+})
+
+/** Append-only audit log for sync decisions that aren't plain applies (conflicts, quarantines). */
+export const syncAudit = sqliteTable('sync_audit', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  event: text('event').notNull(),
+  tableName: text('table_name'),
+  recordId: text('record_id'),
+  detail: text('detail').notNull(),
+  createdAt: integer('created_at').notNull(),
+})
+
+/** Small key/value store for sync bookkeeping (currently the persisted pull cursor). */
+export const syncState = sqliteTable('sync_state', {
+  key: text('key').primaryKey(),
+  value: integer('value').notNull(),
+})
+
 export const backupLog = sqliteTable('backup_log', {
   id: text('id').primaryKey(),
   kind: text('kind').notNull(),
