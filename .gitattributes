@@ -1,0 +1,41 @@
+# Normalize line endings: store everything as LF in the repo, check out as LF.
+# This makes line endings deterministic regardless of each contributor's
+# core.autocrlf setting, and ends the LF<->CRLF churn in `git status`.
+* text=auto eol=lf
+
+# Shell scripts must stay LF even on Windows checkouts.
+*.sh text eol=lf
+
+# Windows-specific scripts keep CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Treat these as binary — never normalize or diff as text.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.icns  binary
+*.webp  binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.eot   binary
+*.pdf   binary
+*.zip   binary
+*.gz    binary
+*.7z    binary
+*.db    binary
+*.sqlite binary
+*.sqlite3 binary
+*.node  binary
+*.exe   binary
+*.dll   binary
+*.dmg   binary
+*.AppImage binary
+
+# Lockfiles: keep LF, and collapse diffs in review.
+pnpm-lock.yaml -diff
