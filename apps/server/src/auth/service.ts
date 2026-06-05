@@ -7,11 +7,17 @@ import {
   createEmailToken,
   consumeEmailToken,
   MAGIC_TOKEN_TTL_MS,
+  RESET_TOKEN_TTL_MS,
   VERIFY_TOKEN_TTL_MS,
 } from './email-tokens'
 import { resolveEntitlement } from './entitlement'
 import { dummyVerify, hashPassword, verifyPassword } from './password'
-import { issueRefreshSession, revokeSessionByToken, rotateRefreshSession } from './sessions'
+import {
+  issueRefreshSession,
+  revokeAllUserSessions,
+  revokeSessionByToken,
+  rotateRefreshSession,
+} from './sessions'
 import { signAccessToken } from './tokens'
 import type { Db } from '../db/client'
 import type { EmailProvider } from '../email'
@@ -189,6 +195,56 @@ export class AuthService {
   }
 
   // ---------------------------------------------------------------------------
+  // Password reset
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Email a single-use password-reset link if the account exists. Always resolves, and
+   * the route returns an identical `{ sent: true }` whether or not the account exists, so
+   * the response body carries no account-existence signal. (As with {@link magicRequest},
+   * the existent path does more work — token insert + email send — so a timing
+   * side-channel remains; closing it would require constant-time padding on both flows
+   * and is out of scope here, consistent with the existing magic-link path.)
+   */
+  async forgotPassword(email: string): Promise<void> {
+    const user = await this.findUserByEmail(email)
+    if (!user) return
+    const token = await createEmailToken(this.db, user.id, 'reset', RESET_TOKEN_TTL_MS)
+    await this.safeSend(this.buildResetEmail(email, token))
+  }
+
+  /**
+   * Consume a reset token and set a new password, then revoke every existing session
+   * for that user (CLAUDE.md §2.13 — a credential change invalidates all sessions). The
+   * hash swap and the revocation commit atomically. An invalid/expired/used token throws
+   * `INVALID_TOKEN`, indistinguishable across failure modes.
+   *
+   * This resets only the *account* password — it does not touch the vault key material,
+   * which is re-wrapped client-side via the recovery-phrase flow (docs/security.md §5).
+   */
+  async resetPassword(token: string, newPassword: string): Promise<{ userId: string }> {
+    const passwordHash = await hashPassword(newPassword, this.env.PASSWORD_PEPPER)
+    const userId = await this.db.transaction(async (tx) => {
+      const id = await consumeEmailToken(tx, 'reset', token)
+      const updated = await tx
+        .update(userCredentials)
+        .set({ passwordHash, updatedAt: new Date() })
+        .where(eq(userCredentials.userId, id))
+        .returning({ id: userCredentials.id })
+      // A reset token for a user with no password credential (e.g. a future
+      // OAuth/magic-only account) would otherwise burn the token and revoke sessions
+      // while setting no password — a silent lockout. Throwing rolls the whole tx back,
+      // so the token stays unconsumed and nothing is revoked.
+      if (updated.length === 0) {
+        throw new AppError(ERROR_CODES.INVALID_TOKEN, 'no password credential to reset')
+      }
+      await revokeAllUserSessions(tx, id)
+      return id
+    })
+    return { userId }
+  }
+
+  // ---------------------------------------------------------------------------
   // Internals
   // ---------------------------------------------------------------------------
 
@@ -274,6 +330,18 @@ export class AuthService {
       to,
       subject: 'Your Cairn sign-in link',
       text: `Sign in to Cairn:\n\n${link}\n\nThis link expires in 15 minutes and can be used once.`,
+    }
+  }
+
+  private buildResetEmail(
+    to: string,
+    token: string,
+  ): { to: string; subject: string; text: string } {
+    const link = `${this.env.APP_URL}/reset?token=${token}`
+    return {
+      to,
+      subject: 'Reset your Cairn password',
+      text: `Reset your Cairn password:\n\n${link}\n\nThis link expires in 1 hour and can be used once. If you didn't request a reset, ignore this email — your password is unchanged.`,
     }
   }
 }

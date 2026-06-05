@@ -1,13 +1,17 @@
 import { ERROR_CODES } from '@cairn/shared-types'
 import {
+  forgotPasswordOutputSchema,
+  forgotPasswordSchema,
   loginSchema,
   magicConsumeSchema,
   magicRequestSchema,
+  resetPasswordOutputSchema,
+  resetPasswordSchema,
   signupSchema,
   verifyEmailSchema,
 } from '@cairn/shared-zod'
 import { AppError } from '../lib/errors'
-import { parseBody, sendError, sendOk, toAppError } from '../lib/http'
+import { parseBody, sendError, sendOk, sendValidated, toAppError } from '../lib/http'
 import { HOUR, MINUTES_15 } from '../lib/rate-limit'
 import { clearRefreshCookie, readRefreshCookie, setRefreshCookie } from './cookies'
 import type { AuthService, RequestContext } from './service'
@@ -29,6 +33,9 @@ const LOGIN_IP: RateLimitRule = { limit: 5, windowMs: MINUTES_15 }
 const LOGIN_EMAIL: RateLimitRule = { limit: 5, windowMs: MINUTES_15 }
 const MAGIC_IP: RateLimitRule = { limit: 5, windowMs: MINUTES_15 }
 const MAGIC_EMAIL: RateLimitRule = { limit: 3, windowMs: HOUR }
+const FORGOT_IP: RateLimitRule = { limit: 5, windowMs: MINUTES_15 }
+const FORGOT_EMAIL: RateLimitRule = { limit: 3, windowMs: HOUR }
+const RESET_IP: RateLimitRule = { limit: 10, windowMs: MINUTES_15 }
 
 export interface AuthRouteDeps {
   readonly authService: AuthService
@@ -147,6 +154,35 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
       setRefreshCookie(reply, refreshToken, env)
       sendOk(reply, auth)
     } catch (err) {
+      sendError(reply, toAppError(err))
+    }
+  })
+
+  // POST /auth/forgot-password
+  app.post('/auth/forgot-password', async (req, reply) => {
+    try {
+      const { email } = parseBody(forgotPasswordSchema, req.body)
+      if (await blocked(reply, `forgot:ip:${req.ip}`, FORGOT_IP)) return
+      if (await blocked(reply, `forgot:email:${email}`, FORGOT_EMAIL)) return
+      await authService.forgotPassword(email)
+      // Always the same response, whether or not the account exists (no leak).
+      sendValidated(reply, forgotPasswordOutputSchema, { sent: true })
+    } catch (err) {
+      sendError(reply, toAppError(err))
+    }
+  })
+
+  // POST /auth/reset-password
+  app.post('/auth/reset-password', async (req, reply) => {
+    try {
+      const input = parseBody(resetPasswordSchema, req.body)
+      if (await blocked(reply, `reset:ip:${req.ip}`, RESET_IP)) return
+      await authService.resetPassword(input.token, input.password)
+      // No session is issued — the user logs in with the new password. Existing
+      // sessions were revoked server-side as part of the reset.
+      sendValidated(reply, resetPasswordOutputSchema, { reset: true })
+    } catch (err) {
+      // A bad/expired/used reset token is an INVALID_TOKEN → 400, like email-verify.
       sendError(reply, toAppError(err))
     }
   })

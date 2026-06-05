@@ -74,6 +74,21 @@ export async function revokeFamily(db: DbExecutor, familyId: string): Promise<nu
   return revoked.length
 }
 
+/**
+ * Revoke every non-revoked session for a user, across all families. Used after a
+ * password reset (CLAUDE.md §2.13): a credential change must invalidate every existing
+ * session so a stolen refresh token cannot outlive the password it was issued under.
+ * Returns the number revoked.
+ */
+export async function revokeAllUserSessions(db: DbExecutor, userId: string): Promise<number> {
+  const revoked = await db
+    .update(userSessions)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(userSessions.userId, userId), isNull(userSessions.revokedAt)))
+    .returning({ id: userSessions.id })
+  return revoked.length
+}
+
 export interface RotateResult {
   readonly userId: string
   readonly issued: IssuedRefresh

@@ -56,3 +56,38 @@ export const magicConsumeSchema = z.object({
   token: opaqueTokenSchema,
 })
 export type MagicConsumeInput = z.infer<typeof magicConsumeSchema>
+
+/**
+ * Forgot-password request — emails a single-use reset token if the account exists.
+ * The response is always `{ sent: true }` (no account-existence leak), so the schema
+ * intentionally carries only the email.
+ */
+export const forgotPasswordSchema = z.object({
+  email: emailSchema,
+})
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>
+
+/** Always-200 response to a forgot-password request (no enumeration). */
+export const forgotPasswordOutputSchema = z.object({
+  sent: z.literal(true),
+})
+export type ForgotPasswordOutput = z.infer<typeof forgotPasswordOutputSchema>
+
+/**
+ * Reset-password request — consume the emailed reset token and set a new password.
+ *
+ * In Cairn's E2E model this resets only the *account* password; it cannot recover the
+ * vault, whose data key is wrapped under the old password KEK. After a reset the user
+ * unlocks the vault via the recovery-phrase flow, which re-wraps and re-uploads the key.
+ */
+export const resetPasswordSchema = z.object({
+  token: opaqueTokenSchema,
+  password: passwordSchema,
+})
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
+
+/** Reset-password acknowledgement. */
+export const resetPasswordOutputSchema = z.object({
+  reset: z.literal(true),
+})
+export type ResetPasswordOutput = z.infer<typeof resetPasswordOutputSchema>

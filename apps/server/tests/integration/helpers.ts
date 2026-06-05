@@ -124,6 +124,24 @@ export function postJson(
   return app.inject(opts)
 }
 
+/** PUT JSON with an optional bearer access token. */
+export function putJson(
+  app: FastifyInstance,
+  url: string,
+  body: unknown,
+  accessToken?: string,
+): Promise<LightMyRequestResponse> {
+  return app.inject({
+    method: 'PUT',
+    url,
+    headers: {
+      'content-type': 'application/json',
+      ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
+    },
+    payload: JSON.stringify(body ?? {}),
+  })
+}
+
 /** POST raw bytes with custom headers (used by webhook tests). */
 export function postRaw(
   app: FastifyInstance,

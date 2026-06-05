@@ -3,7 +3,7 @@ import { and, eq, gt, isNull } from 'drizzle-orm'
 import { emailTokens } from '../db/schema'
 import { generateOpaqueToken, sha256Hex } from '../lib/crypto-random'
 import { AppError } from '../lib/errors'
-import type { Db } from '../db/client'
+import type { DbExecutor } from '../db/client'
 import type { EmailTokenType } from '../db/schema'
 
 /**
@@ -16,10 +16,11 @@ import type { EmailTokenType } from '../db/schema'
 
 export const VERIFY_TOKEN_TTL_MS = 24 * 60 * 60 * 1000
 export const MAGIC_TOKEN_TTL_MS = 15 * 60 * 1000
+export const RESET_TOKEN_TTL_MS = 60 * 60 * 1000
 
 /** Mint a new token of `type` for `userId`. Returns the raw token to email. */
 export async function createEmailToken(
-  db: Db,
+  db: DbExecutor,
   userId: string,
   type: EmailTokenType,
   ttlMs: number,
@@ -41,7 +42,7 @@ export async function createEmailToken(
  * expired), never revealing which.
  */
 export async function consumeEmailToken(
-  db: Db,
+  db: DbExecutor,
   type: EmailTokenType,
   rawToken: string,
 ): Promise<string> {

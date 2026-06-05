@@ -91,7 +91,7 @@ export const userSessions = pgTable(
 )
 
 /** Token types delivered by email. */
-export const EMAIL_TOKEN_TYPES = ['verify', 'magic'] as const
+export const EMAIL_TOKEN_TYPES = ['verify', 'magic', 'reset'] as const
 export type EmailTokenType = (typeof EMAIL_TOKEN_TYPES)[number]
 
 /** A single-use, hashed, expiring token sent by email (verify + magic link). */
@@ -229,8 +229,14 @@ export const vaultOps = pgTable(
 )
 
 /**
- * Per-user vault metadata: key version and schema version for the manifest endpoint.
- * Created on first push; absent = vault is empty (key_version defaults to 0).
+ * Per-user vault metadata: key version, schema version, and the wrapped key material
+ * the client needs to unlock the vault on a new device (CLAUDE.md §2.4, §18.4).
+ *
+ * The key columns are nullable: a row may exist with only versions (legacy) and gains
+ * the wrapped key on enrollment (PUT /vault/key). The server stores these blobs
+ * verbatim and never decrypts them — `wrappedDataKey`/`recoveryWrappedDataKey` are the
+ * data key sealed under the password KEK and the recovery-phrase KEK respectively,
+ * `kdfSalt` is the per-vault Argon2id salt, and `kdf` is the params descriptor.
  */
 export const vaultMeta = pgTable('vault_meta', {
   userId: uuid('user_id')
@@ -238,6 +244,14 @@ export const vaultMeta = pgTable('vault_meta', {
     .references(() => users.id, { onDelete: 'cascade' }),
   keyVersion: integer('key_version').notNull().default(1),
   schemaVersion: integer('schema_version').notNull().default(1),
+  /** Data key wrapped under the password-derived KEK (wire `WrappedKey`). Null until enrolled. */
+  wrappedDataKey: jsonb('wrapped_data_key'),
+  /** Data key wrapped under the recovery-phrase KEK (wire `WrappedKey`). Null until enrolled. */
+  recoveryWrappedDataKey: jsonb('recovery_wrapped_data_key'),
+  /** base64 of the 16-byte per-vault Argon2id salt for the password path. Null until enrolled. */
+  kdfSalt: text('kdf_salt'),
+  /** Argon2id params descriptor (wire `KdfParamsWire`). Null until enrolled. */
+  kdf: jsonb('kdf'),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
