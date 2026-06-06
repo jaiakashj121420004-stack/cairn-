@@ -69,7 +69,11 @@ describe('API docs (enabled)', () => {
     const res = await app.inject({ method: 'GET', url: '/openapi.json' })
     expect(res.statusCode).toBe(200)
     expect(res.headers['content-type']).toContain('application/json')
-    const doc = res.json() as { openapi: string; info: { title: string }; paths: Record<string, unknown> }
+    const doc = res.json() as {
+      openapi: string
+      info: { title: string }
+      paths: Record<string, unknown>
+    }
     expect(doc.openapi).toBe('3.1.0')
     expect(doc.info.title).toBe('Cairn API')
     expect(Object.keys(doc.paths).length).toBeGreaterThan(0)

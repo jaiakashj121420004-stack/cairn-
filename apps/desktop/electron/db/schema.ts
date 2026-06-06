@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer, real, primaryKey } from 'drizzle-orm/sqlite-core'
 
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
@@ -155,6 +155,9 @@ export const sessions = sqliteTable('sessions', {
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
   lockedAt: integer('locked_at'),
+  // v2.0 sync (migration 0013): soft-delete tombstone so a removed session
+  // syncs like any other row rather than vanishing only locally.
+  deletedAt: integer('deleted_at'),
 })
 
 export const trades = sqliteTable('trades', {
@@ -294,6 +297,11 @@ export const tradePartials = sqliteTable('trade_partials', {
   notes: text('notes'),
   externalRef: text('external_ref'),
   createdAt: integer('created_at').notNull(),
+  // v2.0 sync (migration 0013): partials are append-only children today, but the
+  // sync engine treats every syncable row uniformly — these let an edited/removed
+  // partial carry an updated_at and a soft-delete tombstone.
+  updatedAt: integer('updated_at'),
+  deletedAt: integer('deleted_at'),
 })
 
 export const ruleViolations = sqliteTable('rule_violations', {
@@ -434,6 +442,28 @@ export const syncState = sqliteTable('sync_state', {
   key: text('key').primaryKey(),
   value: integer('value').notNull(),
 })
+
+/**
+ * Durable per-record vector clocks (v2.0 Stage 18.6, docs/sync-protocol.md §3).
+ * `clock` is the FULL JSON vector clock for `(table_name, record_id)` — every device's
+ * component, not just this device's. The write path upserts the bumped clock here in the
+ * same transaction as the `sync_queue` insert; the pull/merge path upserts the merged
+ * clock in the page transaction. The in-memory `VectorClockCache` hydrates from this on
+ * launch, so an idempotent op replay after a restart compares `equal` (not a phantom
+ * `concurrent` conflict). Empty until sync is enrolled.
+ */
+export const syncClocks = sqliteTable(
+  'sync_clocks',
+  {
+    tableName: text('table_name').notNull(),
+    recordId: text('record_id').notNull(),
+    clock: text('clock').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.tableName, t.recordId] }),
+  }),
+)
 
 export const backupLog = sqliteTable('backup_log', {
   id: text('id').primaryKey(),

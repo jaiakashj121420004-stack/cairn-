@@ -2,13 +2,16 @@ import { useEffect, useState } from 'react'
 import { Button, GlassCard, Input, useToast } from '../../../components/ui'
 import { ipc } from '../../../lib/ipc'
 import { useAuthStore } from '../../../stores/auth-store'
+import { RecoveryPhraseModal } from '../../auth/RecoveryPhraseModal'
+import { VaultUnlockModal } from '../../auth/VaultUnlockModal'
 
 /**
  * Account & Sync settings (CLAUDE.md §18.5, Stage 2 client session layer).
  *
  * A signed-out app is fully functional offline — sync is opt-in and account-gated. This
- * tab is the minimal sign-in / sign-up surface; device enrollment + vault unlock arrive
- * in Stage 3, so a signed-in user sees "vault locked" until then.
+ * tab is the sign-in / sign-up surface and, once signed in, the vault unlock / enrollment
+ * entry point: "Enable sync" derives the key locally, enrolls or unlocks the vault, and
+ * (on first enrollment) reveals the recovery phrase once (CLAUDE.md §18.5/§18.6, Stage 3).
  *
  * Error codes from the backend are mapped to calm, mentor-voice copy (§1 voice, §3.7 —
  * the UI never renders a raw lower-layer error string).
@@ -41,8 +44,14 @@ export function AccountTab() {
   }, [status, load])
 
   if (status === 'signed-in' && session) {
-    return <SignedIn email={session.email} entitlement={session.entitlement}
-      vaultUnlocked={session.vaultUnlocked} onLogout={() => void logout()} busy={busy} />
+    return (
+      <SignedIn
+        email={session.email}
+        entitlement={session.entitlement}
+        onLogout={() => void logout()}
+        busy={busy}
+      />
+    )
   }
 
   return (
@@ -65,10 +74,31 @@ export function AccountTab() {
 function SignedIn(props: {
   email: string
   entitlement: string
-  vaultUnlocked: boolean
   onLogout: () => void
   busy: boolean
 }) {
+  const { vaultUnlocked, vaultBusy, vaultErrorCode, unlockVault, clearVaultError } = useAuthStore()
+  const toast = useToast()
+  const [showUnlock, setShowUnlock] = useState(false)
+  // The recovery phrase lives only in this local state, shown once, then dropped (§2.13).
+  const [phrase, setPhrase] = useState<readonly string[] | null>(null)
+
+  function openUnlock() {
+    clearVaultError()
+    setShowUnlock(true)
+  }
+
+  async function handleUnlock(password: string) {
+    const res = await unlockVault(password)
+    if (!res.ok) return // store holds the error code; modal stays open
+    setShowUnlock(false)
+    if (res.enrolled && res.recoveryPhrase) {
+      setPhrase(res.recoveryPhrase)
+    } else {
+      toast('Vault unlocked. Sync is on.', 'success')
+    }
+  }
+
   return (
     <div className="max-w-md space-y-4">
       <GlassCard className="space-y-3 p-5">
@@ -80,8 +110,13 @@ function SignedIn(props: {
           <span className="rounded-full border border-border px-2 py-0.5 uppercase tracking-wide">
             {props.entitlement}
           </span>
-          <span>{props.vaultUnlocked ? 'Vault unlocked' : 'Vault locked — enrollment comes next'}</span>
+          <span>{vaultUnlocked ? 'Vault unlocked — sync on' : 'Vault locked'}</span>
         </div>
+        {!vaultUnlocked && (
+          <Button onClick={openUnlock} loading={vaultBusy}>
+            Enable sync
+          </Button>
+        )}
         <Button variant="secondary" onClick={props.onLogout} loading={props.busy}>
           Sign out
         </Button>
@@ -90,6 +125,24 @@ function SignedIn(props: {
         Cloud sync is end-to-end encrypted and optional. Your journal stays fully usable on this
         device whether or not you’re signed in.
       </p>
+
+      <VaultUnlockModal
+        open={showUnlock}
+        busy={vaultBusy}
+        errorCode={vaultErrorCode}
+        onClose={() => setShowUnlock(false)}
+        onSubmit={(password) => void handleUnlock(password)}
+      />
+      {phrase && (
+        <RecoveryPhraseModal
+          open
+          phrase={phrase}
+          onAcknowledge={() => {
+            setPhrase(null)
+            toast('Recovery phrase saved. Sync is on.', 'success')
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -132,7 +185,8 @@ function AuthForm(props: {
 
   const title =
     mode === 'login' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Reset password'
-  const cta = mode === 'login' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Send reset link'
+  const cta =
+    mode === 'login' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Send reset link'
 
   return (
     <div className="max-w-md space-y-4">
@@ -170,16 +224,28 @@ function AuthForm(props: {
 
       <div className="flex flex-wrap justify-between gap-2 text-caption">
         {mode !== 'login' ? (
-          <button type="button" className="text-accent-a hover:underline" onClick={() => switchMode('login')}>
+          <button
+            type="button"
+            className="text-accent-a hover:underline"
+            onClick={() => switchMode('login')}
+          >
             Back to sign in
           </button>
         ) : (
-          <button type="button" className="text-accent-a hover:underline" onClick={() => switchMode('signup')}>
+          <button
+            type="button"
+            className="text-accent-a hover:underline"
+            onClick={() => switchMode('signup')}
+          >
             Create an account
           </button>
         )}
         {mode === 'login' && (
-          <button type="button" className="text-text-secondary hover:underline" onClick={() => switchMode('forgot')}>
+          <button
+            type="button"
+            className="text-text-secondary hover:underline"
+            onClick={() => switchMode('forgot')}
+          >
             Forgot password?
           </button>
         )}

@@ -55,9 +55,15 @@ export const openApiDocument = {
   ],
   tags: [
     { name: 'Health', description: 'Liveness.' },
-    { name: 'Auth', description: 'Signup, login, email verification, token rotation, magic link, OAuth stubs.' },
+    {
+      name: 'Auth',
+      description: 'Signup, login, email verification, token rotation, magic link, OAuth stubs.',
+    },
     { name: 'Devices', description: 'Per-user device registry for sync enrollment.' },
-    { name: 'Vault', description: 'Opaque ciphertext push/pull and wrapped key material. Server never decrypts.' },
+    {
+      name: 'Vault',
+      description: 'Opaque ciphertext push/pull and wrapped key material. Server never decrypts.',
+    },
     { name: 'Billing', description: 'Subscription checkout, status, portal, cancellation.' },
     { name: 'Webhooks', description: 'Signature-verified, idempotent provider callbacks.' },
     { name: 'Admin', description: 'Operator-only, bearer-protected audit access.' },
@@ -68,12 +74,14 @@ export const openApiDocument = {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
-        description: 'Short-lived access token (≤ 15 min). Obtain via /auth/login or /auth/refresh.',
+        description:
+          'Short-lived access token (≤ 15 min). Obtain via /auth/login or /auth/refresh.',
       },
       adminToken: {
         type: 'http',
         scheme: 'bearer',
-        description: 'Operator token from the ADMIN_TOKEN env var. Absent token → 404 (endpoint hidden).',
+        description:
+          'Operator token from the ADMIN_TOKEN env var. Absent token → 404 (endpoint hidden).',
       },
     },
     schemas: {
@@ -123,21 +131,28 @@ export const openApiDocument = {
         description:
           'Sends a verification email. Returns an identical shape whether or not the ' +
           'email already exists (no account-enumeration leak).',
-        responses: { '200': okResponse('Signup accepted.'), '400': errorResponse('Validation failed.') },
+        responses: {
+          '200': okResponse('Signup accepted.'),
+          '400': errorResponse('Validation failed.'),
+        },
       },
     },
     '/auth/verify': {
       post: {
         tags: ['Auth'],
         summary: 'Verify email with a single-use token',
-        responses: { '200': okResponse('Email verified.'), '400': errorResponse('Invalid/expired/used token.') },
+        responses: {
+          '200': okResponse('Email verified.'),
+          '400': errorResponse('Invalid/expired/used token.'),
+        },
       },
     },
     '/auth/login': {
       post: {
         tags: ['Auth'],
         summary: 'Log in with email + password',
-        description: 'Sets the `__Host-refresh` cookie and returns an access token. Rate-limited (5 / 15 min).',
+        description:
+          'Sets the `__Host-refresh` cookie and returns an access token. Rate-limited (5 / 15 min).',
         responses: {
           '200': okResponse('Authenticated.'),
           '401': errorResponse('Bad credentials.'),
@@ -152,11 +167,18 @@ export const openApiDocument = {
         description:
           'Consumes the refresh cookie and issues a fresh one plus a new access token. ' +
           'Replaying a consumed token triggers refresh-reuse detection and revokes the whole family.',
-        responses: { '200': okResponse('Rotated.'), '401': errorResponse('Invalid or reused refresh token.') },
+        responses: {
+          '200': okResponse('Rotated.'),
+          '401': errorResponse('Invalid or reused refresh token.'),
+        },
       },
     },
     '/auth/logout': {
-      post: { tags: ['Auth'], summary: 'Revoke the current session', responses: { '200': okResponse('Logged out.') } },
+      post: {
+        tags: ['Auth'],
+        summary: 'Revoke the current session',
+        responses: { '200': okResponse('Logged out.') },
+      },
     },
     '/auth/forgot-password': {
       post: {
@@ -170,24 +192,42 @@ export const openApiDocument = {
       post: {
         tags: ['Auth'],
         summary: 'Reset password with a token',
-        responses: { '200': okResponse('Password reset.'), '400': errorResponse('Invalid/expired token.') },
+        responses: {
+          '200': okResponse('Password reset.'),
+          '400': errorResponse('Invalid/expired token.'),
+        },
       },
     },
     '/auth/magic-request': {
-      post: { tags: ['Auth'], summary: 'Request a magic-link email', responses: { '200': okResponse('Sent if the account exists.') } },
+      post: {
+        tags: ['Auth'],
+        summary: 'Request a magic-link email',
+        responses: { '200': okResponse('Sent if the account exists.') },
+      },
     },
     '/auth/magic-consume': {
       post: {
         tags: ['Auth'],
         summary: 'Consume a magic link',
-        responses: { '200': okResponse('Authenticated.'), '400': errorResponse('Invalid/expired link.') },
+        responses: {
+          '200': okResponse('Authenticated.'),
+          '400': errorResponse('Invalid/expired link.'),
+        },
       },
     },
     '/auth/oauth/google': {
-      post: { tags: ['Auth'], summary: 'Google OAuth (stub)', responses: { '501': errorResponse('Not implemented.') } },
+      post: {
+        tags: ['Auth'],
+        summary: 'Google OAuth (stub)',
+        responses: { '501': errorResponse('Not implemented.') },
+      },
     },
     '/auth/oauth/apple': {
-      post: { tags: ['Auth'], summary: 'Apple OAuth (stub)', responses: { '501': errorResponse('Not implemented.') } },
+      post: {
+        tags: ['Auth'],
+        summary: 'Apple OAuth (stub)',
+        responses: { '501': errorResponse('Not implemented.') },
+      },
     },
 
     '/devices': {
@@ -201,7 +241,10 @@ export const openApiDocument = {
         tags: ['Devices'],
         summary: 'Register a device',
         security: bearerAuth,
-        responses: { '200': okResponse('Device registered.'), '401': errorResponse('Unauthenticated.') },
+        responses: {
+          '200': okResponse('Device registered.'),
+          '401': errorResponse('Unauthenticated.'),
+        },
       },
     },
     '/devices/{id}': {
@@ -210,7 +253,10 @@ export const openApiDocument = {
         summary: 'Revoke a device',
         security: bearerAuth,
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-        responses: { '200': okResponse('Device revoked.'), '401': errorResponse('Unauthenticated.') },
+        responses: {
+          '200': okResponse('Device revoked.'),
+          '401': errorResponse('Unauthenticated.'),
+        },
       },
     },
 
@@ -220,14 +266,18 @@ export const openApiDocument = {
         summary: 'Fetch the vault manifest (key version, cursor head)',
         description: 'Requires a verified email. Returns metadata only — never plaintext.',
         security: bearerAuth,
-        responses: { '200': okResponse('Manifest.'), '401': errorResponse('Unauthenticated or unverified.') },
+        responses: {
+          '200': okResponse('Manifest.'),
+          '401': errorResponse('Unauthenticated or unverified.'),
+        },
       },
     },
     '/vault/push': {
       post: {
         tags: ['Vault'],
         summary: 'Push encrypted op deltas',
-        description: 'Body carries opaque ciphertext blobs. The server stores them verbatim and never decrypts.',
+        description:
+          'Body carries opaque ciphertext blobs. The server stores them verbatim and never decrypts.',
         security: bearerAuth,
         responses: {
           '200': okResponse('Ops accepted.'),
@@ -254,14 +304,20 @@ export const openApiDocument = {
         tags: ['Vault'],
         summary: 'Fetch the wrapped data key + KDF params',
         security: bearerAuth,
-        responses: { '200': okResponse('Wrapped key material.'), '401': errorResponse('Unauthenticated or unverified.') },
+        responses: {
+          '200': okResponse('Wrapped key material.'),
+          '401': errorResponse('Unauthenticated or unverified.'),
+        },
       },
       put: {
         tags: ['Vault'],
         summary: 'Upload/rotate the wrapped data key',
         description: 'The server stores the wrapped key opaquely; the KEK never leaves the client.',
         security: bearerAuth,
-        responses: { '200': okResponse('Key material stored.'), '401': errorResponse('Unauthenticated or unverified.') },
+        responses: {
+          '200': okResponse('Key material stored.'),
+          '401': errorResponse('Unauthenticated or unverified.'),
+        },
       },
     },
 
@@ -278,7 +334,10 @@ export const openApiDocument = {
         tags: ['Billing'],
         summary: 'Start a checkout session',
         security: bearerAuth,
-        responses: { '200': okResponse('Provider checkout URL.'), '401': errorResponse('Unauthenticated.') },
+        responses: {
+          '200': okResponse('Provider checkout URL.'),
+          '401': errorResponse('Unauthenticated.'),
+        },
       },
     },
     '/billing/portal': {
@@ -294,7 +353,10 @@ export const openApiDocument = {
         tags: ['Billing'],
         summary: 'Cancel the subscription (sync stops; local data is untouched)',
         security: bearerAuth,
-        responses: { '200': okResponse('Cancellation scheduled.'), '401': errorResponse('Unauthenticated.') },
+        responses: {
+          '200': okResponse('Cancellation scheduled.'),
+          '401': errorResponse('Unauthenticated.'),
+        },
       },
     },
 
@@ -302,8 +364,12 @@ export const openApiDocument = {
       post: {
         tags: ['Webhooks'],
         summary: 'Stripe webhook receiver',
-        description: 'Verifies the `stripe-signature` header and dedupes via the webhook_event table. Not rate-limited.',
-        responses: { '200': okResponse('Acknowledged.'), '400': errorResponse('Bad signature / payload.') },
+        description:
+          'Verifies the `stripe-signature` header and dedupes via the webhook_event table. Not rate-limited.',
+        responses: {
+          '200': okResponse('Acknowledged.'),
+          '400': errorResponse('Bad signature / payload.'),
+        },
       },
     },
     '/webhooks/razorpay': {
@@ -311,7 +377,10 @@ export const openApiDocument = {
         tags: ['Webhooks'],
         summary: 'Razorpay webhook receiver',
         description: 'Verifies the `x-razorpay-signature` HMAC and dedupes. Not rate-limited.',
-        responses: { '200': okResponse('Acknowledged.'), '400': errorResponse('Bad signature / payload.') },
+        responses: {
+          '200': okResponse('Acknowledged.'),
+          '400': errorResponse('Bad signature / payload.'),
+        },
       },
     },
 
@@ -321,7 +390,10 @@ export const openApiDocument = {
         summary: 'Read the audit log (operator only)',
         description: 'Protected by the ADMIN_TOKEN bearer. If the token is unset the route 404s.',
         security: [{ adminToken: [] }],
-        responses: { '200': okResponse('Audit entries.'), '404': errorResponse('Hidden (token unset) or not found.') },
+        responses: {
+          '200': okResponse('Audit entries.'),
+          '404': errorResponse('Hidden (token unset) or not found.'),
+        },
       },
     },
   },

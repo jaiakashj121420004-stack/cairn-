@@ -3,3 +3,5 @@ out/
 dist/
 pnpm-lock.yaml
 *.md
+# Vendored third-party bundle — never reformat (see docs/build-status.md Stage 18.5)
+apps/server/src/docs/scalar-standalone.js

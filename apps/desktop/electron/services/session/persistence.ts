@@ -13,11 +13,8 @@
 import { eq } from 'drizzle-orm'
 import { getDb } from '../../db/index'
 import * as schema from '../../db/schema'
-import {
-  clearRefreshToken,
-  readRefreshToken,
-  storeRefreshToken,
-} from '../keychain'
+import { clearRefreshToken, readRefreshToken, storeRefreshToken } from '../keychain'
+import type { DeviceIdStore } from './enrollment'
 import type { Result } from '@cairn/shared-types'
 
 /** Non-secret info needed to resume which account to refresh on the next launch. */
@@ -89,5 +86,49 @@ export function createElectronSessionPersistence(): SessionPersistence {
     saveRefreshToken: storeRefreshToken,
     readRefreshToken,
     clearRefreshToken,
+  }
+}
+
+/** Settings-table key prefix under which a user's enrolled device id is stored. */
+const DEVICE_KEY_PREFIX = 'vault.device.'
+
+function deviceKey(userId: string): string {
+  return `${DEVICE_KEY_PREFIX}${userId}`
+}
+
+/**
+ * Production {@link DeviceIdStore} over the local `settings` table. The device id is a UUID
+ * the server already holds (not a secret), so it lives alongside other non-secret app state
+ * rather than in the keychain. Keyed by user so distinct accounts on one machine each keep
+ * their own enrolled device.
+ */
+export function createElectronDeviceIdStore(): DeviceIdStore {
+  return {
+    load(userId: string): string | null {
+      const row = getDb()
+        .select()
+        .from(schema.settings)
+        .where(eq(schema.settings.key, deviceKey(userId)))
+        .get()
+      return row?.value ?? null
+    },
+
+    save(userId: string, deviceId: string): void {
+      getDb()
+        .insert(schema.settings)
+        .values({ key: deviceKey(userId), value: deviceId, updatedAt: Date.now() })
+        .onConflictDoUpdate({
+          target: schema.settings.key,
+          set: { value: deviceId, updatedAt: Date.now() },
+        })
+        .run()
+    },
+
+    clear(userId: string): void {
+      getDb()
+        .delete(schema.settings)
+        .where(eq(schema.settings.key, deviceKey(userId)))
+        .run()
+    },
   }
 }

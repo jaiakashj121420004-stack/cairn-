@@ -20,7 +20,9 @@ import { registerSessionHandlers } from './sessions'
 import { registerPingHandler, registerSettingsHandlers } from './settings'
 import { registerSetupHandlers } from './setups'
 import { registerSyncHandlers } from './sync'
+import { registerSyncConflictHandlers } from './sync-conflicts'
 import { registerTradeHandlers } from './trades'
+import { registerVaultHandlers } from './vault'
 
 export function setupIpcHandlers(): void {
   registerPingHandler()
@@ -46,5 +48,7 @@ export function setupIpcHandlers(): void {
   registerImportHandlers()
   registerPlaybookHandlers()
   registerSyncHandlers()
+  registerSyncConflictHandlers()
   registerAuthHandlers()
+  registerVaultHandlers()
 }

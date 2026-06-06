@@ -78,6 +78,13 @@ export interface SyncLocalStore {
   recordConflict(c: ConflictRecord): void
   quarantine(q: QuarantineRecord): void
   audit(a: AuditRecord): void
+  /**
+   * Persist a record's FULL vector clock to the durable `sync_clocks` table. Called inside
+   * the page transaction by the pull/merge path so the durable clock and the applied row
+   * commit atomically (docs/sync-protocol.md §3). The write path persists its own bumped
+   * clock the same way (see `enqueue.ts`).
+   */
+  setClock(tableName: string, recordId: string, clock: VectorClock): void
   /** Advance the persisted pull cursor (the global op id we have applied up to). */
   setCursor(lastOpId: number): void
   /** The persisted pull cursor, or 0 on first sync. */
@@ -141,11 +148,124 @@ const tradeRowSchema = z
   })
   .passthrough()
 
+/** Decrypted `accounts` row. Money columns are integer cents (§2.5); extras passthrough. */
+const accountRowSchema = z
+  .object({
+    id: z.string().min(1),
+    displayName: z.string(),
+    propFirmId: z.string().min(1),
+    stepCount: z.number().int(),
+    currentPhase: z.number().int(),
+    accountSizeCents: z.number().int(),
+    leverage: z.number().int(),
+    dailyDrawdownType: z.string().min(1),
+    dailyDrawdownValue: z.number().int(),
+    totalDrawdownType: z.string().min(1),
+    totalDrawdownValue: z.number().int(),
+    drawdownBasis: z.string().min(1),
+    profitTargetPct: z.number().int(),
+    weekendHoldingAllowed: z.number().int(),
+    newsTradingAllowed: z.number().int(),
+    challengeCostCents: z.number().int(),
+    startDate: z.number().int(),
+    status: z.string().min(1),
+    peakEquityCents: z.number().int(),
+    currentEquityCents: z.number().int(),
+    createdAt: z.number().int(),
+    updatedAt: z.number().int(),
+  })
+  .passthrough()
+
+/** Decrypted `sessions` row (the daily-bias plan). */
+const sessionRowSchema = z
+  .object({
+    id: z.string().min(1),
+    accountId: z.string().min(1),
+    sessionDate: z.string().min(1),
+    dailyBias: z.string().min(1),
+    dailyBiasReason: z.string(),
+    h4Bias: z.string().min(1),
+    h4BiasReason: z.string(),
+    h1Bias: z.string().min(1),
+    h1BiasReason: z.string(),
+    createdAt: z.number().int(),
+    updatedAt: z.number().int(),
+  })
+  .passthrough()
+
+/** Decrypted `playbooks` row. `defaultRiskPct` is integer basis points (§2.5). */
+const playbookRowSchema = z
+  .object({
+    id: z.string().min(1),
+    accountId: z.string().min(1),
+    name: z.string().min(1),
+    setupId: z.string().min(1),
+    createdAt: z.number().int(),
+    updatedAt: z.number().int(),
+    version: z.number().int(),
+  })
+  .passthrough()
+
+/** Decrypted `notebook_entries` row. */
+const notebookRowSchema = z
+  .object({
+    id: z.string().min(1),
+    title: z.string().min(1),
+    content: z.string(),
+    pinned: z.number().int(),
+    version: z.number().int(),
+    createdAt: z.number().int(),
+    updatedAt: z.number().int(),
+  })
+  .passthrough()
+
+/** Decrypted `trade_partials` row. All money/pip columns are integer-encoded (§2.5/§19.5). */
+const tradePartialRowSchema = z
+  .object({
+    id: z.string().min(1),
+    tradeId: z.string().min(1),
+    closePercentBps: z.number().int(),
+    exitPrice: z.number().int(),
+    exitTime: z.number().int(),
+    createdAt: z.number().int(),
+  })
+  .passthrough()
+
 const TABLE_SPECS: Readonly<Record<string, TableSpec>> = {
   trades: {
     sqlName: 'trades',
     rowSchema: tradeRowSchema,
     columnMap: columnMapOf(schema.trades),
+    softDelete: true,
+  },
+  accounts: {
+    sqlName: 'accounts',
+    rowSchema: accountRowSchema,
+    columnMap: columnMapOf(schema.accounts),
+    softDelete: true,
+  },
+  sessions: {
+    sqlName: 'sessions',
+    rowSchema: sessionRowSchema,
+    columnMap: columnMapOf(schema.sessions),
+    softDelete: true,
+  },
+  playbooks: {
+    sqlName: 'playbooks',
+    rowSchema: playbookRowSchema,
+    columnMap: columnMapOf(schema.playbooks),
+    softDelete: true,
+  },
+  notebook_entries: {
+    sqlName: 'notebook_entries',
+    rowSchema: notebookRowSchema,
+    columnMap: columnMapOf(schema.notebookEntries),
+    softDelete: true,
+  },
+  trade_partials: {
+    sqlName: 'trade_partials',
+    rowSchema: tradePartialRowSchema,
+    columnMap: columnMapOf(schema.tradePartials),
     softDelete: true,
   },
 }
@@ -189,6 +309,27 @@ export class SqliteSyncStore implements SyncLocalStore {
       | Record<string, unknown>
       | undefined
     return row ?? null
+  }
+
+  /**
+   * The current local row in the camelCase shape the sync envelope uses (the inverse of
+   * {@link snapshotRaw}'s snake_case columns), or null if absent. Conflict resolution
+   * re-enqueues the winning side, so it must speak the same camelCase vocabulary the row
+   * was originally encrypted in — otherwise another device would quarantine it.
+   */
+  snapshotCamel(table: string, recordId: string): Record<string, unknown> | null {
+    const spec = TABLE_SPECS[table]
+    if (!spec) throw new Error(`unknown syncable table: ${table}`)
+    const raw = this.snapshotRaw(table, recordId)
+    if (raw === null) return null
+    const colToField: Record<string, string> = {}
+    for (const [field, col] of Object.entries(spec.columnMap)) colToField[col] = field
+    const out: Record<string, unknown> = {}
+    for (const [col, val] of Object.entries(raw)) {
+      const field = colToField[col]
+      if (field !== undefined) out[field] = val
+    }
+    return out
   }
 
   upsert(table: string, data: Record<string, unknown>): void {
@@ -277,6 +418,15 @@ export class SqliteSyncStore implements SyncLocalStore {
          VALUES (?, ?, ?, ?, ?)`,
       )
       .run(a.event, a.tableName, a.recordId, a.detail, a.createdAt)
+  }
+
+  setClock(tableName: string, recordId: string, clock: VectorClock): void {
+    this.db
+      .prepare(
+        `INSERT INTO "sync_clocks" (table_name, record_id, clock, updated_at) VALUES (?, ?, ?, ?)
+         ON CONFLICT(table_name, record_id) DO UPDATE SET clock = excluded.clock, updated_at = excluded.updated_at`,
+      )
+      .run(tableName, recordId, JSON.stringify(clock), Date.now())
   }
 
   setCursor(lastOpId: number): void {

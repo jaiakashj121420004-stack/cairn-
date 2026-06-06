@@ -105,9 +105,7 @@ function bodyToResult<T>(parsed: ParsedResponse): Result<T> {
       'message' in r.error
     ) {
       const e = r.error as { code: string; message: string; details?: unknown }
-      return e.details === undefined
-        ? err(e.code, e.message)
-        : err(e.code, e.message, e.details)
+      return e.details === undefined ? err(e.code, e.message) : err(e.code, e.message, e.details)
     }
   }
   // A 2xx with an unrecognizable body is still a contract violation; surface it.

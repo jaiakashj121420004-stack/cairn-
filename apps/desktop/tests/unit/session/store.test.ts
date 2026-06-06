@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { SessionStore, type AuthClient } from '../../../electron/services/session/store'
 import type { AuthClientSession } from '../../../electron/services/session/auth-client'
+import type { VaultEnrollment } from '../../../electron/services/session/enrollment'
 import type { ResumeInfo, SessionPersistence } from '../../../electron/services/session/persistence'
 
 /** In-memory persistence double — no keychain, no SQLite. */
@@ -62,15 +63,41 @@ function makeClient(overrides: Partial<AuthClient> = {}): AuthClient {
   }
 }
 
+/** A configurable VaultEnrollment fake that records `forget` calls. */
+function makeEnroller(overrides: Partial<VaultEnrollment> = {}): VaultEnrollment & {
+  forgotten: string[]
+} {
+  const forgotten: string[] = []
+  return {
+    forgotten,
+    unlock: () =>
+      Promise.resolve(
+        ok({ deviceId: 'device-1', dataKey: new Uint8Array([9, 9, 9]), enrolled: false }),
+      ),
+    recover: () =>
+      Promise.resolve(
+        ok({ deviceId: 'device-1', dataKey: new Uint8Array([7, 7, 7]), enrolled: false }),
+      ),
+    resume: () => Promise.resolve({ status: 'needs-password' as const }),
+    forget: (userId: string) => {
+      forgotten.push(userId)
+      return Promise.resolve()
+    },
+    ...overrides,
+  }
+}
+
 let persistence: ReturnType<typeof makePersistence>
+let enroller: ReturnType<typeof makeEnroller>
 
 beforeEach(() => {
   persistence = makePersistence()
+  enroller = makeEnroller()
 })
 
 describe('SessionStore.login', () => {
   it('starts a session and persists the refresh token + resume metadata', async () => {
-    const store = new SessionStore({ client: makeClient(), persistence })
+    const store = new SessionStore({ client: makeClient(), persistence, enroller })
     const res = await store.login({ email: 'a@b.com', password: 'password123' })
 
     expect(res.ok).toBe(true)
@@ -95,7 +122,7 @@ describe('SessionStore.login', () => {
     const client = makeClient({
       login: () => Promise.resolve(err('INVALID_CREDENTIALS', 'nope')),
     })
-    const store = new SessionStore({ client, persistence })
+    const store = new SessionStore({ client, persistence, enroller })
     const res = await store.login({ email: 'a@b.com', password: 'password123' })
     expect(res.ok).toBe(false)
     expect(store.getSession()).toBeNull()
@@ -105,7 +132,7 @@ describe('SessionStore.login', () => {
 
 describe('SessionStore.refresh', () => {
   it('rotates the access + refresh tokens and re-persists', async () => {
-    const store = new SessionStore({ client: makeClient(), persistence })
+    const store = new SessionStore({ client: makeClient(), persistence, enroller })
     await store.login({ email: 'a@b.com', password: 'password123' })
 
     const newToken = await store.refresh()
@@ -115,14 +142,14 @@ describe('SessionStore.refresh', () => {
   })
 
   it('returns null and keeps the old session when not signed in', async () => {
-    const store = new SessionStore({ client: makeClient(), persistence })
+    const store = new SessionStore({ client: makeClient(), persistence, enroller })
     expect(await store.refresh()).toBeNull()
   })
 })
 
 describe('SessionStore.logout', () => {
   it('clears memory and persisted credentials', async () => {
-    const store = new SessionStore({ client: makeClient(), persistence })
+    const store = new SessionStore({ client: makeClient(), persistence, enroller })
     await store.login({ email: 'a@b.com', password: 'password123' })
 
     await store.logout()
@@ -137,7 +164,7 @@ describe('SessionStore.restore', () => {
   it('re-establishes a session from a persisted refresh token', async () => {
     persistence.saveResume({ userId: 'u1', email: 'a@b.com' })
     persistence.tokens.set('u1', 'refresh-old')
-    const store = new SessionStore({ client: makeClient(), persistence })
+    const store = new SessionStore({ client: makeClient(), persistence, enroller })
 
     const restored = await store.restore()
     expect(restored?.userId).toBe('u1')
@@ -146,7 +173,7 @@ describe('SessionStore.restore', () => {
   })
 
   it('returns null when there is nothing to resume', async () => {
-    const store = new SessionStore({ client: makeClient(), persistence })
+    const store = new SessionStore({ client: makeClient(), persistence, enroller })
     expect(await store.restore()).toBeNull()
   })
 
@@ -157,6 +184,7 @@ describe('SessionStore.restore', () => {
     const invalid = new SessionStore({
       client: makeClient({ refresh: () => Promise.resolve(err('INVALID_TOKEN', 'stale')) }),
       persistence,
+      enroller,
     })
     expect(await invalid.restore()).toBeNull()
     expect(persistence.tokens.has('u1')).toBe(false)
@@ -168,6 +196,7 @@ describe('SessionStore.restore', () => {
     const offline = new SessionStore({
       client: makeClient({ refresh: () => Promise.resolve(err('NETWORK_ERROR', 'offline')) }),
       persistence,
+      enroller,
     })
     expect(await offline.restore()).toBeNull()
     expect(persistence.tokens.get('u1')).toBe('refresh-old')
@@ -176,7 +205,7 @@ describe('SessionStore.restore', () => {
 
 describe('SessionStore vault seam (Stage 3 forward)', () => {
   it('reflects an unlocked vault in the snapshot and SyncContext', async () => {
-    const store = new SessionStore({ client: makeClient(), persistence })
+    const store = new SessionStore({ client: makeClient(), persistence, enroller })
     await store.login({ email: 'a@b.com', password: 'password123' })
 
     store.setVaultUnlocked('device-1', new Uint8Array([1, 2, 3]))
@@ -187,5 +216,172 @@ describe('SessionStore vault seam (Stage 3 forward)', () => {
     store.lockVault()
     expect(store.getDataKey()).toBeNull()
     expect(store.getSession()?.vaultUnlocked).toBe(false)
+  })
+})
+
+describe('SessionStore.unlockVault', () => {
+  it('requires a session', async () => {
+    const store = new SessionStore({ client: makeClient(), persistence, enroller })
+    const res = await store.unlockVault('password123')
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.error.code).toBe('UNAUTHENTICATED')
+  })
+
+  it('populates the device id + data key and activates sync on success', async () => {
+    const activated: string[] = []
+    const enrol = makeEnroller({
+      unlock: () =>
+        Promise.resolve(
+          ok({ deviceId: 'dev-x', dataKey: new Uint8Array([7, 7]), enrolled: false }),
+        ),
+    })
+    const store = new SessionStore({
+      client: makeClient(),
+      persistence,
+      enroller: enrol,
+      onVaultActivate: (id) => activated.push(id),
+    })
+    await store.login({ email: 'a@b.com', password: 'password123' })
+
+    const res = await store.unlockVault('password123')
+    expect(res.ok).toBe(true)
+    if (res.ok) expect(res.data.enrolled).toBe(false)
+    expect(store.getDeviceId()).toBe('dev-x')
+    expect(store.getDataKey()).toEqual(new Uint8Array([7, 7]))
+    expect(activated).toEqual(['dev-x'])
+  })
+
+  it('returns the recovery phrase once on first enrollment', async () => {
+    const enrol = makeEnroller({
+      unlock: () =>
+        Promise.resolve(
+          ok({
+            deviceId: 'dev-x',
+            dataKey: new Uint8Array([1]),
+            enrolled: true,
+            recoveryPhrase: ['alpha', 'bravo'],
+          }),
+        ),
+    })
+    const store = new SessionStore({ client: makeClient(), persistence, enroller: enrol })
+    await store.login({ email: 'a@b.com', password: 'password123' })
+
+    const res = await store.unlockVault('password123')
+    expect(res.ok).toBe(true)
+    if (res.ok) {
+      expect(res.data.enrolled).toBe(true)
+      expect(res.data.recoveryPhrase).toEqual(['alpha', 'bravo'])
+    }
+  })
+
+  it('converts a thrown enroller error into an INTERNAL Result (boundary never rejects)', async () => {
+    const activated: string[] = []
+    const enrol = makeEnroller({
+      unlock: () => Promise.reject(new Error('crypto blew up')),
+    })
+    const store = new SessionStore({
+      client: makeClient(),
+      persistence,
+      enroller: enrol,
+      onVaultActivate: (id) => activated.push(id),
+    })
+    await store.login({ email: 'a@b.com', password: 'password123' })
+
+    const res = await store.unlockVault('password123')
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.error.code).toBe('INTERNAL')
+    expect(store.getDataKey()).toBeNull()
+    expect(activated).toEqual([]) // sync not activated on failure
+  })
+
+  it('retries once with a refreshed token when the first call is unauthenticated', async () => {
+    const tokens: string[] = []
+    const enrol = makeEnroller({
+      unlock: (p) => {
+        tokens.push(p.accessToken)
+        return tokens.length === 1
+          ? Promise.resolve(err('UNAUTHENTICATED', 'expired'))
+          : Promise.resolve(
+              ok({ deviceId: 'dev-x', dataKey: new Uint8Array([2]), enrolled: false }),
+            )
+      },
+    })
+    const store = new SessionStore({ client: makeClient(), persistence, enroller: enrol })
+    await store.login({ email: 'a@b.com', password: 'password123' })
+
+    const res = await store.unlockVault('password123')
+    expect(res.ok).toBe(true)
+    // First with the login token, then with the refreshed one.
+    expect(tokens).toEqual(['access-1', 'access-2'])
+  })
+})
+
+describe('SessionStore.resumeVault', () => {
+  it('reports no-session when signed out', async () => {
+    const store = new SessionStore({ client: makeClient(), persistence, enroller })
+    expect(await store.resumeVault()).toBe('no-session')
+  })
+
+  it('unlocks from a keychain hit without a password and activates sync', async () => {
+    const activated: string[] = []
+    const enrol = makeEnroller({
+      resume: () =>
+        Promise.resolve({
+          status: 'unlocked' as const,
+          deviceId: 'dev-k',
+          dataKey: new Uint8Array([5]),
+        }),
+    })
+    const store = new SessionStore({
+      client: makeClient(),
+      persistence,
+      enroller: enrol,
+      onVaultActivate: (id) => activated.push(id),
+    })
+    await store.login({ email: 'a@b.com', password: 'password123' })
+
+    expect(await store.resumeVault()).toBe('unlocked')
+    expect(store.getDeviceId()).toBe('dev-k')
+    expect(activated).toEqual(['dev-k'])
+  })
+
+  it('reports needs-password on a keychain miss', async () => {
+    const store = new SessionStore({ client: makeClient(), persistence, enroller })
+    await store.login({ email: 'a@b.com', password: 'password123' })
+    expect(await store.resumeVault()).toBe('needs-password')
+  })
+})
+
+describe('SessionStore vault teardown', () => {
+  it('clears the cached data key and deactivates sync on logout', async () => {
+    const deactivated: number[] = []
+    const store = new SessionStore({
+      client: makeClient(),
+      persistence,
+      enroller,
+      onVaultDeactivate: () => deactivated.push(1),
+    })
+    await store.login({ email: 'a@b.com', password: 'password123' })
+    await store.logout()
+
+    expect(enroller.forgotten).toEqual(['u1'])
+    expect(deactivated).toEqual([1])
+  })
+
+  it('deactivates sync and forgets the key on lock', async () => {
+    const deactivated: number[] = []
+    const store = new SessionStore({
+      client: makeClient(),
+      persistence,
+      enroller,
+      onVaultDeactivate: () => deactivated.push(1),
+    })
+    await store.login({ email: 'a@b.com', password: 'password123' })
+    store.setVaultUnlocked('dev-1', new Uint8Array([1]))
+
+    store.lockVault()
+    expect(store.getDataKey()).toBeNull()
+    expect(deactivated).toEqual([1])
+    expect(enroller.forgotten).toEqual(['u1'])
   })
 })

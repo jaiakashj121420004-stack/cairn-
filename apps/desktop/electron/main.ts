@@ -5,6 +5,7 @@ import { getBackupSettings } from './ipc/backup'
 import { setupIpcHandlers } from './ipc/index'
 import { runScheduledLocalBackup, createBackup } from './services/backup-service'
 import { runSelfHealing, installCrashHandlers } from './services/self-healing'
+import { getActiveSyncRunner } from './services/sync'
 import { initMainTelemetry } from './services/telemetry'
 
 // Install crash handlers immediately — before anything else can fail
@@ -43,6 +44,13 @@ function createWindow(): void {
   } else {
     void mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  // Sync on window focus (docs/sync-protocol.md §10): a gentle extra trigger so coming
+  // back to the app reconciles promptly. No-op until a session has wired the runner; the
+  // runner itself ignores focus while paused.
+  mainWindow.on('focus', () => {
+    getActiveSyncRunner()?.onFocus()
+  })
 
   mainWindow.on('closed', () => {
     mainWindow = null

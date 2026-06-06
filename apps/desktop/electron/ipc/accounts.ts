@@ -4,6 +4,7 @@ import { v7 as uuidv7 } from 'uuid'
 import { z } from 'zod'
 import { getDb } from '../db/index'
 import * as schema from '../db/schema'
+import { enqueueSyncOp } from '../services/sync'
 import type {
   IpcResponse,
   Account,
@@ -218,6 +219,7 @@ export function registerAccountHandlers(): void {
       })
 
       const row = db.select().from(schema.accounts).where(eq(schema.accounts.id, accountId)).get()
+      if (row) enqueueSyncOp('accounts', accountId, 'upsert', row)
       return { ok: true, data: row as Account }
     } catch (err) {
       return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
@@ -235,6 +237,7 @@ export function registerAccountHandlers(): void {
         .set({ deletedAt: Date.now(), updatedAt: Date.now() })
         .where(eq(schema.accounts.id, parsed.data.id))
         .run()
+      enqueueSyncOp('accounts', parsed.data.id, 'delete', null)
       return { ok: true, data: { ok: true } }
     } catch (err) {
       return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
@@ -261,6 +264,7 @@ export function registerAccountHandlers(): void {
       db.update(schema.accounts).set(updateData).where(eq(schema.accounts.id, id)).run()
       const row = db.select().from(schema.accounts).where(eq(schema.accounts.id, id)).get()
       if (!row) return { ok: false, error: { code: 'NOT_FOUND', message: 'Account not found' } }
+      enqueueSyncOp('accounts', id, 'upsert', row)
       return { ok: true, data: row as Account }
     } catch (err) {
       return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }

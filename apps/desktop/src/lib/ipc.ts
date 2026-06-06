@@ -86,6 +86,41 @@ export interface DbStatus {
   tradeCount: number
 }
 
+/** Renderer mirror of the main-process vault readiness snapshot (electron/ipc/vault.ts). */
+export interface VaultStatus {
+  unlocked: boolean
+  needsPassword: boolean
+}
+
+/** Renderer mirror of an unlock outcome. `recoveryPhrase` is present once, on first enrollment. */
+export interface UnlockVaultResult {
+  enrolled: boolean
+  recoveryPhrase?: readonly string[]
+}
+
+/** Renderer mirror of a manual-sync outcome (electron/ipc/sync.ts). */
+export interface SyncNowResult {
+  kind: string
+  opCount?: number
+}
+
+/** Renderer mirror of the sync readiness snapshot (electron/ipc/sync.ts). */
+export interface SyncStatusResult {
+  configured: boolean
+  paused: boolean
+}
+
+/** Renderer mirror of one unresolved sync conflict (electron/ipc/sync-conflicts.ts). */
+export interface ConflictDTO {
+  id: number
+  tableName: string
+  recordId: string
+  detectedAt: number
+  remoteDeviceId: string
+  localData: Record<string, unknown> | null
+  remoteData: Record<string, unknown> | null
+}
+
 declare global {
   interface Window {
     api: {
@@ -253,6 +288,25 @@ declare global {
         verifyEmail: (token: string) => Promise<IpcResponse<{ verified: boolean }>>
         forgotPassword: (input: ForgotPasswordInput) => Promise<IpcResponse<{ sent: true }>>
         resetPassword: (input: ResetPasswordInput) => Promise<IpcResponse<{ reset: true }>>
+      }
+      vault: {
+        status: () => Promise<IpcResponse<VaultStatus>>
+        unlock: (password: string) => Promise<IpcResponse<UnlockVaultResult>>
+        recover: (
+          phrase: readonly string[],
+          newPassword: string,
+        ) => Promise<IpcResponse<UnlockVaultResult>>
+        lock: () => Promise<IpcResponse<void>>
+      }
+      sync: {
+        now: () => Promise<IpcResponse<SyncNowResult>>
+        status: () => Promise<IpcResponse<SyncStatusResult>>
+        listConflicts: () => Promise<IpcResponse<ConflictDTO[]>>
+        countConflicts: () => Promise<IpcResponse<number>>
+        resolveConflict: (input: {
+          conflictId: number
+          winner: 'local' | 'remote'
+        }) => Promise<IpcResponse<{ ok: true }>>
       }
       events: {
         on: (name: string, cb: (payload: unknown) => void) => () => void
@@ -499,6 +553,28 @@ export const ipc = {
       window.api.auth.forgotPassword(input),
     resetPassword: (input: ResetPasswordInput): Promise<IpcResponse<{ reset: true }>> =>
       window.api.auth.resetPassword(input),
+  },
+
+  vault: {
+    status: (): Promise<IpcResponse<VaultStatus>> => window.api.vault.status(),
+    unlock: (password: string): Promise<IpcResponse<UnlockVaultResult>> =>
+      window.api.vault.unlock(password),
+    recover: (
+      phrase: readonly string[],
+      newPassword: string,
+    ): Promise<IpcResponse<UnlockVaultResult>> => window.api.vault.recover(phrase, newPassword),
+    lock: (): Promise<IpcResponse<void>> => window.api.vault.lock(),
+  },
+
+  sync: {
+    now: (): Promise<IpcResponse<SyncNowResult>> => window.api.sync.now(),
+    status: (): Promise<IpcResponse<SyncStatusResult>> => window.api.sync.status(),
+    listConflicts: (): Promise<IpcResponse<ConflictDTO[]>> => window.api.sync.listConflicts(),
+    countConflicts: (): Promise<IpcResponse<number>> => window.api.sync.countConflicts(),
+    resolveConflict: (input: {
+      conflictId: number
+      winner: 'local' | 'remote'
+    }): Promise<IpcResponse<{ ok: true }>> => window.api.sync.resolveConflict(input),
   },
 
   backup: {

@@ -1,7 +1,9 @@
 import { MotionConfig } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import { ToastProvider } from './components/ui/toast'
+import { SyncToasts } from './features/auth/SyncToasts'
 import { OnboardingFlow } from './features/onboarding/OnboardingFlow'
+import { ConflictResolver } from './features/sync/ConflictResolver'
 import { ipc } from './lib/ipc'
 import { Router } from './router'
 
@@ -27,10 +29,14 @@ export default function App() {
   return (
     <MotionConfig reducedMotion="user">
       <ToastProvider>
+        <SyncToasts />
         {appState === 'onboarding' ? (
           <OnboardingFlow onComplete={() => setAppState('app')} />
         ) : (
-          <Router />
+          <>
+            <Router />
+            <ConflictResolver />
+          </>
         )}
       </ToastProvider>
     </MotionConfig>

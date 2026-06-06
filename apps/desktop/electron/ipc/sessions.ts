@@ -4,6 +4,7 @@ import { v7 as uuidv7 } from 'uuid'
 import { z } from 'zod'
 import { getDb } from '../db/index'
 import * as schema from '../db/schema'
+import { enqueueSyncOp } from '../services/sync'
 import { getConfiguredTimeZone, tradingDayKey } from '../services/time/trading-day'
 import type { IpcResponse, Session, CreateSessionInput } from '../../shared/types/index'
 import type { CairnDb } from '../db/index'
@@ -129,6 +130,7 @@ export function registerSessionHandlers(): void {
           .where(eq(schema.sessions.id, existing.id))
           .get()
         if (!updated) throw new Error('sessions:upsert: row vanished after update')
+        enqueueSyncOp('sessions', updated.id, 'upsert', updated)
         return { ok: true, data: mapRow(updated) }
       }
 
@@ -157,6 +159,7 @@ export function registerSessionHandlers(): void {
 
       const row = db.select().from(schema.sessions).where(eq(schema.sessions.id, id)).get()
       if (!row) throw new Error('sessions:upsert: row vanished after insert')
+      enqueueSyncOp('sessions', id, 'upsert', row)
       return { ok: true, data: mapRow(row) }
     } catch (err) {
       return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
@@ -177,6 +180,7 @@ export function registerSessionHandlers(): void {
         .where(eq(schema.sessions.id, raw.sessionId))
         .get()
       if (!row) return { ok: false, error: { code: 'NOT_FOUND', message: 'Session not found' } }
+      enqueueSyncOp('sessions', raw.sessionId, 'upsert', row)
       return { ok: true, data: mapRow(row) }
     } catch (err) {
       return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }

@@ -4,6 +4,7 @@ import { v7 as uuidv7 } from 'uuid'
 import { z } from 'zod'
 import { getDb } from '../db/index'
 import * as schema from '../db/schema'
+import { enqueueSyncOp } from '../services/sync'
 import type {
   IpcResponse,
   NotebookEntry,
@@ -166,6 +167,7 @@ export function registerNotebookHandlers(): void {
           .where(eq(schema.notebookEntries.id, id))
           .get()
         if (!row) return { ok: false, error: { code: 'DB_ERROR', message: 'Insert failed' } }
+        enqueueSyncOp('notebook_entries', id, 'upsert', row)
         return { ok: true, data: mapRow(row) }
       } catch (err) {
         return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
@@ -206,6 +208,7 @@ export function registerNotebookHandlers(): void {
         if (!row || row.deletedAt !== null) {
           return { ok: false, error: { code: 'NOT_FOUND', message: 'Note not found' } }
         }
+        enqueueSyncOp('notebook_entries', id, 'upsert', row)
         return { ok: true, data: mapRow(row) }
       } catch (err) {
         return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
@@ -229,6 +232,7 @@ export function registerNotebookHandlers(): void {
           ),
         )
         .run()
+      enqueueSyncOp('notebook_entries', parsed.data.id, 'delete', null)
       return { ok: true, data: { ok: true } }
     } catch (err) {
       return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }

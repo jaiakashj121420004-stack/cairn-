@@ -128,4 +128,18 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     const issues = parsed.error.issues
       .map((i) => `  - ${i.path.join('.') || '(root)'}: ${i.message}`)
       .join('\n')
-    throw new Error(`Invalid environment configura
+    throw new Error(`Invalid environment configuration:\n${issues}`)
+  }
+  if (parsed.data.EMAIL_PROVIDER === 'resend' && !parsed.data.RESEND_API_KEY) {
+    throw new Error(
+      'Invalid environment configuration:\n  - RESEND_API_KEY: required when EMAIL_PROVIDER=resend',
+    )
+  }
+  cached = Object.freeze(parsed.data)
+  return cached
+}
+
+/** Test-only: drop the cached env so a test can rebuild with fresh values. */
+export function resetEnvCache(): void {
+  cached = null
+}

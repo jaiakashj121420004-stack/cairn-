@@ -900,11 +900,12 @@ export function registerTradeHandlers(): void {
       // close fraction as integer basis points (50% → 5000), never a float.
       const closePercentBps = Math.round((raw.closeLots / trade.lotSize) * 10000)
       const newLotSize = trade.lotSize - raw.closeLots
+      const partialId = uuidv7()
 
       db.transaction(() => {
         db.insert(schema.tradePartials)
           .values({
-            id: uuidv7(),
+            id: partialId,
             tradeId: raw.tradeId,
             closePercentBps,
             closeLots: raw.closeLots,
@@ -914,6 +915,7 @@ export function registerTradeHandlers(): void {
             pnlCents,
             notes: raw.notes ?? null,
             createdAt: now,
+            updatedAt: now,
           })
           .run()
 
@@ -934,6 +936,12 @@ export function registerTradeHandlers(): void {
       const row = db.select().from(schema.trades).where(eq(schema.trades.id, raw.tradeId)).get()
       if (!row) return { ok: false, error: { code: 'DB_ERROR', message: 'Update failed' } }
       enqueueSyncOp('trades', raw.tradeId, 'upsert', row)
+      const partialRow = db
+        .select()
+        .from(schema.tradePartials)
+        .where(eq(schema.tradePartials.id, partialId))
+        .get()
+      if (partialRow) enqueueSyncOp('trade_partials', partialId, 'upsert', partialRow)
       if (!e.sender.isDestroyed()) {
         e.sender.send('cairn:event', {
           name: 'trade.partial-closed',

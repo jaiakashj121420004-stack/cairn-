@@ -24,7 +24,7 @@
  *     apply nothing, and pause sync until the user re-authenticates.
  */
 import { vaultPullOutputSchema } from '@cairn/shared-zod'
-import { compareClocks } from '@cairn/sync-protocol'
+import { compareClocks, mergeClocks } from '@cairn/sync-protocol'
 import { canonicalJson, parseEnvelope } from './canonical'
 import { adFor } from './serialize'
 import type { VectorClockCache } from './clock'
@@ -172,8 +172,15 @@ export async function pullOnce(deps: PullDeps): Promise<PullOutcome> {
         switch (action.kind) {
           case 'ignore':
             break
-          case 'apply-upsert':
+          case 'apply-upsert': {
             store.upsert(action.table, action.data)
+            // Persist the merged clock durably IN THE SAME TXN as the row, so a restart
+            // rehydrates the full clock and an op replay compares `equal`, not concurrent.
+            const merged = mergeClocks(
+              deps.clock.get(action.table, action.recordId),
+              action.remoteClock,
+            )
+            store.setClock(action.table, action.recordId, merged)
             merges.push({
               table: action.table,
               recordId: action.recordId,
@@ -181,8 +188,14 @@ export async function pullOnce(deps: PullDeps): Promise<PullOutcome> {
             })
             applied++
             break
-          case 'apply-delete':
+          }
+          case 'apply-delete': {
             store.remove(action.table, action.recordId, action.updatedAt)
+            const merged = mergeClocks(
+              deps.clock.get(action.table, action.recordId),
+              action.remoteClock,
+            )
+            store.setClock(action.table, action.recordId, merged)
             merges.push({
               table: action.table,
               recordId: action.recordId,
@@ -190,6 +203,7 @@ export async function pullOnce(deps: PullDeps): Promise<PullOutcome> {
             })
             applied++
             break
+          }
           case 'conflict':
             store.recordConflict({
               tableName: action.table,

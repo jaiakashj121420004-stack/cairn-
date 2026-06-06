@@ -18,17 +18,24 @@ interface CapturedRow {
   createdAt: number
 }
 
-/** A minimal CairnDb stand-in capturing `insert(table).values(row).run()`. */
+/**
+ * A minimal CairnDb stand-in capturing the `sync_queue` insert. enqueue now runs inside
+ * `db.transaction(tx => …)` and also upserts `sync_clocks`; the fake therefore implements
+ * `transaction` (passing itself as `tx`) and an `onConflictDoUpdate` chain, and captures
+ * only the queue row (the one carrying `payload`).
+ */
 function fakeDb(sink: CapturedRow[]): CairnDb {
-  return {
+  const db: Record<string, unknown> = {
     insert: () => ({
-      values: (row: CapturedRow) => ({
-        run: () => {
-          sink.push(row)
-        },
-      }),
+      values: (row: Record<string, unknown>) => {
+        if ('payload' in row) sink.push(row as unknown as CapturedRow)
+        const chain = { run: () => undefined, onConflictDoUpdate: () => chain }
+        return chain
+      },
     }),
-  } as unknown as CairnDb
+    transaction: (fn: (tx: unknown) => void) => fn(db),
+  }
+  return db as unknown as CairnDb
 }
 
 const DEVICE = '11111111-1111-1111-1111-111111111111'
@@ -73,7 +80,7 @@ describe('enqueueSyncOp', () => {
   it('never throws on an enqueue failure — logs via onError and swallows', () => {
     const clock = new VectorClockCache(DEVICE)
     clock.hydrate(() => [])
-    const explodingDb = {
+    const explodingDb: Record<string, unknown> = {
       insert: () => ({
         values: () => ({
           run: () => {
@@ -81,9 +88,15 @@ describe('enqueueSyncOp', () => {
           },
         }),
       }),
-    } as unknown as CairnDb
+      transaction: (fn: (tx: unknown) => void) => fn(explodingDb),
+    }
     let captured: unknown = null
-    setSyncWriteContext({ db: explodingDb, clock, now: () => 1000, onError: (e) => (captured = e) })
+    setSyncWriteContext({
+      db: explodingDb as unknown as CairnDb,
+      clock,
+      now: () => 1000,
+      onError: (e) => (captured = e),
+    })
 
     expect(() => enqueueSyncOp('trades', 't1', 'upsert', { id: 't1' })).not.toThrow()
     expect(captured).toBeInstanceOf(Error)

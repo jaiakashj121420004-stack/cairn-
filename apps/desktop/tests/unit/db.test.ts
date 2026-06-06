@@ -33,6 +33,10 @@ const MIGRATIONS = [
   readFileSync(join(__dirname, '../../electron/db/migrations/0007_notebook_account.sql'), 'utf-8'),
   readFileSync(join(__dirname, '../../electron/db/migrations/0008_external_ref.sql'), 'utf-8'),
   readFileSync(join(__dirname, '../../electron/db/migrations/0009_phase2.sql'), 'utf-8'),
+  readFileSync(join(__dirname, '../../electron/db/migrations/0010_playbooks.sql'), 'utf-8'),
+  readFileSync(join(__dirname, '../../electron/db/migrations/0011_sync.sql'), 'utf-8'),
+  readFileSync(join(__dirname, '../../electron/db/migrations/0012_sync_merge.sql'), 'utf-8'),
+  readFileSync(join(__dirname, '../../electron/db/migrations/0013_sync_clocks.sql'), 'utf-8'),
 ]
 
 let SQL: Awaited<ReturnType<typeof initSqlJs>>
@@ -76,7 +80,7 @@ function getIndexNames(sqlite: SqlJsDatabase): string[] {
 }
 
 describe('schema: migration SQL executes without errors', () => {
-  it('creates all 16 tables successfully', () => {
+  it('creates all expected tables successfully', () => {
     const { sqlite } = createTestDb()
     const tableNames = getTableNames(sqlite)
 
@@ -96,9 +100,18 @@ describe('schema: migration SQL executes without errors', () => {
     expect(tableNames).toContain('reviews')
     expect(tableNames).toContain('cooldowns')
     expect(tableNames).toContain('backup_log')
+    // v1.2 + v2.0 tables added by later migrations (playbooks, notebook, sync layer).
+    expect(tableNames).toContain('playbooks')
+    expect(tableNames).toContain('notebook_entries')
+    expect(tableNames).toContain('sync_queue')
+    expect(tableNames).toContain('sync_conflicts')
+    expect(tableNames).toContain('sync_quarantine')
+    expect(tableNames).toContain('sync_audit')
+    expect(tableNames).toContain('sync_state')
+    expect(tableNames).toContain('sync_clocks')
     // Migration 0004 consolidated the float `partial_closes` into `trade_partials`.
     expect(tableNames).not.toContain('partial_closes')
-    expect(tableNames.length).toBe(18)
+    expect(tableNames.length).toBe(26)
   })
 
   it('creates all 9 indexes', () => {

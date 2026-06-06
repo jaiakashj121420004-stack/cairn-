@@ -63,13 +63,16 @@ export function registerAuthHandlers(): void {
   })
 
   // ── auth:verifyEmail ──────────────────────────────────────────────────────────
-  ipcMain.handle('auth:verifyEmail', async (_e, raw): Promise<IpcResponse<{ verified: boolean }>> => {
-    const parsed = verifyEmailSchema.safeParse(raw)
-    if (!parsed.success) {
-      return { ok: false, error: { code: 'VALIDATION_ERROR', message: parsed.error.message } }
-    }
-    return getSessionStore().verifyEmail(parsed.data.token)
-  })
+  ipcMain.handle(
+    'auth:verifyEmail',
+    async (_e, raw): Promise<IpcResponse<{ verified: boolean }>> => {
+      const parsed = verifyEmailSchema.safeParse(raw)
+      if (!parsed.success) {
+        return { ok: false, error: { code: 'VALIDATION_ERROR', message: parsed.error.message } }
+      }
+      return getSessionStore().verifyEmail(parsed.data.token)
+    },
+  )
 
   // ── auth:forgotPassword ───────────────────────────────────────────────────────
   ipcMain.handle('auth:forgotPassword', async (_e, raw): Promise<IpcResponse<{ sent: true }>> => {

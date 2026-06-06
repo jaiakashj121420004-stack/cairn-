@@ -1,7 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { DbStatus } from './ipc/db'
-import type { SyncNowResult } from './ipc/sync'
+import type { SyncNowResult, SyncStatusResult } from './ipc/sync'
+import type { ConflictDTO } from './ipc/sync-conflicts'
+import type { VaultStatus } from './ipc/vault'
 import type { PublicSession } from './services/session'
+import type { UnlockVaultResult } from './services/session/store'
 import type { IpcResponse } from '../shared/types/index'
 import type {
   BackupLogEntry,
@@ -348,6 +351,26 @@ const api = {
   sync: {
     // Manual sync trigger (spec shorthand: cairn.sync.now()).
     now: (): Promise<IpcResponse<SyncNowResult>> => ipcRenderer.invoke('sync:now'),
+    status: (): Promise<IpcResponse<SyncStatusResult>> => ipcRenderer.invoke('sync:status'),
+    listConflicts: (): Promise<IpcResponse<ConflictDTO[]>> =>
+      ipcRenderer.invoke('sync:conflicts:list'),
+    countConflicts: (): Promise<IpcResponse<number>> => ipcRenderer.invoke('sync:conflicts:count'),
+    resolveConflict: (input: {
+      conflictId: number
+      winner: 'local' | 'remote'
+    }): Promise<IpcResponse<{ ok: true }>> => ipcRenderer.invoke('sync:conflicts:resolve', input),
+  },
+
+  vault: {
+    status: (): Promise<IpcResponse<VaultStatus>> => ipcRenderer.invoke('vault:status'),
+    unlock: (password: string): Promise<IpcResponse<UnlockVaultResult>> =>
+      ipcRenderer.invoke('vault:unlock', { password }),
+    recover: (
+      phrase: readonly string[],
+      newPassword: string,
+    ): Promise<IpcResponse<UnlockVaultResult>> =>
+      ipcRenderer.invoke('vault:recover', { phrase, newPassword }),
+    lock: (): Promise<IpcResponse<void>> => ipcRenderer.invoke('vault:lock'),
   },
 
   auth: {

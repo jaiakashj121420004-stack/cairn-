@@ -4,6 +4,7 @@ import { v7 as uuidv7 } from 'uuid'
 import { z } from 'zod'
 import { getDb } from '../db/index'
 import * as schema from '../db/schema'
+import { enqueueSyncOp } from '../services/sync'
 import type {
   IpcResponse,
   Playbook,
@@ -137,6 +138,7 @@ export function registerPlaybookHandlers(): void {
         .run()
       const row = db.select().from(schema.playbooks).where(eq(schema.playbooks.id, id)).get()
       if (!row) return { ok: false, error: { code: 'DB_ERROR', message: 'Insert failed' } }
+      enqueueSyncOp('playbooks', id, 'upsert', row)
       return { ok: true, data: mapRow(row) }
     } catch (err) {
       return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
@@ -172,6 +174,7 @@ export function registerPlaybookHandlers(): void {
       db.update(schema.playbooks).set(u).where(eq(schema.playbooks.id, id)).run()
       const row = db.select().from(schema.playbooks).where(eq(schema.playbooks.id, id)).get()
       if (!row) return { ok: false, error: { code: 'DB_ERROR', message: 'Update failed' } }
+      enqueueSyncOp('playbooks', id, 'upsert', row)
       return { ok: true, data: mapRow(row) }
     } catch (err) {
       return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
@@ -190,6 +193,7 @@ export function registerPlaybookHandlers(): void {
         .set({ deletedAt: Date.now(), updatedAt: Date.now() })
         .where(and(eq(schema.playbooks.id, parsed.data.id), isNull(schema.playbooks.deletedAt)))
         .run()
+      enqueueSyncOp('playbooks', parsed.data.id, 'delete', null)
       return { ok: true, data: { ok: true } }
     } catch (err) {
       return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }

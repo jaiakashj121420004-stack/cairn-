@@ -37,4 +37,11 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
   registerAuthRoutes(app, { authService: deps.authService, env: deps.env, limiter: deps.limiter })
   registerDeviceRoutes(app, { db: deps.db, env: deps.env })
   registerVaultRoutes(app, { db: deps.db, env: deps.env })
-  registerWebhookRoutes(app, { db: deps.d
+  registerWebhookRoutes(app, { db: deps.db, env: deps.env })
+  registerBillingRoutes(app, {
+    db: deps.db,
+    env: deps.env,
+    billingProviders: deps.billingProviders,
+  })
+  registerAdminRoutes(app, { db: deps.db, env: deps.env })
+}

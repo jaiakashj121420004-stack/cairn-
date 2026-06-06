@@ -80,6 +80,7 @@ describe('migration journal wiring', () => {
       '0010_playbooks',
       '0011_sync',
       '0012_sync_merge',
+      '0013_sync_clocks',
     ])
     // Every journaled tag must resolve to a non-empty .sql file.
     for (const tag of orderedTags()) {
@@ -405,6 +406,68 @@ describe('migration 0012: sync merge tables', () => {
     for (const col of ['local_clock', 'remote_clock', 'local_payload', 'remote_payload']) {
       expect(cCols.has(col)).toBe(true)
     }
+    sqlite.close()
+  })
+})
+
+describe('migration 0013: sync_clocks + sync-column conformance', () => {
+  function colsOf(sqlite: SqlJsDatabase, table: string): Map<string, string> {
+    const info = sqlite.exec(`PRAGMA table_info(\`${table}\`)`)
+    return new Map(
+      (info[0]?.values ?? []).map((r) => [r[1] as string, (r[2] as string).toLowerCase()]),
+    )
+  }
+
+  it('creates sync_clocks with a composite (table_name, record_id) primary key', () => {
+    const sqlite = new SQL.Database()
+    for (const tag of orderedTags()) applyMigration(sqlite, tag)
+
+    expect(tableNames(sqlite)).toContain('sync_clocks')
+    const cols = colsOf(sqlite, 'sync_clocks')
+    expect(cols.get('clock')).toBe('text')
+    expect(cols.get('updated_at')).toBe('integer')
+    // Both id columns are part of the PK (pk index > 0 in PRAGMA table_info).
+    const info = sqlite.exec('PRAGMA table_info(`sync_clocks`)')
+    const pkCols = (info[0]?.values ?? []).filter((r) => (r[5] as number) > 0).map((r) => r[1])
+    expect(new Set(pkCols)).toEqual(new Set(['table_name', 'record_id']))
+    sqlite.close()
+  })
+
+  it('adds deleted_at to sessions and updated_at + deleted_at to trade_partials', () => {
+    const sqlite = new SQL.Database()
+    for (const tag of orderedTags()) applyMigration(sqlite, tag)
+
+    expect(colsOf(sqlite, 'sessions').has('deleted_at')).toBe(true)
+    const partials = colsOf(sqlite, 'trade_partials')
+    expect(partials.has('updated_at')).toBe(true)
+    expect(partials.has('deleted_at')).toBe(true)
+    sqlite.close()
+  })
+
+  it('the added columns are nullable (no existing row is disturbed)', () => {
+    const sqlite = new SQL.Database()
+    // Apply up to 0012, seed a session + partial, then run 0013: the rows survive intact.
+    const tags = orderedTags()
+    for (const tag of tags.slice(0, tags.indexOf('0013_sync_clocks'))) applyMigration(sqlite, tag)
+    sqlite.run(
+      `INSERT INTO sessions (id, account_id, session_date, daily_bias, daily_bias_reason,
+        h4_bias, h4_bias_reason, h1_bias, h1_bias_reason, created_at, updated_at)
+       VALUES ('s1','a','2026-06-06','bullish','x','bullish','x','bullish','x',1,1)`,
+    )
+    sqlite.run(
+      `INSERT INTO trade_partials (id, trade_id, close_percent_bps, exit_price, exit_time, created_at)
+       VALUES ('tp1','t1',5000,100,1000,1000)`,
+    )
+    applyMigration(sqlite, '0013_sync_clocks')
+
+    const s = queryRows(sqlite, "SELECT deleted_at FROM sessions WHERE id = 's1'")
+    expect(s[0]?.deleted_at ?? null).toBeNull()
+    const p = queryRows(
+      sqlite,
+      "SELECT updated_at, deleted_at FROM trade_partials WHERE id = 'tp1'",
+    )
+    expect(p[0]?.updated_at ?? null).toBeNull()
+    expect(p[0]?.deleted_at ?? null).toBeNull()
     sqlite.close()
   })
 })

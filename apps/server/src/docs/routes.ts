@@ -69,7 +69,7 @@ export function registerDocsRoutes(app: FastifyInstance, deps: DocsRouteDeps): v
   })
 
   app.get('/docs/standalone.js', (_req, reply) => {
-    reply.removeHeader('content-security-policy')
+    void reply.removeHeader('content-security-policy')
     void reply
       .header('content-type', 'application/javascript; charset=utf-8')
       .header('cache-control', 'public, max-age=86400, immutable')
@@ -78,7 +78,7 @@ export function registerDocsRoutes(app: FastifyInstance, deps: DocsRouteDeps): v
   })
 
   app.get('/docs', (_req, reply) => {
-    reply.removeHeader('content-security-policy')
+    void reply.removeHeader('content-security-policy')
     void reply
       .header('content-type', 'text/html; charset=utf-8')
       .header('content-security-policy', DOCS_CSP)

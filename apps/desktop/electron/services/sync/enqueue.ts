@@ -20,7 +20,7 @@
  * {@link enqueueSyncOp} is a no-op — the offline-first app keeps working and `sync_queue`
  * stays empty on installs that never turn sync on (CLAUDE.md §2.4).
  */
-import { syncQueue } from '../../db/schema'
+import { syncClocks, syncQueue } from '../../db/schema'
 import { buildEnvelope, serializeEnvelope } from './canonical'
 import type { VectorClockCache } from './clock'
 import type { CairnDb } from '../../db/index'
@@ -54,6 +54,21 @@ export function isSyncWriteEnabled(): boolean {
 }
 
 /**
+ * Fold a remote vector clock into the active cache for one record (pointwise max), without
+ * enqueuing anything. Used by conflict resolution: after the user picks a winner we merge
+ * the losing side's clock in, so the *next* {@link enqueueSyncOp} bump produces a clock that
+ * causally dominates BOTH conflicting versions and converges everywhere on the next sync
+ * (docs/sync-protocol.md §5.3). A no-op when sync is not active.
+ */
+export function mergeRemoteClock(
+  tableName: string,
+  recordId: string,
+  remoteClock: Record<string, number>,
+): void {
+  active?.clock.mergeRemote(tableName, recordId, remoteClock)
+}
+
+/**
  * Enqueue one local mutation for sync. A no-op when sync is not enrolled.
  *
  * @param tableName logical/SQLite table the row lives in (e.g. `"trades"`).
@@ -84,16 +99,26 @@ export function enqueueSyncOp(
       data: opType === 'delete' ? undefined : (row ?? {}),
     })
 
-    ctx.db
-      .insert(syncQueue)
-      .values({
-        tableName,
-        recordId,
-        opType,
-        payload: serializeEnvelope(envelope),
-        createdAt: now,
-      })
-      .run()
+    // Queue the op AND persist the bumped full clock in one transaction, so the durable
+    // clock can never drift from the queued envelope (docs/sync-protocol.md §3).
+    ctx.db.transaction((tx) => {
+      tx.insert(syncQueue)
+        .values({
+          tableName,
+          recordId,
+          opType,
+          payload: serializeEnvelope(envelope),
+          createdAt: now,
+        })
+        .run()
+      tx.insert(syncClocks)
+        .values({ tableName, recordId, clock: JSON.stringify(clock), updatedAt: now })
+        .onConflictDoUpdate({
+          target: [syncClocks.tableName, syncClocks.recordId],
+          set: { clock: JSON.stringify(clock), updatedAt: now },
+        })
+        .run()
+    })
   } catch (err) {
     ctx.onError?.(err)
   }

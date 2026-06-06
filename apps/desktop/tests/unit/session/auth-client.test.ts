@@ -19,8 +19,7 @@ function fakeFetch(response: Partial<AuthFetchResponse> & { status: number; body
     return Promise.resolve({
       status: response.status,
       getSetCookie: response.getSetCookie ?? (() => []),
-      text: () =>
-        Promise.resolve(response.body === undefined ? '' : JSON.stringify(response.body)),
+      text: () => Promise.resolve(response.body === undefined ? '' : JSON.stringify(response.body)),
     })
   }
   return { fetchImpl, calls }

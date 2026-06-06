@@ -17,8 +17,9 @@
  * Every dependency is injected so the store is unit-testable with no keychain, SQLite,
  * or network.
  */
-import { ok } from '@cairn/shared-types'
+import { err, ok } from '@cairn/shared-types'
 import type { AuthClientSession } from './auth-client'
+import type { VaultEnrollment, VaultUnlockResult as EnrollUnlockResult } from './enrollment'
 import type { SessionPersistence } from './persistence'
 import type { SyncContext } from '../sync/types'
 import type { Entitlement, PublicSession, Result, SignupResult } from '@cairn/shared-types'
@@ -58,30 +59,59 @@ export interface SessionLogger {
 
 const NOOP_LOGGER: SessionLogger = { warn: () => undefined }
 
+/** The result of an unlock attempt surfaced to the renderer (phrase shown once on enroll). */
+export interface UnlockVaultResult {
+  readonly enrolled: boolean
+  /** The 24-word recovery phrase — present only on first enrollment, to display once. */
+  readonly recoveryPhrase?: readonly string[]
+}
+
+/** Whether the vault is ready, needs a password, or there is no session to unlock. */
+export type ResumeVaultStatus = 'unlocked' | 'needs-password' | 'no-session'
+
 export interface SessionStoreDeps {
   readonly client: AuthClient
   readonly persistence: SessionPersistence
+  readonly enroller: VaultEnrollment
   readonly now?: () => number
   readonly log?: SessionLogger
+  /** Human-readable device label used when registering this device (e.g. the hostname). */
+  readonly deviceName?: string
+  /** OS platform string for the device record (display only). */
+  readonly platform?: string
+  /** Called once the vault is unlocked, to wire the main-process sync runner (Stage 3). */
+  readonly onVaultActivate?: (deviceId: string) => void
+  /** Called on lock/logout to tear the sync runner down. */
+  readonly onVaultDeactivate?: () => void
 }
 
 export class SessionStore implements SyncContext {
   private readonly client: AuthClient
   private readonly persistence: SessionPersistence
+  private readonly enroller: VaultEnrollment
   private readonly now: () => number
   private readonly log: SessionLogger
+  private readonly deviceName: string
+  private readonly platform: string
+  private readonly onVaultActivate: (deviceId: string) => void
+  private readonly onVaultDeactivate: () => void
 
   private session: ActiveSession | null = null
-  /** Enrolled device id — populated in Stage 3; null gates sync as not-ready. */
+  /** Enrolled device id — set on vault unlock; null gates sync as not-ready. */
   private deviceId: string | null = null
-  /** Unwrapped vault data key — populated in Stage 3; null gates sync as not-ready. */
+  /** Unwrapped vault data key — set on vault unlock; null gates sync as not-ready. */
   private dataKey: Uint8Array | null = null
 
   constructor(deps: SessionStoreDeps) {
     this.client = deps.client
     this.persistence = deps.persistence
+    this.enroller = deps.enroller
     this.now = deps.now ?? Date.now
     this.log = deps.log ?? NOOP_LOGGER
+    this.deviceName = deps.deviceName ?? 'Cairn device'
+    this.platform = deps.platform ?? 'unknown'
+    this.onVaultActivate = deps.onVaultActivate ?? (() => undefined)
+    this.onVaultDeactivate = deps.onVaultDeactivate ?? (() => undefined)
   }
 
   // ── Auth operations ───────────────────────────────────────────────────────────
@@ -99,15 +129,18 @@ export class SessionStore implements SyncContext {
     return ok(this.snapshot(session))
   }
 
-  /** End the session: best-effort server revoke, then clear memory + persistence. */
+  /** End the session: best-effort server revoke, then clear memory + persistence + vault. */
   async logout(): Promise<Result<void>> {
     const current = this.session
     await this.client.logout(current?.refreshToken ?? null)
     if (current) {
       const cleared = await this.persistence.clearRefreshToken(current.userId)
       if (!cleared.ok) this.log.warn('[session] failed to clear refresh token', cleared.error)
+      // Drop the cached vault key so a different user on this machine can't resume it.
+      await this.enroller.forget(current.userId)
     }
     this.persistence.clearResume()
+    this.onVaultDeactivate()
     this.session = null
     this.dataKey = null
     this.deviceId = null
@@ -187,20 +220,139 @@ export class SessionStore implements SyncContext {
     return res.data.session.accessToken
   }
 
-  // ── Stage 3 seam (vault enrollment / unlock) ─────────────────────────────────
+  // ── Vault enrollment / unlock (Stage 3) ──────────────────────────────────────
 
-  /** Mark the vault unlocked with an enrolled device + unwrapped data key (Stage 3). */
+  /**
+   * Enroll or unlock the vault with the user's password. On success the device id +
+   * unwrapped data key are held in memory and the sync runner is activated. The recovery
+   * phrase is returned exactly once (first enrollment only) for the caller to display; it is
+   * never persisted or logged here.
+   */
+  async unlockVault(password: string): Promise<Result<UnlockVaultResult>> {
+    const current = this.session
+    if (!current) return err('UNAUTHENTICATED', 'sign in before unlocking the vault')
+
+    let res: Result<EnrollUnlockResult>
+    try {
+      res = await this.withFreshToken((accessToken) =>
+        this.enroller.unlock({
+          userId: current.userId,
+          password,
+          accessToken,
+          deviceName: this.deviceName,
+          platform: this.platform,
+        }),
+      )
+    } catch (e) {
+      // The unlock path runs crypto directly, which can throw (e.g. a corrupt server
+      // descriptor → INVALID_NONCE_LENGTH, or SODIUM_NOT_READY). Keep the boundary's
+      // no-throw contract: convert to a typed Result. The thrown error carries no key
+      // material (crypto/errors.ts) and never the password (a local of this method).
+      this.log.warn('[session] vault unlock threw', e instanceof Error ? e.name : 'unknown')
+      return err('INTERNAL', 'could not unlock the vault')
+    }
+    if (!res.ok) return res
+
+    this.applyVaultUnlocked(res.data.deviceId, res.data.dataKey)
+    return ok({
+      enrolled: res.data.enrolled,
+      ...(res.data.recoveryPhrase ? { recoveryPhrase: res.data.recoveryPhrase } : {}),
+    })
+  }
+
+  /**
+   * Recover the vault with the 24-word recovery phrase and set a new password. On success the
+   * vault is unlocked and sync activated, exactly like {@link unlockVault}. Keeps the boundary
+   * no-throw contract by converting any crypto throw to a typed Result.
+   */
+  async recoverVault(
+    phrase: readonly string[],
+    newPassword: string,
+  ): Promise<Result<UnlockVaultResult>> {
+    const current = this.session
+    if (!current) return err('UNAUTHENTICATED', 'sign in before recovering the vault')
+
+    let res: Result<EnrollUnlockResult>
+    try {
+      res = await this.withFreshToken((accessToken) =>
+        this.enroller.recover({
+          userId: current.userId,
+          accessToken,
+          phrase,
+          newPassword,
+          deviceName: this.deviceName,
+          platform: this.platform,
+        }),
+      )
+    } catch (e) {
+      this.log.warn('[session] vault recover threw', e instanceof Error ? e.name : 'unknown')
+      return err('INTERNAL', 'could not recover the vault')
+    }
+    if (!res.ok) return res
+
+    this.applyVaultUnlocked(res.data.deviceId, res.data.dataKey)
+    return ok({ enrolled: res.data.enrolled })
+  }
+
+  /**
+   * Try to unlock the vault without a password by reading the cached data key from the OS
+   * keychain. Called after `login()` / `restore()`. Returns whether the vault is ready, a
+   * password is needed, or there is no session.
+   */
+  async resumeVault(): Promise<ResumeVaultStatus> {
+    const current = this.session
+    if (!current) return 'no-session'
+    if (this.dataKey !== null) return 'unlocked'
+
+    const res = await this.enroller.resume({ userId: current.userId })
+    if (res.status === 'needs-password') return 'needs-password'
+    this.applyVaultUnlocked(res.deviceId, res.dataKey)
+    return 'unlocked'
+  }
+
+  /**
+   * Low-level setter: record the device id + data key in memory only. This does NOT activate
+   * the sync runner — the production unlock paths (`unlockVault` / `resumeVault`) go through
+   * the private {@link applyVaultUnlocked}, which also fires `onVaultActivate`. Prefer those;
+   * this exists for the SyncContext-reflection unit test.
+   */
   setVaultUnlocked(deviceId: string, dataKey: Uint8Array): void {
     this.deviceId = deviceId
     this.dataKey = dataKey
   }
 
-  /** Drop the in-memory data key (lock) without ending the auth session (Stage 3). */
+  /** Drop the in-memory data key (lock) without ending the auth session; stops sync. */
   lockVault(): void {
+    const current = this.session
     this.dataKey = null
+    this.onVaultDeactivate()
+    if (current) void this.enroller.forget(current.userId)
   }
 
   // ── Internals ───────────────────────────────────────────────────────────────
+
+  /** Hold the unlocked vault in memory and activate the sync runner. */
+  private applyVaultUnlocked(deviceId: string, dataKey: Uint8Array): void {
+    this.setVaultUnlocked(deviceId, dataKey)
+    this.onVaultActivate(deviceId)
+  }
+
+  /**
+   * Run a vault call with the current access token, retrying once with a freshly-refreshed
+   * token if the server rejected the first attempt as unauthenticated (the 15-minute access
+   * token may have expired between login and unlock).
+   */
+  private async withFreshToken<T>(
+    fn: (accessToken: string) => Promise<Result<T>>,
+  ): Promise<Result<T>> {
+    const current = this.session
+    if (!current) return err('UNAUTHENTICATED', 'sign in first')
+    const first = await fn(current.accessToken)
+    if (first.ok || first.error.code !== 'UNAUTHENTICATED') return first
+    const refreshed = await this.refresh()
+    if (refreshed === null) return first
+    return fn(refreshed)
+  }
 
   /** Adopt a fresh authentication into memory and persist the rotated token + resume. */
   private async adopt(data: AuthClientSession, email: string): Promise<ActiveSession> {

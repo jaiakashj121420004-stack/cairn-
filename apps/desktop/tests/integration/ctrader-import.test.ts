@@ -41,6 +41,9 @@ const MIGRATIONS = [
   '0008_external_ref',
   '0009_phase2',
   '0010_playbooks',
+  '0011_sync',
+  '0012_sync_merge',
+  '0013_sync_clocks',
 ].map((t) => readFileSync(join(__dirname, `../../electron/db/migrations/${t}.sql`), 'utf-8'))
 
 const FIXTURE_DIR = join(__dirname, '../fixtures/import/ctrader')

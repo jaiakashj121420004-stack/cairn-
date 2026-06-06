@@ -29,6 +29,9 @@ const MIGRATIONS = [
   '0008_external_ref',
   '0009_phase2',
   '0010_playbooks',
+  '0011_sync',
+  '0012_sync_merge',
+  '0013_sync_clocks',
 ].map(readMigration)
 
 let SQL: Awaited<ReturnType<typeof initSqlJs>>
