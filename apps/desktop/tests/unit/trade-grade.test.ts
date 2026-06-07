@@ -101,6 +101,31 @@ describe('computeTradeGrade', () => {
     ).toBe('F') // 60+0+0−20=40
   })
 
+  // ── unreviewed (honesty boundary, §2.3) ────────────────────────────────────
+
+  it('an unreviewed trade is not graded as if it were clean', () => {
+    // Same winning outcome that met its R target. The only difference is whether
+    // the trader has reviewed it (followedPlanExactly recorded).
+    const clean = computeTradeGrade({ ...base, followedPlanExactly: 1 }) // 60+20+15 = 95
+    const unreviewed = computeTradeGrade({ ...base, followedPlanExactly: null }) // 60+0+15 = 75
+
+    expect(clean?.letter).toBe('A')
+    expect(clean?.score).toBe(95)
+    // The +20 plan/clean bonus requires an explicit review — absence of review
+    // must never earn it. The unreviewed trade grades strictly lower.
+    expect(unreviewed?.score).toBe(75)
+    expect(unreviewed?.score ?? 0).toBeLessThan(clean?.score ?? 0)
+  })
+
+  it('a null followedPlanExactly is treated distinctly from an explicit 0', () => {
+    // 0 (reviewed, plan not followed) and null (unreviewed) both miss the +20
+    // bonus, but neither is silently promoted to clean.
+    const reviewedNotFollowed = computeTradeGrade({ ...base, followedPlanExactly: 0 })
+    const unreviewed = computeTradeGrade({ ...base, followedPlanExactly: null })
+    expect(reviewedNotFollowed?.score).toBe(75) // 60+0+15
+    expect(unreviewed?.score).toBe(75) // 60+0+15 — no clean bonus
+  })
+
   // ── tilt bonus specifics ───────────────────────────────────────────────────
 
   it('clean-on-tilt bonus requires BOTH urgency ≥ 8 AND zero rules broken', () => {

@@ -411,6 +411,7 @@ export function ImportTab() {
                 {result.imported} trade{result.imported === 1 ? '' : 's'} imported
                 {result.partials > 0 &&
                   `, ${result.partials} partial close${result.partials === 1 ? '' : 's'}`}
+                {(result.reconciled ?? 0) > 0 && `, ${result.reconciled} reconciled with live`}
                 {result.skipped > 0 &&
                   `, ${result.skipped} duplicate${result.skipped === 1 ? '' : 's'} skipped`}
                 .

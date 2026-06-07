@@ -954,8 +954,10 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
                         <select
                           value={ss.kind}
                           onChange={(e) => {
+                            const cur = screenshots[i]
+                            if (!cur) return
                             const next = [...screenshots]
-                            next[i] = { ...next[i], kind: e.target.value as ScreenshotKind }
+                            next[i] = { ...cur, kind: e.target.value as ScreenshotKind }
                             setScreenshots(next)
                           }}
                           className="flex-1 rounded-[6px] border border-border bg-surface py-1 px-2 text-caption text-text-primary focus:outline-none"

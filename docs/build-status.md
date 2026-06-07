@@ -167,3 +167,23 @@ Completes the four remaining Sync-Engine pieces on top of the trades-only slice 
 Fix: `electron.vite.config.ts` now excludes both groups from `externalizeDepsPlugin` so Vite bundles them into the main chunk.
 
 Also fixed two pre-existing floating-promise lint errors in `apps/server/src/docs/routes.ts` (`reply.removeHeader` — Fastify replies are thenable) that were blocking the lint gate.
+
+---
+
+## Wave 4 - Live broker integration (built on branch `feat/vault-enrollment-server`, uncommitted)
+
+The Wave 4 surfaces (MT5 loopback EA->socket bridge, cTrader Open API adapter, live detection, configurable auto-log) are present in the working tree but **not yet committed** - so this section cites no commit hashes; fill them in at commit time. Binding spec: `docs/broker-integration.md`. End-state: `docs/roadmap-v1.2.md` 6.1 (#30-#36).
+
+**This cycle - reconciliation rule (6) + sync-gap (7) closed, with tests.** Two end-state items are done and green:
+
+- **#35 Dedupe + conflict rule (statement <-> live), round-tripped in tests.** Both sources resolve to one row via `external_ref = brokerTradeId`. The conflict rule is now *realised*, not just documented: a statement that lands on a still-live row **reconciles** it (`commitWithReconcile` / `reconcileSettledTrade` in `_shared/committer.ts`) - the settled statement wins the monetary columns (`STATEMENT_MONETARY_FIELDS` = `pnl_cents`, `pnl_pct_bps`, `pnl_r`); the live stream keeps intra-trade timing, SL/TP modification history, its partials, and the trader's honesty/reflection. A row is "settled" iff `imported_at` is non-null (statements stamp it; live capture leaves it null - committer `settledImport` flag). The live ingest's conflict update drops the monetary columns once a row is settled, so a replayed fill cannot clobber settled money back to its price-derived $0. The commit path routes new->insert / live->reconcile / settled->skip via `findExistingTrades` + `partitionCandidates`; `ImportCommitResult.reconciled` surfaces the count in the Import UI.
+- **#36 (2nd clause) Streamed fills sync via `enqueueSyncOp`.** The live ingest now enqueues the persisted trade + its partials after each applied event, and the importer write path (`commitCandidates`) enqueues too - this closes the documented import-adapter sync-gap follow-up. The server still only ever sees ciphertext; no-op until the device is enrolled.
+- **#36 (1st clause) No order-execution path** - already enforced by `tests/unit/broker/mt5-ea-readonly.test.ts` + `ctrader-readonly.test.ts`.
+
+**Tests added:** `tests/integration/broker-ingest.test.ts` - settle-from-statement (statement wins money, live keeps timing, no duplicate partial), replay-after-settlement (settled money survives), idempotent re-import (skip not re-reconcile), and a sync-enqueue assertion (streamed trade + partials queued). Desktop gates green: typecheck, lint 0, full vitest, build (smoke E2E unchanged from the Stage-18.6 run).
+
+**Remaining production seams before live end-to-end (NOT closed by this cycle):**
+- **Account mapping.** `services/broker/index.ts` `resolveAccount()` still returns `null` (no Settings -> Integrations account-map UI), so a real MT5/cTrader fill surfaces `UNKNOWN_ACCOUNT` and creates no row yet. The reconciliation/sync logic above is verified at the service level (ingest + committer), independent of this seam.
+- **cTrader protobuf codec.** `services/broker/ctrader/connection.ts` `loadProtobufCodec()` returns `null`, so cTrader links via OAuth but does not stream until the codec is vendored.
+
+Until those two land, the **manual MT5/cTrader end-to-end QA** in `docs/broker-integration.md` 10 cannot be exercised on a live terminal; the automated round-trip test above covers the import-after-live no-duplicate path in its place.

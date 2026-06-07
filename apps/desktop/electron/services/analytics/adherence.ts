@@ -190,13 +190,17 @@ export function getAdherenceTrendWeekly(
   filter: AnalyticsFilter,
 ): AdherenceTrendPoint[] {
   const where = buildTradeWhereClauses(filter)
-  // strftime '%W' gives week-of-year; combine with %Y for uniqueness
+  // strftime '%W' gives week-of-year; combine with %Y for uniqueness.
+  // The clean-rate denominator counts only REVIEWED trades (clean + dirty);
+  // unreviewed trades (isClean IS NULL — e.g. a minimal close still owing
+  // reflection, or a fully-auto broker fill) are excluded, never silently
+  // treated as clean OR dirty (CLAUDE.md §2.3). This matches scoreForRange.
   const rows = db
     .select({
       weekKey: sql<string>`strftime('%Y-%W', ${trades.updatedAt}/1000, 'unixepoch')`,
       weekStart: sql<string>`strftime('%Y-%m-%d', ${trades.updatedAt}/1000, 'unixepoch', 'weekday 1', '-7 days')`,
       cleanCount: sql<number>`SUM(CASE WHEN ${trades.isClean} = 1 THEN 1 ELSE 0 END)`,
-      totalCount: sql<number>`COUNT(*)`,
+      dirtyCount: sql<number>`SUM(CASE WHEN ${trades.isClean} = 0 THEN 1 ELSE 0 END)`,
     })
     .from(trades)
     .where(and(...where))
@@ -206,7 +210,8 @@ export function getAdherenceTrendWeekly(
 
   return rows.map((r) => {
     const cleanCount = Number(r.cleanCount)
-    const totalCount = Number(r.totalCount)
+    const dirtyCount = Number(r.dirtyCount)
+    const totalCount = cleanCount + dirtyCount // reviewed trades only
     return {
       weekStart: String(r.weekStart),
       cleanCount,

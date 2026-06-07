@@ -32,8 +32,9 @@
 
 ### 13.5 Git Hooks
 
-- Pre-commit: `lint-staged` runs Prettier + ESLint on changed files.
-- Pre-push: `pnpm typecheck` and `pnpm test:unit`.
+- Pre-commit (`.husky/pre-commit`): full `pnpm typecheck`, `pnpm lint` (`--max-warnings 0`), and `pnpm format:check`. Run as full passes rather than via `lint-staged` because type-aware ESLint loads the whole tsconfig program and cannot run cheaply per-file, and `lint-staged`'s stash/restore does not compose with large `git mv` renames (§3.3 monorepo move). `lint-staged` still runs file-scoped Prettier (`.lintstagedrc.cjs`).
+- Commit-msg (`.husky/commit-msg`): `commitlint` enforces Conventional Commits (§13.3) via `commitlint.config.cjs`.
+- Managed by Husky v9 (`pnpm prepare` installs the hooks).
 
 ### 13.6 Environment
 
@@ -121,3 +122,21 @@ Instructions for the agent implementing this spec:
 - **Ship small commits.** Every commit should leave the app runnable.
 - **Write real tests for the rules engine and calculators before writing UI that depends on them.**
 - **Before adding any library not listed in §3.1, pause and justify.** The stack is already chosen; additions dilute it.
+
+### 13.13 CI Gates & Coverage Climb (§19)
+
+The "no-slop" baseline (§19) is enforced by automation. Locally the Husky hooks (§13.5) gate every commit; in CI the following block merge:
+
+- **`.github/workflows/ci.yml`** — jobs: `typecheck` (also runs `lint --max-warnings 0` and `format:check`), `audit` (`pnpm audit --prod --audit-level high`), `licenses` (`pnpm check-licenses` — fails on any GPL/AGPL transitive, §19.7), `unit` (`pnpm test:unit`), `build`, and `smoke-e2e`. All run on every PR to `main` and on push to `main` / `feat/**` / `fix/**` / `chore/**`.
+- **`.github/workflows/gitleaks.yml`** — secret scanning on every PR and push (§19.8).
+- **Renovate** (`renovate.json`) — weekly dependency PRs (Monday before 6am), pinned versions, grouped non-major devDeps, security alerts any time (§19.7).
+
+**Coverage gate (§19.10).** The threshold lives in `apps/desktop/vitest.config.ts` (`test.coverage.thresholds`) and is enforced by `pnpm test:coverage`. The bar starts deliberately modest and **ratchets up, never down**:
+
+| Milestone | lines | statements | branches | functions |
+|---|---|---|---|---|
+| Now (Stage 0 baseline) | 70 | 70 | 65 | 70 |
+| End of Stage 3 | 75 | 75 | 70 | 75 |
+| End of Stage 6 | 80 | 80 | 75 | 80 |
+
+When a stage closes, raise the numbers in `vitest.config.ts` to the next row and update this table. Coverage is scoped to the **main-process business-logic layer** — `electron/services/**` and `shared/**` (P&L, rule engine, analytics, insights, crypto, sync, import adapters, broker, session). That is the base of the test pyramid. The IPC boundary layer (`electron/ipc/**`), the renderer (`src/**`), and the Electron bootstrap are covered by integration tests and smoke E2E, not the unit coverage gate. As those layers gain unit tests they can be folded into the gate's `include`.

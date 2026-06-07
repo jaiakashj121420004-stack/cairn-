@@ -80,7 +80,7 @@ WAVE 0 — Foundation                       ~Wk 1
 WAVE 1 — Friction quick-wins (free)       ~Wk 2–4
 WAVE 2 — Automations (free)               ~Wk 4–7
 WAVE 3 — File import + two-phase logging  ~Wk 7–11
-WAVE 4 — Live broker integration (paid)   Later
+WAVE 4 — Live broker integration (optional) Later
 ```
 
 Timings are planning estimates for a solo build, not commitments.
@@ -147,15 +147,20 @@ This is where the double-entry friction for closed trades disappears.
 - **Reflection queue UI** — a badge on the sidebar showing N trades awaiting reflection; the Review screen surfaces them in a quick keyboard-driven flow.
 - **Setup templates / playbooks** — saved per-account templates that pre-fill pair, setup, killzone, required confluence, default risk %, default invalidation chip. One tap loads the scaffold; the trader only types the live prices.
 
-### Wave 4 — Live broker integration (paid, optional)
+### Wave 4 — Live broker integration (optional)
 
-Only here do we spend money. Wave 0–3 has already removed ~80% of the friction.
+This is the only wave with real moving parts. Waves 0–3 already removed ~80% of the friction with zero infrastructure, so Wave 4 is sequenced separately and the project stays fully useful even if it never ships. **Binding spec: `docs/broker-integration.md`. Build prompts: `prompts.md` §8.7.**
 
-- **MT5 live bridge** — connect to a running MT5 terminal (named-pipe or DLL adapter) and stream fills, modifications and closes into Cairn.
-- **Live SL-move / over-trade detection** — the rule engine watches the open position and warns the instant a planned-vs-actual divergence breaches a rule. The genuine realisation of "prevention over detection" — something TradeZella structurally does not do.
-- **Live auto-import of fills** — open/close events stream in with no manual entry at all.
-- **TradingView embed for replay** — jump a free TradingView chart widget to the trade's time window. Avoids the licensed tick-data cost of a real replay engine while delivering ~80% of the value.
-- **Optional second integration** — cTrader Open API (free if user has cTrader; their API is open and unlicensed) — extend the same bridge interface.
+The shape, locked with the user:
+
+- **MT5 = local Expert Advisor → `127.0.0.1` socket bridge.** A read-only EA inside the MT5 terminal pushes every fill (open / modify / partial / close) to a loopback-only Cairn listener, token-authenticated. Stays entirely on-device — the most local-first option, and instant (so live detection is real-time). Chosen over the Windows-only, poll-based MT5 Python package.
+- **cTrader = official Open API** — OAuth 2.0, read-only scopes, streams execution events. Free for any cTrader user. Tokens live in the OS keychain. (Caveat: events transit Spotware's servers — the one non-local path, disclosed in Settings.)
+- **One internal `BrokerEvent` stream.** Both transports normalise to a single typed event the ingest service consumes, so the rest of Cairn is transport-agnostic and a third broker later is just another adapter.
+- **Configurable auto-log.** Default **draft-awaiting-context** (mechanical fields prefilled; the trade lands in the Wave 3 reflection queue; honesty fields stay `unreviewed`, never defaulted to clean). A Settings toggle enables **fully-auto** (complete record, never queued). Neither mode fabricates honesty data, and neither runs the *pre-trade* gate — auto-log is capture (job #2), not prevention (job #1).
+- **Live SL-move / over-trade detection** — the rule engine watches the open position (fed the live `BrokerEvent`s) and raises non-blocking, mentor-voice warnings the instant a planned-vs-actual divergence breaches a rule, recorded as `rule_violations`. The genuine realisation of "prevention over detection" for trades placed outside Cairn — something TradeZella structurally does not do. (Non-blocking because Cairn cannot stop a broker order; it reads, never writes.)
+- **Read-only, forever.** No adapter has an order-execution path. Cairn never places, modifies, or closes a broker order — a hard safety boundary, asserted by a test.
+- **Dedupe with Wave 3 imports** via `external_ref = brokerTradeId`, so a live-streamed trade and the same trade in a later statement import resolve to one row.
+- **TradingView embed for replay** — jump a free TradingView chart widget to the trade's time window. Avoids the licensed tick-data cost of a real replay engine while delivering ~80% of the value. (TradingView itself has no read API for your trades; its fills execute at the connected broker, so capture happens there, not in TradingView.)
 
 ---
 
@@ -225,7 +230,29 @@ v1.2 is complete when all v1.1 criteria (CLAUDE.md §16.a) are met, the v1.1 bra
 28. Every new IPC handler has a Zod input schema and a typed Result return.
 29. No feature ships that bypasses `EntitlementService` (matter of habit pre-v2.0 — keep the gates clean for when the service exists).
 
-Wave 4 is its own milestone and is **not** part of v1.2 done; it lands in a v1.3 / v2.0 boundary depending on whether broker work happens before or after the cloud rebuild in CLAUDE.md §18.
+Wave 4 is its own milestone and is **not** part of v1.2 done; it lands in a v1.3 / v2.0 boundary depending on whether broker work happens before or after the cloud rebuild in CLAUDE.md §18. Its end-state list is §6.1 below.
+
+---
+
+## 6.1 Wave 4 done — end-state criteria (live broker integration)
+
+Wave 4 is a separate optional milestone. Full spec: `docs/broker-integration.md` §10. It is complete when:
+
+30. A Cairn-bridge Expert Advisor installs into an MT5 terminal and, on every fill, delivers a `BrokerEvent` to the desktop over a loopback-only, token-authenticated socket; Settings → Integrations → MT5 shows live connection status.
+31. cTrader Open API connects via OAuth (read-only scopes), tokens stored in the OS keychain, and streams execution events as `BrokerEvent`s.
+32. Both sources normalise to one `BrokerEvent` stream; the ingest service encodes money/pips to integers (decimal.js), never floats.
+33. Auto-log mode is a Settings toggle (default **draft-awaiting-context**): draft mode prefills mechanical fields, lands the trade in the reflection queue, and leaves honesty fields `unreviewed`; **fully-auto** writes a complete trade that never enters the queue. `unreviewed` is never counted as `clean` in composite score, A–F grade, or clean-rate. Settings copy states auto-log is capture, not pre-trade prevention.
+34. Live detection raises non-blocking, mentor-voice warnings on SL-widen / size-up / TP-cut / over-trade / post-circuit-breaker / outside-killzone, recorded as `rule_violations`, for trades from both brokers.
+35. Live trades dedupe against statement imports via `external_ref`; no double-counting (round-tripped in tests).
+36. No order-execution code path exists in either adapter or the EA; a test enforces this. If built on the v2.0 sync engine, streamed fills sync via `enqueueSyncOp`.
+
+**Status (2026-06-06, branch `feat/vault-enrollment-server`, uncommitted):**
+- **#35 — done & tested.** Dedupe to one row via `external_ref`, and the conflict rule is realised: statement wins monetary fields, live wins timing/modification history (`commitWithReconcile` / `reconcileSettledTrade`). Round-tripped in `tests/integration/broker-ingest.test.ts` (settle-from-statement, replay-after-settlement, idempotent re-import).
+- **#36 — done & tested.** No-order-execution enforced by the read-only adapter tests; streamed fills (and statement imports) now enqueue via `enqueueSyncOp`, closing the import-adapter sync-gap follow-up.
+- **#32, #33, #34 — built, service-level green.** Single `BrokerEvent` stream + integer encoding; auto-log Settings toggle with the honesty boundary; live detection warnings recorded as `rule_violations`.
+- **#30, #31 — built, two production seams open before live end-to-end:** the Settings → Integrations account-map UI (`resolveAccount()` returns `null` today → fills hit `UNKNOWN_ACCOUNT`) and the cTrader protobuf codec (`loadProtobufCodec()` returns `null`). Until both land, the live-terminal manual QA in `docs/broker-integration.md` §10 cannot run; the automated round-trip test stands in for the import-after-live no-duplicate path.
+
+Wave 4 carries external-dependency slack not present in Waves 0–3: an MT5 demo terminal to test the EA, and a Spotware Open API app registration + OAuth review for cTrader.
 
 ---
 

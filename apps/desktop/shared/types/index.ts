@@ -10,7 +10,11 @@ export interface TradeGrade {
 }
 
 export type RuleSeverity = 'blocking' | 'warning' | 'logged'
-export type RuleOutcome = 'blocked' | 'user_overrode' | 'logged_post_hoc'
+// 'detected_live' — a non-blocking, real-time breach Cairn observed on a live
+// broker position it cannot block (Wave 4 live detection). Distinct from
+// 'blocked' (a pre-trade gate that stopped the click) so analytics never count a
+// detection as a prevention. See docs/broker-integration.md §5.
+export type RuleOutcome = 'blocked' | 'user_overrode' | 'logged_post_hoc' | 'detected_live'
 export type RuleCategory = 'risk' | 'process' | 'timing' | 'behavior'
 export type SessionState = 'idle' | 'active' | 'paused' | 'locked'
 export type CooldownReason =
@@ -55,10 +59,10 @@ export interface RuleEvaluationDTO {
   passed: boolean
   severity: 'blocking' | 'warning' | 'info'
   message: string
-  details?: string
+  details?: string | undefined
   canOverride: boolean
-  suggestedAction?: string
-  contextSnapshot?: Record<string, unknown>
+  suggestedAction?: string | undefined
+  contextSnapshot?: Record<string, unknown> | undefined
 }
 
 /** A planned-vs-actual divergence detected when closing a trade. The renderer
@@ -865,7 +869,7 @@ export interface RuleBreakRow {
 export interface AdherenceTrendPoint {
   weekStart: string // YYYY-MM-DD (Monday UTC)
   cleanCount: number
-  totalCount: number
+  totalCount: number // reviewed trades that week (clean + dirty); unreviewed excluded
   scoreBps: number
 }
 
@@ -1248,6 +1252,9 @@ export interface ImportCommitResult {
   imported: number // new trade rows inserted
   partials: number // new trade_partials rows inserted
   skipped: number // duplicates detected and skipped
+  // existing live-streamed rows settled by this statement (docs/broker-integration.md §6);
+  // optional — undefined for non-reconciling callers (e.g. commitCandidates directly)
+  reconciled?: number
 }
 
 // ── MT5 adapter types ─────────────────────────────────────────────────────────
@@ -1365,3 +1372,5 @@ export interface TvCommitInput {
   /** Setup to assign to all imported trades. */
   defaultSetupId: string
 }
+
+export * from './procedures'

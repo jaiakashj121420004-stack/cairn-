@@ -23,7 +23,9 @@ export type AssetClass = 'forex' | 'indices' | 'commodities' | 'crypto' | 'stock
 
 export type RuleSeverity = 'blocking' | 'warning' | 'logged'
 
-export type RuleOutcome = 'blocked' | 'user_overrode' | 'logged_post_hoc'
+// 'detected_live' — a non-blocking, real-time breach observed on a live broker
+// position (Wave 4 live detection); see docs/broker-integration.md §5.
+export type RuleOutcome = 'blocked' | 'user_overrode' | 'logged_post_hoc' | 'detected_live'
 
 export type CooldownReason =
   | 'post_loss'

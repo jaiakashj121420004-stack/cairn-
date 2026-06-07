@@ -5,6 +5,7 @@ import {
   makeTestDb,
   seedAnalyticsFixtures,
   seedBlockedViolations,
+  seedTradeRow,
   EXPECTED,
 } from './_fixtures'
 import {
@@ -125,5 +126,19 @@ describe('adherence.getAdherenceTrendWeekly', () => {
     const total = rows.reduce((s, r) => s + r.totalCount, 0)
     expect(totalClean).toBe(EXPECTED.cleanCount)
     expect(total).toBe(EXPECTED.tradeCount)
+  })
+
+  it('excludes unreviewed trades (isClean = null) from the clean-rate denominator', () => {
+    const { db, ids } = makeTestDb()
+    seedAnalyticsFixtures(db, ids)
+    // A closed-but-unreviewed trade — e.g. a fully-auto broker fill or a minimal
+    // close still owing reflection. It must not enter the denominator (§2.3).
+    seedTradeRow(db, ids, { pnlR: 100, pnlCents: 10000 })
+    const rows = getAdherenceTrendWeekly(db, F)
+    const total = rows.reduce((s, r) => s + r.totalCount, 0)
+    const totalClean = rows.reduce((s, r) => s + r.cleanCount, 0)
+    // Totals match the reviewed fixture exactly — the extra trade is excluded.
+    expect(total).toBe(EXPECTED.tradeCount)
+    expect(totalClean).toBe(EXPECTED.cleanCount)
   })
 })

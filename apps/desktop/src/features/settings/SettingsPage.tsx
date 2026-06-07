@@ -7,6 +7,7 @@ import { BackupsTab } from './tabs/BackupsTab'
 import { DataTab } from './tabs/DataTab'
 import { GeneralTab } from './tabs/GeneralTab'
 import { ImportTab } from './tabs/ImportTab'
+import { IntegrationsTab } from './tabs/IntegrationsTab'
 import { KillzonesTab } from './tabs/KillzonesTab'
 import { PairsTab } from './tabs/PairsTab'
 import { PlaybooksTab } from './tabs/PlaybooksTab'
@@ -25,6 +26,7 @@ const TABS: TabItem[] = [
   { id: 'firms', label: 'Prop Firms' },
   { id: 'templates', label: 'Templates' },
   { id: 'import', label: 'Import' },
+  { id: 'integrations', label: 'Integrations' },
   { id: 'alerts', label: 'Alerts' },
   { id: 'shortcuts', label: 'Shortcuts' },
   { id: 'data', label: 'Data' },
@@ -60,6 +62,7 @@ export function SettingsPage() {
         {activeTab === 'alerts' && <AlertsTab />}
         {activeTab === 'shortcuts' && <ShortcutsTab />}
         {activeTab === 'import' && <ImportTab />}
+        {activeTab === 'integrations' && <IntegrationsTab />}
         {activeTab === 'data' && <DataTab />}
         {activeTab === 'backups' && <BackupsTab />}
         {activeTab === 'account' && <AccountTab />}

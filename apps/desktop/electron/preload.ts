@@ -81,7 +81,13 @@ import type {
   UpdateNotebookEntryInput,
   NotebookSearchInput,
 } from '../shared/types/index'
-import type { SignupResult } from '@cairn/shared-types'
+import type {
+  SignupResult,
+  BrokerStatus,
+  Mt5BridgeConfig,
+  CtraderEnvironment,
+  CtraderRuntimeConfig,
+} from '@cairn/shared-types'
 import type {
   ForgotPasswordInput,
   LoginInput,
@@ -371,6 +377,19 @@ const api = {
     ): Promise<IpcResponse<UnlockVaultResult>> =>
       ipcRenderer.invoke('vault:recover', { phrase, newPassword }),
     lock: (): Promise<IpcResponse<void>> => ipcRenderer.invoke('vault:lock'),
+  },
+
+  broker: {
+    status: (): Promise<IpcResponse<BrokerStatus>> => ipcRenderer.invoke('broker:status'),
+    getMt5Config: (): Promise<IpcResponse<Mt5BridgeConfig>> =>
+      ipcRenderer.invoke('broker:getMt5Config'),
+    getCtraderConfig: (): Promise<IpcResponse<CtraderRuntimeConfig>> =>
+      ipcRenderer.invoke('broker:getCtraderConfig'),
+    ctraderConnect: (): Promise<IpcResponse<void>> => ipcRenderer.invoke('broker:ctraderConnect'),
+    ctraderDisconnect: (): Promise<IpcResponse<void>> =>
+      ipcRenderer.invoke('broker:ctraderDisconnect'),
+    ctraderSetEnvironment: (env: CtraderEnvironment): Promise<IpcResponse<void>> =>
+      ipcRenderer.invoke('broker:ctraderSetEnvironment', env),
   },
 
   auth: {

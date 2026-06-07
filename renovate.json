@@ -1,0 +1,42 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    ":pinAllExceptPeerDependencies"
+  ],
+  "timezone": "America/New_York",
+  "schedule": ["before 6am on monday"],
+  "labels": ["dependencies"],
+  "rangeStrategy": "pin",
+  "prHourlyLimit": 4,
+  "prConcurrentLimit": 10,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"]
+  },
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "schedule": ["at any time"]
+  },
+  "packageRules": [
+    {
+      "description": "Group all non-major devDependency updates into one weekly PR.",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "devDependencies (non-major)"
+    },
+    {
+      "description": "Pin zod to the workspace-overridden version; require manual review.",
+      "matchPackageNames": ["zod"],
+      "enabled": false
+    },
+    {
+      "description": "Electron major bumps are high-risk — never auto-merge, label for manual review.",
+      "matchPackageNames": ["electron", "electron-builder", "electron-vite"],
+      "matchUpdateTypes": ["major"],
+      "labels": ["dependencies", "needs-manual-review"]
+    }
+  ]
+}

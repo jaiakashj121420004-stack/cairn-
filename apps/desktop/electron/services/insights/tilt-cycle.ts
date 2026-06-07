@@ -23,10 +23,12 @@ export function tiltCycle(trades: ClosedTrade[], defaultRiskPctBps: number): Ins
   const occurrences: number[] = []
 
   for (let i = LOSS_RUN; i < sorted.length; i++) {
+    const cur = sorted[i]
+    if (!cur) continue
     const lossRun = sorted.slice(i - LOSS_RUN, i).every((t) => (t.pnlR ?? 0) < 0)
-    const overRisk = sorted[i].riskPctBps > threshold
+    const overRisk = cur.riskPctBps > threshold
     if (lossRun && overRisk) {
-      occurrences.push(sorted[i].exitTime)
+      occurrences.push(cur.exitTime)
     }
   }
 

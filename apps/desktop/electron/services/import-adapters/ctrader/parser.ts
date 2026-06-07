@@ -189,7 +189,7 @@ function extractCells(row: string): string[] {
   const re = /<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi
   let m: RegExpExecArray | null
   while ((m = re.exec(row)) !== null) {
-    cells.push(cellText(m[1]))
+    cells.push(cellText(m[1] ?? ''))
   }
   return cells
 }

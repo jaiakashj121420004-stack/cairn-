@@ -112,8 +112,8 @@ export interface DraftTrade {
   preCalmScore: number
   preUrgencyScore: number
   preNeedScore: number
-  plannedLotSize?: number
-  timestamp?: number
+  plannedLotSize?: number | undefined
+  timestamp?: number | undefined
 }
 
 export interface TradeModification {
@@ -126,11 +126,11 @@ export interface RuleContext {
   account: Account
   accountRules: AccountRuleConfig[]
   currentSession: SessionRecord | null
-  tradeInProgress?: DraftTrade
+  tradeInProgress?: DraftTrade | undefined
   /** Mode of the trade being evaluated. Timing rules (killzone, weekend) skip for non-live. */
   mode: 'live' | 'sim' | 'backtest'
-  tradeModification?: TradeModification
-  tradeUnderModification?: TradeRecord
+  tradeModification?: TradeModification | undefined
+  tradeUnderModification?: TradeRecord | undefined
   tradesToday: TradeRecord[]
   recentTrades: TradeRecord[]
   now: number
@@ -140,7 +140,7 @@ export interface RuleContext {
   timeZone: string
   activeCooldowns: CooldownRecord[]
   killzones: KillzoneRecord[]
-  tradingDaysCount?: number
+  tradingDaysCount?: number | undefined
 }
 
 export interface RuleEvaluation {
@@ -149,10 +149,10 @@ export interface RuleEvaluation {
   passed: boolean
   severity: 'blocking' | 'warning' | 'info'
   message: string
-  details?: string
+  details?: string | undefined
   canOverride: boolean
-  suggestedAction?: string
-  contextSnapshot?: Record<string, unknown>
+  suggestedAction?: string | undefined
+  contextSnapshot?: Record<string, unknown> | undefined
 }
 
 export interface Rule {
@@ -176,7 +176,7 @@ export interface SessionStateDTO {
 
 export interface OverrideInput {
   accountId: string
-  tradeId?: string
+  tradeId?: string | undefined
   ruleKey: string
   reason: string
   ack: string

@@ -86,6 +86,22 @@ describe('computeCompositeScore — basics', () => {
     const trades = [t(100), t(100), t(-100), t(-100)]
     expect(computeCompositeScore(trades).components.profitFactor).toBe(50)
   })
+
+  it('unreviewed trades (isClean = null) never count toward the discipline sub-score', () => {
+    // 4 clean winners → discipline 100. Adding 4 unreviewed winners (e.g.
+    // fully-auto broker fills Cairn never asked about) must NOT count as clean
+    // and must NOT dilute the rate — they are excluded entirely (§2.3).
+    const reviewed = Array.from({ length: 4 }, () => t(100, 1))
+    const withUnreviewed = [...reviewed, ...Array.from({ length: 4 }, () => t(100, null))]
+    expect(computeCompositeScore(reviewed).components.discipline).toBe(100)
+    expect(computeCompositeScore(withUnreviewed).components.discipline).toBe(100)
+
+    // And an all-unreviewed set has no discipline signal, so it cannot read as
+    // a wall of clean trades — discipline is not driven up by absence of review.
+    const allUnreviewed = Array.from({ length: 5 }, () => t(100, null))
+    const r = computeCompositeScore(allUnreviewed)
+    expect(r.sampleSize).toBe(5) // still rated for outcome metrics (they're closed)
+  })
 })
 
 describe('computeCompositeScore — properties', () => {

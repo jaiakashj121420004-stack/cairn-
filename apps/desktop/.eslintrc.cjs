@@ -84,6 +84,20 @@ module.exports = {
       'error',
       { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
     ],
+    // CLAUDE.md §3.6 — `window.api.<namespace>` (the contextBridge RPC surface) is
+    // the Transport boundary. Only `ElectronTransport` may call it directly; every
+    // other call site must go through the typed `Transport`/`ipc` facade so desktop
+    // and (future) web share one renderer code path. `events` is exempt — it is a
+    // separate pub-sub mechanism with its own typed wrapper (`lib/event-bus.ts`).
+    'no-restricted-syntax': [
+      'error',
+      {
+        selector:
+          "MemberExpression[object.object.name='window'][object.property.name='api'][property.name!='events']",
+        message:
+          'Do not call window.api.<namespace> directly — route through ElectronTransport (src/lib/transport-electron.ts) or the ipc facade (src/lib/ipc.ts).',
+      },
+    ],
   },
   settings: {
     react: {
@@ -106,6 +120,26 @@ module.exports = {
       files: ['electron/main.ts'],
       rules: {
         'no-console': ['error', { allow: ['warn', 'error'] }],
+      },
+    },
+    {
+      // The one file allowed to call window.api.<namespace> directly — it IS the
+      // Transport boundary (CLAUDE.md §3.6). See the no-restricted-syntax rule above.
+      files: ['src/lib/transport-electron.ts'],
+      rules: {
+        'no-restricted-syntax': 'off',
+      },
+    },
+    {
+      // The `Procedures` catalog uses `void` for channels whose underlying
+      // `window.api` methods resolve `IpcResponse<void>` (see preload.ts) —
+      // `undefined` is a structurally different type there (`void` does not
+      // assign to it), so matching `void` exactly is what keeps `ElectronTransport`'s
+      // dispatch table type-checking against the real IPC surface. The rule's blanket
+      // ban on `void` outside return positions doesn't admit that case.
+      files: ['shared/types/procedures.ts'],
+      rules: {
+        '@typescript-eslint/no-invalid-void-type': 'off',
       },
     },
     {

@@ -34,6 +34,13 @@ export interface TradeGradeInput {
  *
  * A disciplined loss (plan followed, clean) grades B; a rule-breaking win
  * that happened to exceed the planned R still loses the plan+clean bonus.
+ *
+ * Honesty boundary (CLAUDE.md §2.3): an UNREVIEWED trade — one Cairn captured
+ * but never asked the trader about, so `followedPlanExactly === null` (e.g. a
+ * minimal close still owing reflection, or a fully-auto broker fill) — is
+ * graded on baseline + outcome only. The +20 plan/clean bonus requires an
+ * explicit `followedPlanExactly === 1`, so absence of review can never grade a
+ * trade as if it were clean.
  */
 export function computeTradeGrade(input: TradeGradeInput): TradeGrade | null {
   if (input.pnlR === null) return null

@@ -1,5 +1,11 @@
 import type { IpcResponse } from '@shared/types/index'
 import type {
+  DbStatus,
+  VaultStatus,
+  UnlockVaultResult,
+  SyncNowResult,
+  SyncStatusResult,
+  ConflictDTO,
   PropFirm,
   AccountTemplate,
   Account,
@@ -71,55 +77,24 @@ import type {
   CTraderCommitInput,
   TvPreviewInput,
   TvCommitInput,
+  Procedures,
 } from '@shared/types/index'
-import type { PublicSession, SignupResult } from '@cairn/shared-types'
+import { electronTransport } from './transport-electron'
+import type {
+  PublicSession,
+  SignupResult,
+  BrokerStatus,
+  Mt5BridgeConfig,
+  CtraderEnvironment,
+  CtraderRuntimeConfig,
+  Transport,
+} from '@cairn/shared-types'
 import type {
   SignupInput,
   LoginInput,
   ForgotPasswordInput,
   ResetPasswordInput,
 } from '@cairn/shared-zod'
-
-export interface DbStatus {
-  integrityOk: boolean
-  migrationCount: number
-  tradeCount: number
-}
-
-/** Renderer mirror of the main-process vault readiness snapshot (electron/ipc/vault.ts). */
-export interface VaultStatus {
-  unlocked: boolean
-  needsPassword: boolean
-}
-
-/** Renderer mirror of an unlock outcome. `recoveryPhrase` is present once, on first enrollment. */
-export interface UnlockVaultResult {
-  enrolled: boolean
-  recoveryPhrase?: readonly string[]
-}
-
-/** Renderer mirror of a manual-sync outcome (electron/ipc/sync.ts). */
-export interface SyncNowResult {
-  kind: string
-  opCount?: number
-}
-
-/** Renderer mirror of the sync readiness snapshot (electron/ipc/sync.ts). */
-export interface SyncStatusResult {
-  configured: boolean
-  paused: boolean
-}
-
-/** Renderer mirror of one unresolved sync conflict (electron/ipc/sync-conflicts.ts). */
-export interface ConflictDTO {
-  id: number
-  tableName: string
-  recordId: string
-  detectedAt: number
-  remoteDeviceId: string
-  localData: Record<string, unknown> | null
-  remoteData: Record<string, unknown> | null
-}
 
 declare global {
   interface Window {
@@ -308,6 +283,14 @@ declare global {
           winner: 'local' | 'remote'
         }) => Promise<IpcResponse<{ ok: true }>>
       }
+      broker: {
+        status: () => Promise<IpcResponse<BrokerStatus>>
+        getMt5Config: () => Promise<IpcResponse<Mt5BridgeConfig>>
+        getCtraderConfig: () => Promise<IpcResponse<CtraderRuntimeConfig>>
+        ctraderConnect: () => Promise<IpcResponse<void>>
+        ctraderDisconnect: () => Promise<IpcResponse<void>>
+        ctraderSetEnvironment: (env: CtraderEnvironment) => Promise<IpcResponse<void>>
+      }
       events: {
         on: (name: string, cb: (payload: unknown) => void) => () => void
         off: (name: string, cb: (payload: unknown) => void) => void
@@ -316,13 +299,15 @@ declare global {
   }
 }
 
+const transport: Transport<Procedures> = electronTransport
+
 export const ipc = {
-  ping: (): Promise<IpcResponse<string>> => window.api.ping(),
-  dbStatus: (): Promise<IpcResponse<DbStatus>> => window.api.dbStatus(),
+  ping: (): Promise<IpcResponse<string>> => transport.call('ping', undefined),
+  dbStatus: (): Promise<IpcResponse<DbStatus>> => transport.call('db:status', undefined),
 
   settings: {
     get: async <T>(key: string): Promise<IpcResponse<T | null>> => {
-      const res = await window.api.settings.get(key)
+      const res = await transport.call('settings:get', { key })
       if (!res.ok) return res
       if (res.data === null) return { ok: true, data: null }
       try {
@@ -335,260 +320,299 @@ export const ipc = {
       }
     },
     set: <T>(key: string, value: T): Promise<IpcResponse<void>> =>
-      window.api.settings.set(key, JSON.stringify(value)),
+      transport.call('settings:set', { key, value: JSON.stringify(value) }),
   },
 
   propFirms: {
-    list: (): Promise<IpcResponse<PropFirm[]>> => window.api.propFirms.list(),
+    list: (): Promise<IpcResponse<PropFirm[]>> => transport.call('propFirms:list', undefined),
     create: (input: CreatePropFirmInput): Promise<IpcResponse<PropFirm>> =>
-      window.api.propFirms.create(input),
+      transport.call('propFirms:create', input),
     update: (input: UpdatePropFirmInput): Promise<IpcResponse<PropFirm>> =>
-      window.api.propFirms.update(input),
+      transport.call('propFirms:update', input),
   },
 
   accountTemplates: {
-    list: (): Promise<IpcResponse<AccountTemplate[]>> => window.api.accountTemplates.list(),
+    list: (): Promise<IpcResponse<AccountTemplate[]>> =>
+      transport.call('accountTemplates:list', undefined),
     create: (input: CreateAccountTemplateInput): Promise<IpcResponse<AccountTemplate>> =>
-      window.api.accountTemplates.create(input),
+      transport.call('accountTemplates:create', input),
     update: (input: UpdateAccountTemplateInput): Promise<IpcResponse<AccountTemplate>> =>
-      window.api.accountTemplates.update(input),
+      transport.call('accountTemplates:update', input),
   },
 
   accounts: {
-    list: (): Promise<IpcResponse<Account[]>> => window.api.accounts.list(),
+    list: (): Promise<IpcResponse<Account[]>> => transport.call('accounts:list', undefined),
     create: (input: CreateAccountInput): Promise<IpcResponse<Account>> =>
-      window.api.accounts.create(input),
+      transport.call('accounts:create', input),
     update: (input: UpdateAccountInput): Promise<IpcResponse<Account>> =>
-      window.api.accounts.update(input),
-    stats: (): Promise<IpcResponse<AccountStats[]>> => window.api.accounts.stats(),
-    delete: (id: string): Promise<IpcResponse<{ ok: true }>> => window.api.accounts.delete(id),
+      transport.call('accounts:update', input),
+    stats: (): Promise<IpcResponse<AccountStats[]>> => transport.call('accounts:stats', undefined),
+    delete: (id: string): Promise<IpcResponse<{ ok: true }>> =>
+      transport.call('accounts:delete', { id }),
   },
 
   pairs: {
-    list: (): Promise<IpcResponse<Pair[]>> => window.api.pairs.list(),
-    create: (input: CreatePairInput): Promise<IpcResponse<Pair>> => window.api.pairs.create(input),
-    update: (input: UpdatePairInput): Promise<IpcResponse<Pair>> => window.api.pairs.update(input),
+    list: (): Promise<IpcResponse<Pair[]>> => transport.call('pairs:list', undefined),
+    create: (input: CreatePairInput): Promise<IpcResponse<Pair>> =>
+      transport.call('pairs:create', input),
+    update: (input: UpdatePairInput): Promise<IpcResponse<Pair>> =>
+      transport.call('pairs:update', input),
   },
 
   setups: {
-    list: (): Promise<IpcResponse<Setup[]>> => window.api.setups.list(),
+    list: (): Promise<IpcResponse<Setup[]>> => transport.call('setups:list', undefined),
     create: (input: CreateSetupInput): Promise<IpcResponse<Setup>> =>
-      window.api.setups.create(input),
+      transport.call('setups:create', input),
     update: (input: UpdateSetupInput): Promise<IpcResponse<Setup>> =>
-      window.api.setups.update(input),
+      transport.call('setups:update', input),
   },
 
   killzones: {
-    list: (): Promise<IpcResponse<Killzone[]>> => window.api.killzones.list(),
+    list: (): Promise<IpcResponse<Killzone[]>> => transport.call('killzones:list', undefined),
     create: (input: CreateKillzoneInput): Promise<IpcResponse<Killzone>> =>
-      window.api.killzones.create(input),
+      transport.call('killzones:create', input),
     update: (input: UpdateKillzoneInput): Promise<IpcResponse<Killzone>> =>
-      window.api.killzones.update(input),
+      transport.call('killzones:update', input),
   },
 
   data: {
-    openFolder: (): Promise<IpcResponse<void>> => window.api.data.openFolder(),
-    export: (): Promise<IpcResponse<string>> => window.api.data.export(),
+    openFolder: (): Promise<IpcResponse<void>> => transport.call('data:openFolder', undefined),
+    export: (): Promise<IpcResponse<string>> => transport.call('data:export', undefined),
     exportPdf: (defaultName?: string): Promise<IpcResponse<string>> =>
-      window.api.data.exportPdf(defaultName),
-    reset: (ack: string): Promise<IpcResponse<void>> => window.api.data.reset(ack),
+      transport.call('data:exportPdf', { defaultName }),
+    reset: (ack: string): Promise<IpcResponse<void>> => transport.call('data:reset', { ack }),
   },
 
   paths: {
-    pickFolder: (): Promise<IpcResponse<string | null>> => window.api.paths.pickFolder(),
-    pickImages: (): Promise<IpcResponse<string[]>> => window.api.paths.pickImages(),
-    openFile: (filePath: string): Promise<IpcResponse<void>> => window.api.paths.openFile(filePath),
+    pickFolder: (): Promise<IpcResponse<string | null>> =>
+      transport.call('paths:pickFolder', undefined),
+    pickImages: (): Promise<IpcResponse<string[]>> => transport.call('paths:pickImages', undefined),
+    openFile: (filePath: string): Promise<IpcResponse<void>> =>
+      transport.call('paths:openFile', { filePath }),
   },
 
   rules: {
     evaluatePreTrade: (input: DraftTradeInput): Promise<IpcResponse<RuleEvaluationDTO[]>> =>
-      window.api.rules.evaluatePreTrade(input),
+      transport.call('rules:evaluatePreTrade', input),
     evaluateModification: (
       input: EvaluateModificationInput,
-    ): Promise<IpcResponse<RuleEvaluationDTO[]>> => window.api.rules.evaluateModification(input),
+    ): Promise<IpcResponse<RuleEvaluationDTO[]>> =>
+      transport.call('rules:evaluateModification', input),
     getSessionState: (accountId: string): Promise<IpcResponse<SessionStateDTO>> =>
-      window.api.rules.getSessionState(accountId),
+      transport.call('rules:getSessionState', { accountId }),
     override: (input: OverrideInputDTO): Promise<IpcResponse<{ ok: true }>> =>
-      window.api.rules.override(input),
+      transport.call('rules:override', input),
     clearCooldown: (id: string, ack: string): Promise<IpcResponse<{ ok: true }>> =>
-      window.api.rules.clearCooldown(id, ack),
+      transport.call('rules:clearCooldown', { id, ack }),
     onTradeClosed: (tradeId: string): Promise<IpcResponse<{ ok: true }>> =>
-      window.api.rules.onTradeClosed(tradeId),
+      transport.call('rules:onTradeClosed', { tradeId }),
     detectCloseViolations: (tradeId: string): Promise<IpcResponse<CloseDetectionDTO[]>> =>
-      window.api.rules.detectCloseViolations(tradeId),
-    listAvailable: () => window.api.rules.listAvailable(),
+      transport.call('rules:detectCloseViolations', { tradeId }),
+    listAvailable: () => transport.call('rules:listAvailable', undefined),
   },
 
   accountRules: {
     list: (accountId: string): Promise<IpcResponse<AccountRuleConfigDTO[]>> =>
-      window.api.accountRules.list(accountId),
+      transport.call('accountRules:list', { accountId }),
     upsert: (input: UpsertAccountRuleInput): Promise<IpcResponse<AccountRuleConfigDTO>> =>
-      window.api.accountRules.upsert(input),
+      transport.call('accountRules:upsert', input),
   },
 
   sessions: {
     getToday: (accountId: string): Promise<IpcResponse<Session | null>> =>
-      window.api.sessions.getToday(accountId),
+      transport.call('sessions:getToday', { accountId }),
     upsert: (input: CreateSessionInput): Promise<IpcResponse<Session>> =>
-      window.api.sessions.upsert(input),
-    lock: (sessionId: string): Promise<IpcResponse<Session>> => window.api.sessions.lock(sessionId),
+      transport.call('sessions:upsert', input),
+    lock: (sessionId: string): Promise<IpcResponse<Session>> =>
+      transport.call('sessions:lock', { sessionId }),
   },
 
   trades: {
     create: (input: CreateTradeInput): Promise<IpcResponse<Trade>> =>
-      window.api.trades.create(input),
+      transport.call('trades:create', input),
     setOpen: (tradeId: string, accountId: string): Promise<IpcResponse<Trade>> =>
-      window.api.trades.setOpen(tradeId, accountId),
-    close: (input: CloseTradeInput): Promise<IpcResponse<Trade>> => window.api.trades.close(input),
+      transport.call('trades:setOpen', { tradeId, accountId }),
+    close: (input: CloseTradeInput): Promise<IpcResponse<Trade>> =>
+      transport.call('trades:close', input),
     closeMinimal: (input: CloseMinimalInput): Promise<IpcResponse<Trade>> =>
-      window.api.trades.closeMinimal(input),
+      transport.call('trades:closeMinimal', input),
     completePhase2: (input: CompletePhase2Input): Promise<IpcResponse<Trade>> =>
-      window.api.trades.completePhase2(input),
+      transport.call('trades:completePhase2', input),
     partialClose: (input: PartialCloseInput): Promise<IpcResponse<Trade>> =>
-      window.api.trades.partialClose(input),
+      transport.call('trades:partialClose', input),
     list: (filter: TradeFilter): Promise<IpcResponse<TradeListItem[]>> =>
-      window.api.trades.list(filter),
+      transport.call('trades:list', filter),
     listAwaitingReflection: (accountId?: string | null): Promise<IpcResponse<TradeListItem[]>> =>
-      window.api.trades.listAwaitingReflection(accountId ?? null),
+      transport.call('trades:listAwaitingReflection', { accountId: accountId ?? null }),
     countAwaitingReflection: (accountId?: string | null): Promise<IpcResponse<number>> =>
-      window.api.trades.countAwaitingReflection(accountId ?? null),
-    get: (tradeId: string): Promise<IpcResponse<TradeDetail>> => window.api.trades.get(tradeId),
+      transport.call('trades:countAwaitingReflection', { accountId: accountId ?? null }),
+    get: (tradeId: string): Promise<IpcResponse<TradeDetail>> =>
+      transport.call('trades:get', { tradeId }),
     delete: (tradeId: string): Promise<IpcResponse<{ ok: true }>> =>
-      window.api.trades.delete(tradeId),
+      transport.call('trades:delete', { tradeId }),
     addScreenshot: (
       tradeId: string,
       kind: string,
       sourcePath: string,
       caption?: string,
     ): Promise<IpcResponse<TradeScreenshot>> =>
-      window.api.trades.addScreenshot(tradeId, kind, sourcePath, caption),
+      transport.call('trades:addScreenshot', { tradeId, kind, sourcePath, caption }),
     pickScreenshots: (tradeId: string): Promise<IpcResponse<string[]>> =>
-      window.api.trades.pickScreenshots(tradeId),
+      transport.call('trades:pickScreenshots', { tradeId }),
     listScreenshots: (tradeId: string): Promise<IpcResponse<TradeScreenshot[]>> =>
-      window.api.trades.listScreenshots(tradeId),
+      transport.call('trades:listScreenshots', { tradeId }),
     deleteScreenshot: (screenshotId: string): Promise<IpcResponse<{ ok: true }>> =>
-      window.api.trades.deleteScreenshot(screenshotId),
+      transport.call('trades:deleteScreenshot', { screenshotId }),
   },
 
   dashboard: {
     getStats: (accountId: string): Promise<IpcResponse<DashboardStats>> =>
-      window.api.dashboard.getStats(accountId),
+      transport.call('dashboard:getStats', { accountId }),
   },
 
   analytics: {
     performance: (filter: AnalyticsFilter): Promise<IpcResponse<PerformanceStats>> =>
-      window.api.analytics.performance(filter),
+      transport.call('analytics:performance', { filter }),
     adherence: (filter: AnalyticsFilter): Promise<IpcResponse<RuleAdherenceStats>> =>
-      window.api.analytics.adherence(filter),
+      transport.call('analytics:adherence', { filter }),
     setups: (filter: AnalyticsFilter): Promise<IpcResponse<SetupPerformanceStats>> =>
-      window.api.analytics.setups(filter),
+      transport.call('analytics:setups', { filter }),
     behavioral: (filter: AnalyticsFilter): Promise<IpcResponse<BehavioralStats>> =>
-      window.api.analytics.behavioral(filter),
-    phases: (): Promise<IpcResponse<AccountsPhaseStats>> => window.api.analytics.phases(),
+      transport.call('analytics:behavioral', { filter }),
+    phases: (): Promise<IpcResponse<AccountsPhaseStats>> =>
+      transport.call('analytics:phases', undefined),
     derived: (filter: AnalyticsFilter): Promise<IpcResponse<DerivedStats>> =>
-      window.api.analytics.derived(filter),
+      transport.call('analytics:derived', { filter }),
     listReviews: (accountId?: string | null): Promise<IpcResponse<ReviewSummary[]>> =>
-      window.api.analytics.listReviews(accountId ?? null),
+      transport.call('analytics:listReviews', { accountId: accountId ?? null }),
     createReview: (input: CreateReviewInput): Promise<IpcResponse<ReviewSummary>> =>
-      window.api.analytics.createReview(input),
+      transport.call('analytics:createReview', input),
     playbookStats: (filter: AnalyticsFilter): Promise<IpcResponse<PlaybookStats>> =>
-      window.api.analytics.playbookStats(filter),
+      transport.call('analytics:playbooks', { filter }),
   },
 
   playbooks: {
     list: (accountId: string): Promise<IpcResponse<Playbook[]>> =>
-      window.api.playbooks.list(accountId),
-    get: (id: string): Promise<IpcResponse<Playbook>> => window.api.playbooks.get(id),
+      transport.call('playbooks:list', { accountId }),
+    get: (id: string): Promise<IpcResponse<Playbook>> => transport.call('playbooks:get', { id }),
     create: (input: CreatePlaybookInput): Promise<IpcResponse<Playbook>> =>
-      window.api.playbooks.create(input),
+      transport.call('playbooks:create', input),
     update: (input: UpdatePlaybookInput): Promise<IpcResponse<Playbook>> =>
-      window.api.playbooks.update(input),
-    delete: (id: string): Promise<IpcResponse<{ ok: true }>> => window.api.playbooks.delete(id),
+      transport.call('playbooks:update', input),
+    delete: (id: string): Promise<IpcResponse<{ ok: true }>> =>
+      transport.call('playbooks:delete', { id }),
   },
 
   insights: {
     list: (accountId: string): Promise<IpcResponse<Insight[]>> =>
-      window.api.insights.list(accountId),
+      transport.call('insights:list', { accountId }),
     dismiss: (accountId: string, insightId: string): Promise<IpcResponse<void>> =>
-      window.api.insights.dismiss(accountId, insightId),
+      transport.call('insights:dismiss', { accountId, insightId }),
   },
 
   notebook: {
-    list: (): Promise<IpcResponse<NotebookEntrySummary[]>> => window.api.notebook.list(),
+    list: (): Promise<IpcResponse<NotebookEntrySummary[]>> =>
+      transport.call('notebook:list', undefined),
     search: (input: NotebookSearchInput): Promise<IpcResponse<NotebookEntrySummary[]>> =>
-      window.api.notebook.search(input),
-    get: (id: string): Promise<IpcResponse<NotebookEntry>> => window.api.notebook.get(id),
+      transport.call('notebook:search', input),
+    get: (id: string): Promise<IpcResponse<NotebookEntry>> =>
+      transport.call('notebook:get', { id }),
     create: (input: CreateNotebookEntryInput): Promise<IpcResponse<NotebookEntry>> =>
-      window.api.notebook.create(input),
+      transport.call('notebook:create', input),
     update: (input: UpdateNotebookEntryInput): Promise<IpcResponse<NotebookEntry>> =>
-      window.api.notebook.update(input),
-    delete: (id: string): Promise<IpcResponse<{ ok: true }>> => window.api.notebook.delete(id),
+      transport.call('notebook:update', input),
+    delete: (id: string): Promise<IpcResponse<{ ok: true }>> =>
+      transport.call('notebook:delete', { id }),
   },
 
   import: {
     previewMt5: (input: Mt5PreviewInput): Promise<IpcResponse<ImportPreview>> =>
-      window.api.import.previewMt5(input),
+      transport.call('import:previewMt5', input),
     commitMt5: (input: Mt5CommitInput): Promise<IpcResponse<ImportCommitResult>> =>
-      window.api.import.commitMt5(input),
+      transport.call('import:commitMt5', input),
     previewCtrader: (input: CTraderPreviewInput): Promise<IpcResponse<ImportPreview>> =>
-      window.api.import.previewCtrader(input),
+      transport.call('import:previewCtrader', input),
     commitCtrader: (input: CTraderCommitInput): Promise<IpcResponse<ImportCommitResult>> =>
-      window.api.import.commitCtrader(input),
+      transport.call('import:commitCtrader', input),
     previewTradingView: (input: TvPreviewInput): Promise<IpcResponse<ImportPreview>> =>
-      window.api.import.previewTradingView(input),
+      transport.call('import:previewTradingView', input),
     commitTradingView: (input: TvCommitInput): Promise<IpcResponse<ImportCommitResult>> =>
-      window.api.import.commitTradingView(input),
+      transport.call('import:commitTradingView', input),
   },
 
   auth: {
     signup: (input: SignupInput): Promise<IpcResponse<SignupResult>> =>
-      window.api.auth.signup(input),
-    login: (input: LoginInput): Promise<IpcResponse<PublicSession>> => window.api.auth.login(input),
-    logout: (): Promise<IpcResponse<void>> => window.api.auth.logout(),
-    getSession: (): Promise<IpcResponse<PublicSession | null>> => window.api.auth.getSession(),
-    restore: (): Promise<IpcResponse<PublicSession | null>> => window.api.auth.restore(),
+      transport.call('auth:signup', input),
+    login: (input: LoginInput): Promise<IpcResponse<PublicSession>> =>
+      transport.call('auth:login', input),
+    logout: (): Promise<IpcResponse<void>> => transport.call('auth:logout', undefined),
+    getSession: (): Promise<IpcResponse<PublicSession | null>> =>
+      transport.call('auth:getSession', undefined),
+    restore: (): Promise<IpcResponse<PublicSession | null>> =>
+      transport.call('auth:restore', undefined),
     verifyEmail: (token: string): Promise<IpcResponse<{ verified: boolean }>> =>
-      window.api.auth.verifyEmail(token),
+      transport.call('auth:verifyEmail', { token }),
     forgotPassword: (input: ForgotPasswordInput): Promise<IpcResponse<{ sent: true }>> =>
-      window.api.auth.forgotPassword(input),
+      transport.call('auth:forgotPassword', input),
     resetPassword: (input: ResetPasswordInput): Promise<IpcResponse<{ reset: true }>> =>
-      window.api.auth.resetPassword(input),
+      transport.call('auth:resetPassword', input),
   },
 
   vault: {
-    status: (): Promise<IpcResponse<VaultStatus>> => window.api.vault.status(),
+    status: (): Promise<IpcResponse<VaultStatus>> => transport.call('vault:status', undefined),
     unlock: (password: string): Promise<IpcResponse<UnlockVaultResult>> =>
-      window.api.vault.unlock(password),
+      transport.call('vault:unlock', { password }),
     recover: (
       phrase: readonly string[],
       newPassword: string,
-    ): Promise<IpcResponse<UnlockVaultResult>> => window.api.vault.recover(phrase, newPassword),
-    lock: (): Promise<IpcResponse<void>> => window.api.vault.lock(),
+    ): Promise<IpcResponse<UnlockVaultResult>> =>
+      transport.call('vault:recover', { phrase, newPassword }),
+    lock: (): Promise<IpcResponse<void>> => transport.call('vault:lock', undefined),
   },
 
   sync: {
-    now: (): Promise<IpcResponse<SyncNowResult>> => window.api.sync.now(),
-    status: (): Promise<IpcResponse<SyncStatusResult>> => window.api.sync.status(),
-    listConflicts: (): Promise<IpcResponse<ConflictDTO[]>> => window.api.sync.listConflicts(),
-    countConflicts: (): Promise<IpcResponse<number>> => window.api.sync.countConflicts(),
+    now: (): Promise<IpcResponse<SyncNowResult>> => transport.call('sync:now', undefined),
+    status: (): Promise<IpcResponse<SyncStatusResult>> => transport.call('sync:status', undefined),
+    listConflicts: (): Promise<IpcResponse<ConflictDTO[]>> =>
+      transport.call('sync:conflicts:list', undefined),
+    countConflicts: (): Promise<IpcResponse<number>> =>
+      transport.call('sync:conflicts:count', undefined),
     resolveConflict: (input: {
       conflictId: number
       winner: 'local' | 'remote'
-    }): Promise<IpcResponse<{ ok: true }>> => window.api.sync.resolveConflict(input),
+    }): Promise<IpcResponse<{ ok: true }>> => transport.call('sync:conflicts:resolve', input),
+  },
+
+  broker: {
+    status: (): Promise<IpcResponse<BrokerStatus>> => transport.call('broker:status', undefined),
+    getMt5Config: (): Promise<IpcResponse<Mt5BridgeConfig>> =>
+      transport.call('broker:getMt5Config', undefined),
+    getCtraderConfig: (): Promise<IpcResponse<CtraderRuntimeConfig>> =>
+      transport.call('broker:getCtraderConfig', undefined),
+    ctraderConnect: (): Promise<IpcResponse<void>> =>
+      transport.call('broker:ctraderConnect', undefined),
+    ctraderDisconnect: (): Promise<IpcResponse<void>> =>
+      transport.call('broker:ctraderDisconnect', undefined),
+    ctraderSetEnvironment: (env: CtraderEnvironment): Promise<IpcResponse<void>> =>
+      transport.call('broker:ctraderSetEnvironment', env),
   },
 
   backup: {
-    getSettings: (): Promise<IpcResponse<BackupSettings>> => window.api.backup.getSettings(),
+    getSettings: (): Promise<IpcResponse<BackupSettings>> =>
+      transport.call('backup:getSettings', undefined),
     setSettings: (s: Partial<BackupSettings>): Promise<IpcResponse<void>> =>
-      window.api.backup.setSettings(s),
-    pickFolder: (): Promise<IpcResponse<string | null>> => window.api.backup.pickFolder(),
-    now: (): Promise<IpcResponse<BackupResult>> => window.api.backup.now(),
-    nowToFolder: (): Promise<IpcResponse<BackupResult>> => window.api.backup.nowToFolder(),
-    getLog: (): Promise<IpcResponse<BackupLogEntry[]>> => window.api.backup.getLog(),
+      transport.call('backup:setSettings', s),
+    pickFolder: (): Promise<IpcResponse<string | null>> =>
+      transport.call('backup:pickFolder', undefined),
+    now: (): Promise<IpcResponse<BackupResult>> => transport.call('backup:now', undefined),
+    nowToFolder: (): Promise<IpcResponse<BackupResult>> =>
+      transport.call('backup:nowToFolder', undefined),
+    getLog: (): Promise<IpcResponse<BackupLogEntry[]>> =>
+      transport.call('backup:getLog', undefined),
     pickRestoreFile: (): Promise<IpcResponse<RestoreInfo & { path: string }>> =>
-      window.api.backup.pickRestoreFile(),
+      transport.call('backup:pickRestoreFile', undefined),
     restore: (path: string, ack: string): Promise<IpcResponse<void>> =>
-      window.api.backup.restore(path, ack),
-    reschedule: (): Promise<IpcResponse<void>> => window.api.backup.reschedule(),
+      transport.call('backup:restore', { path, ack }),
+    reschedule: (): Promise<IpcResponse<void>> => transport.call('backup:reschedule', undefined),
   },
 } as const

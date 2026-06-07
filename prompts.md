@@ -1003,7 +1003,150 @@ DONE
 
 **After Wave 3:** push, take 2–3 days off. v1.2 is **done** if every §6 item in `docs/roadmap-v1.2.md` is now true. Verify them one by one. Update CLAUDE.md §17 with a v1.2 Change Log. Tag the commit `v1.2.0`.
 
-**Wave 4 (live broker integration) is OPTIONAL and PAID — see CLAUDE.md §17.5 / roadmap §4 Wave 4. It is not scoped here. Decide separately whether to do it before, after, or instead of v2.0's cloud rebuild.**
+**Wave 4 (live broker integration) is OPTIONAL and is now scoped in §8.7 below.** It is the only wave with real moving parts (a shipped MT5 EA, a cTrader OAuth app, a long-lived listener). Decide separately whether to do it before, after, or instead of v2.0's cloud rebuild — nothing in Waves 0–3 or v2.0 depends on it.
+
+---
+
+## 8.7 v1.x — WAVE 4: LIVE BROKER INTEGRATION (MT5 + cTrader)
+
+**Wave goal:** when the trader takes a trade in MetaTrader 5 or cTrader, it is captured by Cairn automatically — entry, lots, prices, times, partials, close — with no re-typing; and the rule engine watches the *live* position and warns the instant a rule is breached. This is the genuine realisation of "prevention over detection" for trades placed outside Cairn.
+
+**Binding spec:** `docs/broker-integration.md` (read it in full before any prompt below). It is the source of truth for the transports, the `BrokerEvent` contract, the auto-log model, live detection, dedupe, and the security posture. The headlines, locked with Akash:
+
+- **MT5 = local Expert Advisor → `127.0.0.1` socket bridge** (most local-first; instant). **cTrader = official Open API** (OAuth, read-only, streams execution events).
+- **Auto-log is configurable.** Default **draft-awaiting-context** (mechanical fields prefilled, trade lands in the Wave 3 reflection queue, honesty fields stay `unreviewed`); a Settings toggle enables **fully-auto** (complete record, never queued). Neither mode invents honesty data, and neither runs the *pre-trade* gate — auto-log is capture (job #2), not prevention (job #1).
+- **Read-only forever.** No adapter has an order-execution code path. Cairn never places, modifies, or closes a broker order. (Locked: `CLAUDE.md` §14 #6 + Wave 4 additions; financial-action safety boundary.)
+
+**Wave duration estimate at 3–4 h/day:** ~16 working days (the MT5 EA and the cTrader OAuth handshake each eat a session in setup alone).
+
+**Prerequisites:** v1.2 done and tagged `v1.2.0`. The Wave 3 import layer (`apps/desktop/electron/services/import-adapters/_shared/`: `symbol-resolver.ts`, `committer.ts`, `encoder.ts`) and two-phase logging (`phase`/`awaiting_reflection`/`reflected_at`, `listAwaitingReflection`, the Review queue + sidebar badge) must be in place — Wave 4 reuses all of them. If building after the v2.0 sync engine, the ingest service must write through `enqueueSyncOp` (see the import-adapter sync-gap follow-up).
+
+> **Path note:** these prompts assume the monorepo layout (`apps/desktop/electron/...`). If Wave 4 is built before the v2.0 monorepo move, substitute `electron/...`.
+
+### Wave 4 — Prompt 1: Internal `BrokerEvent` contract + ingest service skeleton
+
+**Model:** **Opus 4.6** (defines the typed boundary every later prompt builds on; money-encoding-critical).
+**Estimated agent time:** 90 min. **Your time:** +30 min.
+**Prerequisites:** v1.2 done.
+
+**Prompt:**
+> Read `docs/broker-integration.md` (all), `CLAUDE.md` §2.1/§2.3/§2.5/§19.5, and the Wave 3 shared import layer in `apps/desktop/electron/services/import-adapters/_shared/`.
+>
+> Build the transport-agnostic core, no live transport yet:
+>
+> 1. Define `BrokerEvent`, `BrokerEventType`, and `LiveBrokerAdapter` (extends the existing `BrokerAdapter`) in `packages/shared-types/` per spec §4. No `any`. Money/pips are broker-native numbers on the event; storage encoding is integer-only.
+> 2. Create `apps/desktop/electron/services/broker/` with an `ingest.ts` service: takes a `BrokerEvent`, maps the symbol via the Wave 3 `_shared/symbol-resolver.ts`, encodes money/pips via `_shared/encoder.ts` (decimal.js — never float), and upserts a `trades`/`trade_partials` row using `external_ref = brokerTradeId` with `ON CONFLICT DO UPDATE` (never a second insert). Reuse the Wave 3 `committer.ts` write path; do not fork it.
+> 3. The service runs in the main process and exposes a typed IPC `broker:status` + emits a `cairn:event` `trade.placed`/`trade.closed` on each applied event so the dashboard updates (reuse the Wave 2 event bus).
+> 4. No transport, no UI, no detection in this prompt — just the contract + ingest + dedupe, with a fake event source in tests.
+>
+> Tests: feed a recorded `position_opened` → `partial_close` → `position_closed` sequence and assert one trade + correct integer-encoded partials; feed the same sequence twice and assert zero duplicate rows (external_ref dedupe); fast-check property that lot/price encoding round-trips.
+>
+> NO-SLOP FOOTER applies. Money rules (§3) and boundaries (§4) are binding.
+
+**Definition of done:** `BrokerEvent` contract committed in shared-types; ingest service upserts + dedupes by `external_ref`; no float storage; tests green; no transport code yet.
+
+### Wave 4 — Prompt 2: Auto-log model (draft-awaiting-context + fully-auto) + Settings
+
+**Model:** **Opus 4.6** (touches the honesty forcing-functions and analytics correctness).
+**Estimated agent time:** 90 min. **Your time:** +30 min.
+**Prerequisites:** Wave 4 Prompt 1.
+
+**Prompt:**
+> Read `docs/broker-integration.md` §3, `CLAUDE.md` §2.3 (honesty forcing functions), and the Wave 3 two-phase logging code (`phase`/`awaiting_reflection`/`reflected_at`, `listAwaitingReflection`, `completePhase2`, the Review-screen queue, the sidebar badge).
+>
+> Make the ingest service honour a configurable auto-log mode:
+>
+> 1. Add a setting `broker.auto_log_mode: 'draft_awaiting_context' | 'fully_auto'` (default `draft_awaiting_context`) in Settings → Integrations, with copy stating plainly that auto-log is *capture, not pre-trade prevention*.
+> 2. **draft_awaiting_context:** the applied trade is created with mechanical fields filled and `awaiting_reflection = true` so it appears in the existing reflection queue + sidebar badge. Honesty fields (invalidation, emotion, plan-followed, rules-broken, reflection) stay **null/`unreviewed`** — never defaulted to clean.
+> 3. **fully_auto:** the trade is written complete and never enters the queue; honesty fields stay `unreviewed`.
+> 4. **Analytics correctness (critical):** composite score, A–F grade, and clean-rate must treat `unreviewed` distinctly from `clean`. Audit `electron/services/analytics/composite-score.ts`, `src/lib/trade-grade.ts`, and clean-rate queries; a trade Cairn never reviewed must not count as a clean trade. Add an `unreviewed` state if the schema implies "clean by absence" today.
+>
+> Tests: a fill in each mode produces the correct queue/honesty state; an `unreviewed` trade is excluded from clean-rate and does not grade as if clean; the Settings toggle round-trips.
+>
+> NO-SLOP FOOTER applies. The honesty boundary in spec §3 is the binding constraint — do NOT let auto-logging fabricate self-assessment.
+
+**Definition of done:** both modes work; default is draft; `unreviewed` never counts as clean anywhere in analytics; Settings copy states capture-not-prevention; tests green.
+
+### Wave 4 — Prompt 3: MT5 Expert Advisor (bridge) + localhost listener
+
+**Model:** **Opus 4.6** for the listener/auth/framing (security boundary); the MQL5 EA itself is Sonnet 4.6.
+**Estimated agent time:** 150 min, likely two sessions (MQL5 + the Node listener). **Your time:** +60 min, including a manual install into a real MT5 demo terminal.
+**Prerequisites:** Wave 4 Prompts 1–2. Have an MT5 demo account + terminal ready to test against.
+
+**Prompt:**
+> Read `docs/broker-integration.md` §2.1 and §8. Build the MT5 → Cairn bridge.
+>
+> 1. **EA (MQL5)** in `apps/desktop/resources/mt5-bridge/CairnBridge.mq5`: subscribe to `OnTradeTransaction`; serialise each transaction to the `BrokerEvent` JSON shape; send length-prefixed frames over a TCP socket to `127.0.0.1:<port>` using MQL5's native `Socket*` API; emit a heartbeat every N seconds. The EA takes a pairing-token input and includes it on every frame. It is **read-only** — it must contain NO `OrderSend`/`OrderModify`/`OrderClose`/`trade.*` execution calls. Add a one-page `INSTALL.md` next to it.
+> 2. **Listener** in `apps/desktop/electron/services/broker/mt5/listener.ts`: a loopback-only TCP server bound to `127.0.0.1` (never `0.0.0.0`), per-install pairing token check, frame size cap, JSON parse → `BrokerEvent` → hand to the Prompt-1 ingest service. Reject non-local connections and bad tokens; log (no PII) and drop malformed frames without crashing.
+> 3. **Settings → Integrations → MT5:** show the pairing token, the `MQL5/Experts` destination path, and a live "EA connected / last event Xs ago / disconnected" indicator driven by `broker:status` + the heartbeat.
+> 4. Wrap the listener as a `LiveBrokerAdapter` (`broker: 'mt5'`).
+>
+> Tests: a fixture that replays recorded EA frames into the listener and asserts the ingest service receives correct `BrokerEvent`s; a security test that a connection from a non-loopback address is refused; a test that a frame with a wrong/absent token is rejected; a **grep test** asserting the MQL5 file contains no order-execution calls.
+>
+> NO-SLOP FOOTER applies. The loopback-only + token + size-cap posture (spec §8) is binding; the read-only assertion is non-negotiable.
+
+**Definition of done:** EA installs and connects to a real MT5 demo; taking a demo trade produces a Cairn trade per the active auto-log mode; non-local + bad-token connections refused; no execution path in the EA; tests green; manual smoke confirmed against a live terminal.
+
+### Wave 4 — Prompt 4: cTrader Open API adapter (OAuth, read-only stream)
+
+**Model:** **Opus 4.6** (OAuth token handling + keychain + read-only scope = security-critical).
+**Estimated agent time:** 150 min, likely two sessions (Spotware app registration + OAuth + Protobuf stream). **Your time:** +60 min, including the OAuth consent round-trip with a real cTrader account.
+**Prerequisites:** Wave 4 Prompts 1–2. Register a Spotware Open API application first (Akash does this; it yields a client id/secret).
+
+**Prompt:**
+> Read `docs/broker-integration.md` §2.2 and §8. Build the cTrader live adapter in `apps/desktop/electron/services/broker/ctrader/`.
+>
+> 1. **OAuth 2.0 authorization-code flow** (read-only scopes). Store access + refresh tokens in the OS keychain via `keytar` — never plaintext on disk. Refresh on expiry. The client id/secret come from env/config, never source (`gitleaks` clean).
+> 2. **Stream:** open the Open API connection (Protobuf over TLS), authorise the account, subscribe to order/position execution events, and map each to a `BrokerEvent` (`broker: 'ctrader'`). Map cTrader symbols via the Wave 3 `_shared/symbol-resolver.ts`.
+> 3. Wrap as a `LiveBrokerAdapter`; reconnect with backoff on drop; surface status to `broker:status`.
+> 4. **Settings → Integrations → cTrader:** connect/disconnect, connection status, and a disclosure that events transit Spotware (read-only inbound), unlike the on-device MT5 bridge.
+>
+> Tests: map a set of recorded cTrader execution payloads to `BrokerEvent`s and assert the ingest output; a token-refresh unit test; a test asserting no order-execution call exists in the adapter surface. Mock the network — no live Spotware calls in CI.
+>
+> NO-SLOP FOOTER applies. Secrets/logs (§5) are binding: tokens in keychain, none in logs, read-only scopes only.
+
+**Definition of done:** cTrader connects via OAuth against a real account; an executed trade streams into Cairn per the active auto-log mode; tokens in keychain; read-only; reconnect works; tests green (network mocked).
+
+### Wave 4 — Prompt 5: Live detection — real-time rule warnings on the open position
+
+**Model:** **Opus 4.6.** Rule-engine surface; "prevention over detection" is the app's reason to exist.
+**Estimated agent time:** 120 min. **Your time:** +45 min.
+**Prerequisites:** Wave 4 Prompts 3 **and** 4 (so detection works for both sources).
+
+**Prompt:**
+> Read `docs/broker-integration.md` §5, `docs/rules-engine.md`, and the Wave 2 real-time hooks (`no_sl_widening`, `no_tp_narrowing`, `position_size_matches_plan`) — extend the existing engine, do NOT bolt detection on outside it.
+>
+> On each `position_opened`/`position_modified` `BrokerEvent`, evaluate the account's rules against the live position and raise **non-blocking** warnings (Cairn cannot block a broker order; it can only alert) for: SL widened against the position, size increased mid-trade beyond tolerance, TP cut toward entry, daily-trade-limit exceeded, trading after the max-daily-loss circuit breaker tripped this session, and trade outside the configured killzones.
+>
+> - **Plan source:** if a Cairn pre-trade draft for the same symbol/direction was logged shortly before the fill, link the live trade to it and measure against that plan. Otherwise the first observed SL/TP/size is the baseline; subsequent modifications are measured against it.
+> - **Surfacing:** mentor-voice toast/log (`CLAUDE.md` §1 voice — calm, direct, no emoji) and a persisted `rule_violations` row so the breach appears in analytics and at reflection time.
+> - Settings copy must state these are detections (warnings), not blocks.
+>
+> Tests: a vitest suite per detector driven by `BrokerEvent` sequences (e.g. open then a widen-SL modify → SL-widen warning + `rule_violations` row); a test that a clean trade raises nothing; a test that a linked-draft plan is used as the baseline when present.
+>
+> NO-SLOP FOOTER applies. Prevention is the north star (§14 #14): the warning must fire on the modify event, not at close.
+
+**Definition of done:** all six live detectors fire on the open position from both MT5 and cTrader streams; warnings are non-blocking, mentor-voice, and recorded as `rule_violations`; plan-linking works; tests green.
+
+### Wave 4 — Prompt 6: Reconciliation with statement import + closeout
+
+**Model:** Sonnet 4.6 (escalate to **Opus 4.6** for the conflict-resolution money rule).
+**Estimated agent time:** 90 min. **Your time:** +30 min.
+**Prerequisites:** Wave 4 Prompts 1–5.
+
+**Prompt:**
+> Read `docs/broker-integration.md` §6 and §7, and the Wave 3 import adapters.
+>
+> 1. Guarantee a live-streamed trade and the same trade later appearing in a statement import resolve to ONE row via `external_ref = brokerTradeId`. On conflict, the statement (settled record) wins for monetary fields; the live stream wins for intra-trade timing/modification history. Document the rule inline.
+> 2. If building on top of the v2.0 sync engine: confirm the ingest service writes through `enqueueSyncOp` so streamed fills sync to the web app (close this if the import-adapter sync-gap follow-up hasn't already).
+> 3. Update docs: append a "Wave 4 — DONE" note to `docs/build-status.md` with commit hashes; tick the Wave 4 end-state list in `docs/roadmap-v1.2.md` §6.1; update the `CLAUDE.md` §17.5 Wave 4 row and §17.6 headline.
+> 4. Manual end-to-end: take a demo trade in MT5 and one in cTrader, watch both auto-log per the active mode, modify a stop to trigger a live warning, then import the day's statement and confirm no duplicates.
+>
+> NO-SLOP FOOTER applies.
+
+**Definition of done:** no double-counting live-vs-import (tested); conflict rule implemented + documented; (if post-sync) streamed trades sync; docs updated; manual two-broker smoke passes. **Wave 4 is complete** — tag `v1.x-wave4-live-broker`.
+
+**After Wave 4:** this is the only wave that depends on external setup (an installed EA, a Spotware app). If either platform changes its surface, the `LiveBrokerAdapter` interface localises the blast radius to one adapter. Everything in Waves 0–3 keeps working untouched.
 
 ---
 
@@ -1682,6 +1825,14 @@ These are honest planning estimates including review + smoke-test time, not just
 | Wave 2 — Automations | 7 | 14 | ~3 |
 | Wave 3 — Import + two-phase logging | 6 | 18 | ~4 |
 | **v1.2 total** | **23** | **~46** | **~10 weeks** (≈ 2.5 months) |
+
+### Wave 4 — Live broker integration (optional; MT5 EA bridge + cTrader Open API)
+
+| Wave | Prompts | Working days | Wall-clock weeks |
+|---|---|---|---|
+| Wave 4 — Live broker (MT5 + cTrader) | 6 | ~16 | ~3.5 |
+
+Wave 4 is **not** part of "v1.2 done" and is sequenced separately (before, after, or instead of the v2.0 cloud rebuild). It carries external-dependency slack: an MT5 demo terminal to test the EA against, and a Spotware Open API app registration + OAuth review for cTrader. Spec: `docs/broker-integration.md`; prompts: §8.7.
 
 ### v2.0 — Cloud, sync, billing, web (paid infra activates here)
 

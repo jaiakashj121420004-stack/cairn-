@@ -218,8 +218,8 @@ export function checkVersionMismatch(): void {
 
 function isDowngrade(prev: string, current: string): boolean {
   const parse = (v: string) => v.split('.').map(Number)
-  const [pMaj, pMin, pPat] = parse(prev)
-  const [cMaj, cMin, cPat] = parse(current)
+  const [pMaj = 0, pMin = 0, pPat = 0] = parse(prev)
+  const [cMaj = 0, cMin = 0, cPat = 0] = parse(current)
   if (pMaj !== cMaj) return cMaj < pMaj
   if (pMin !== cMin) return cMin < pMin
   return cPat < pPat

@@ -1,0 +1,29 @@
+name: gitleaks
+
+# Secret scanning (CLAUDE.md §2.13, §19.8). Runs on every PR and on push to the
+# long-lived branches. Fails the check if any secret is detected.
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**', 'chore/**']
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: Scan for secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so gitleaks can scan every commit in the PR/push range.
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITLEAKS_LICENSE is only required for gitleaks-action in GitHub orgs;
+          # for a single repo the OSS scanner runs without it.

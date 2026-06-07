@@ -3,8 +3,8 @@ import { ipcMain } from 'electron'
 import { z } from 'zod'
 import { getDb } from '../db/index'
 import * as schema from '../db/schema'
-import { commitCandidates } from '../services/import-adapters/_shared/committer'
-import { findExistingRefs } from '../services/import-adapters/_shared/deduper'
+import { commitWithReconcile } from '../services/import-adapters/_shared/committer'
+import { findExistingRefs, findExistingTrades } from '../services/import-adapters/_shared/deduper'
 import { buildSymbolMap, resolvePairIds } from '../services/import-adapters/_shared/symbol-resolver'
 import { parseCTraderHtml } from '../services/import-adapters/ctrader/parser'
 import { reconcilePositions } from '../services/import-adapters/ctrader/reconciler'
@@ -163,25 +163,22 @@ export function registerImportHandlers(): void {
       }
     }
 
-    const existingSet = findExistingRefs(
+    // Live-streamed rows (imported_at null) are reconciled in place — the settled
+    // statement wins monetary fields, the live stream keeps timing (spec §6); a
+    // re-imported statement is skipped. commitWithReconcile routes all three.
+    const existing = findExistingTrades(
       db,
       resolved.map((c) => c.externalRef),
     )
-    const newCandidates = resolved.filter((c) => !existingSet.has(c.externalRef))
-    const skipped = resolved.length - newCandidates.length
-
-    if (newCandidates.length === 0) {
-      return { ok: true, data: { imported: 0, partials: 0, skipped } }
-    }
-
-    const result = commitCandidates(
+    const result = commitWithReconcile(
       db,
-      newCandidates,
+      resolved,
+      existing,
       { accountId, defaultSetupId, brokerSource: 'mt5', nowMs: Date.now() },
       pairDetailMap,
       account,
     )
-    return { ok: true, data: { ...result, skipped } }
+    return { ok: true, data: result }
   })
 
   // ── import:previewCtrader ────────────────────────────────────────────────
@@ -257,25 +254,19 @@ export function registerImportHandlers(): void {
       }
     }
 
-    const existingSet = findExistingRefs(
+    const existing = findExistingTrades(
       db,
       resolved.map((c) => c.externalRef),
     )
-    const newCandidates = resolved.filter((c) => !existingSet.has(c.externalRef))
-    const skipped = resolved.length - newCandidates.length
-
-    if (newCandidates.length === 0) {
-      return { ok: true, data: { imported: 0, partials: 0, skipped } }
-    }
-
-    const result = commitCandidates(
+    const result = commitWithReconcile(
       db,
-      newCandidates,
+      resolved,
+      existing,
       { accountId, defaultSetupId, brokerSource: 'ctrader', nowMs: Date.now() },
       pairDetailMap,
       account,
     )
-    return { ok: true, data: { ...result, skipped } }
+    return { ok: true, data: result }
   })
 
   // ── import:previewTradingView ─────────────────────────────────────────────
@@ -353,25 +344,19 @@ export function registerImportHandlers(): void {
         }
       }
 
-      const existingSet = findExistingRefs(
+      const existing = findExistingTrades(
         db,
         resolved.map((c) => c.externalRef),
       )
-      const newCandidates = resolved.filter((c) => !existingSet.has(c.externalRef))
-      const skipped = resolved.length - newCandidates.length
-
-      if (newCandidates.length === 0) {
-        return { ok: true, data: { imported: 0, partials: 0, skipped } }
-      }
-
-      const result = commitCandidates(
+      const result = commitWithReconcile(
         db,
-        newCandidates,
+        resolved,
+        existing,
         { accountId, defaultSetupId, brokerSource: 'tradingview', nowMs: Date.now() },
         pairDetailMap,
         account,
       )
-      return { ok: true, data: { ...result, skipped } }
+      return { ok: true, data: result }
     },
   )
 }

@@ -1,8 +1,8 @@
 import { AlertTriangle } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
+import type { ConflictDTO } from '@shared/types/index'
 import { Button, Modal } from '../../components/ui'
 import { ipc } from '../../lib/ipc'
-import type { ConflictDTO } from '../../lib/ipc'
 
 /**
  * Sync conflict resolver (docs/sync-protocol.md §5).

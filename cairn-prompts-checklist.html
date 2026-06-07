@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cairn — Build Prompts Checklist</title>
+<style>
+:root{--bg:#0e1116;--panel:#161b22;--panel2:#1b2230;--line:#2a3140;--txt:#e6edf3;--mut:#8b97a7;--acc:#4ea1ff;--done:#3fb950;--strike:#5b6675;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.55 -apple-system,Segoe UI,Roboto,Inter,sans-serif}
+header{position:sticky;top:0;z-index:10;background:rgba(14,17,22,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:14px 22px}
+header h1{margin:0 0 6px;font-size:18px}
+.bar{height:8px;background:var(--panel2);border-radius:99px;overflow:hidden;margin:8px 0 6px}
+.bar > i{display:block;height:100%;background:var(--done);width:0;transition:width .25s}
+.sub{color:var(--mut);font-size:13px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+.sub b{color:var(--txt)}
+.next{color:var(--acc)}
+.controls{margin-left:auto;display:flex;gap:8px}
+button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:5px 10px;font-size:12px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+main{max-width:980px;margin:0 auto;padding:20px 18px 80px}
+.stage{margin:26px 0 6px}
+.stage-h{font-size:15px;letter-spacing:.02em;color:var(--mut);text-transform:uppercase;border-bottom:1px solid var(--line);padding-bottom:6px;display:flex;align-items:center;gap:10px}
+.stage-h.sdone{color:var(--done)}
+.stage-count{font-size:12px;color:var(--mut);font-weight:400}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin:12px 0;transition:opacity .2s}
+.card.done{opacity:.55;border-color:#23341f;background:var(--panel2)}
+.top{display:flex;align-items:flex-start;gap:11px;cursor:pointer}
+.chk{width:19px;height:19px;margin-top:2px;accent-color:var(--done);flex:0 0 auto;cursor:pointer}
+.ttl{font-weight:650;font-size:15.5px}
+.card.done .ttl,.card.done .prompt,.card.done .verif,.card.done .meta{text-decoration:line-through;text-decoration-color:var(--strike);color:var(--mut)}
+.meta{margin:9px 0 4px;font-size:13px;color:var(--mut)}
+.badge{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:1px 7px;font-size:11px;color:var(--acc);margin-right:6px}
+.lbl{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:12px 0 4px}
+.prompt{background:#0b0e13;border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:7px;padding:11px 13px;font-size:13.5px;white-space:normal}
+.verif{font-size:13.5px;color:#cdd7e2}
+code{background:#0b0e13;border:1px solid var(--line);border-radius:4px;padding:0 4px;font:12.5px/1 ui-monospace,Menlo,Consolas,monospace}
+.card.done code{color:var(--mut)}
+.hide-done .card.done{display:none}
+</style></head>
+<body>
+<header>
+  <h1>Cairn — Build Prompts Checklist</h1>
+  <div class="bar"><i id="pf"></i></div>
+  <div class="sub">
+    <span><b id="dcount">37</b> / <b>51</b> prompts done</span>
+    <span class="next" id="next"></span>
+    <span class="controls">
+      <button id="toggleHide">Hide done</button>
+      <button id="reset">Reset to actual</button>
+    </span>
+  </div>
+</header>
+<main id="main">
+<section class="stage"><h2 class="stage-h sdone">5. v1.2 — WAVE 0: FOUNDATION <span class="stage-count">4/4</span></h2>
+<article class="card" data-id="500806920c" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 0 — Prompt 1: Commit v1.1 work, green CI</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6 (audit + commit + CI is mostly mechanical).</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>CLAUDE.md</code> (the whole file) and <code>docs/roadmap-v1.2.md</code> (§6 end-state list, items 1 + 25). Then survey the working tree. Today&#x27;s job is Wave 0 Prompt 1: commit the uncommitted v1.1 work and get CI green.<br><br>Steps you MUST perform, in order:<br><br>1. Run <code>git status --short</code> and <code>git diff --stat</code>. Report what&#x27;s uncommitted.<br>2. Run <code>pnpm install</code> to make sure deps are coherent.<br>3. Run <code>pnpm typecheck</code> and report any errors. Fix them. Do not silence them with <code>any</code> or <code>// @ts-ignore</code>.<br>4. Run <code>pnpm lint --max-warnings 0</code> and fix all warnings honestly. No <code>eslint-disable</code> to suppress.<br>5. Run <code>pnpm test</code> and triage any failures. If a test is wrong, fix the test (with a comment explaining the fix). If the code is wrong, fix the code. Do not skip or <code>.todo</code> any test.<br>6. Stage and commit in logically grouped commits, using Conventional Commits (<code>feat:</code>, <code>fix:</code>, <code>chore:</code>, <code>test:</code>, <code>docs:</code> — never <code>wip</code> or <code>misc</code>). Each commit must compile and pass tests on its own.<br>7. Open a TodoWrite list before you start; tick items off as you go.<br><br>After the work: produce a one-paragraph report of (a) what was uncommitted, (b) how many commits you made, (c) what&#x27;s still red, if anything.<br><br>NO-SLOP FOOTER applies. (Sections 1, 2, 6, 7 are the relevant ones here.)</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">- <code>git status</code> is clean on <code>main</code> (or on the v1.1 branch — whichever Akash chooses to land on). - <code>pnpm typecheck</code>, <code>pnpm lint --max-warnings 0</code>, <code>pnpm test</code> all green. - Conventional Commits used. - TodoWrite list shows every step ticked.</div>
+  </div>
+</article>
+<article class="card" data-id="6681410a50" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 0 — Prompt 2: Reconcile partial-close tables (money-integrity fix)</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6.</strong> Money math + schema change + migration = the Opus tax is worth it.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>CLAUDE.md</code> §2.5 and §19.5 (money must be integer-encoded / decimal.js, never <code>real</code>/<code>float</code>), §19.6 (migration rules), and <code>docs/roadmap-v1.2.md</code> §6 item 3.<br><br>Investigation first, code second:<br><br>1. Find both partial-close tables in <code>electron/db/schema.ts</code>. The roadmap says <code>trade_partials</code> is integer-encoded and <code>partial_closes</code> is float. Confirm this. Report column-by-column what each one stores and which one(s) the IPC handlers and analytics services actually read from.<br>2. Identify every place in <code>electron/ipc/*.ts</code>, <code>electron/services/**</code>, and <code>src/features/**</code> that touches either table. List them.<br><br>Migration plan (write this as a comment block in the new migration file before any SQL):<br><br>1. Decide canonical name: <code>trade_partials</code> (integer-encoded, since money/pips must be integer).<br>2. Create a new migration that:<br>   - Copies any data from <code>partial_closes</code> into <code>trade_partials</code>, converting floats to integer cents/pips using a clearly documented multiplier (probably the same multiplier already used by <code>trade_partials</code>). If the float values were stored in dollars, the conversion is <code>round(value * 100)</code> for USD-pricing instruments; if pips, <code>round(value * 10000)</code> for 4-digit pairs or <code>round(value * 100)</code> for JPY pairs. Use the same conversion utilities the rest of the codebase already uses — do not invent new ones.<br>   - Drops <code>partial_closes</code> AFTER copy is verified by a row-count assertion in the migration.<br>3. Backfill is tested forward + backward on a seeded DB.<br><br>Code change:<br><br>1. Update every read/write site to use <code>trade_partials</code> only. Remove all references to <code>partial_closes</code>.<br>2. Update the Drizzle schema in <code>electron/db/schema.ts</code>.<br>3. Update or add tests: a migration test in <code>tests/integration/migrations.test.ts</code> that runs forward on a seeded DB with mixed real/integer data and asserts the rows match cent-for-cent / pip-for-pip; a fast-check property test for the conversion utility if you wrote one.<br>4. Update <code>docs/data-model.md</code> v1.1 Additions to mention this consolidation.<br><br>Critical: this is a one-shot conversion. If the data already in <code>partial_closes</code> is sometimes in dollars and sometimes in pips depending on instrument, that ambiguity is itself a bug — investigate, document, and ask Akash before destroying data. If you are unsure, STOP and ask.<br><br>NO-SLOP FOOTER applies. Money rules (§3) are the binding ones.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">- Schema has one partial-close table (<code>trade_partials</code>), all columns integer. - New migration committed, with forward + backward test passing. - All references to <code>partial_closes</code> removed across <code>electron/</code>, <code>src/</code>, and tests. - A fast-check property test exists for the float→integer conversion utility (if you needed to write one). - <code>docs/data-model.md</code> updated. - Manual smoke test: open the app, place a trade, do a partial close, verify the partial appears with correct integer values in the DB (<code>sqlite3 &lt;db&gt; &quot;select * from trade_partials&quot;</code>).</div>
+  </div>
+</article>
+<article class="card" data-id="ab8979bd5e" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 0 — Prompt 3: Build the Review screen</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>CLAUDE.md</code> §1, <code>docs/features-v1.md</code> (Review section if present), and <code>docs/roadmap-v1.2.md</code> §6 item 2.<br><br>The Review screen is currently a stub. It is the home for: (a) the v1.2 Wave 2 local insight engine, (b) the v1.2 Wave 3 deferred-reflection queue. Build the shell now so Wave 2 and Wave 3 can drop content into it.<br><br>Required content for this prompt (shell, not yet populated):<br><br>1. <strong>Header:</strong> date range picker (default: last 30 days), account selector (defaults to active account), an Export PDF button (wire to the existing PDF export service).<br>2. <strong>Section: &quot;Trades awaiting reflection&quot;</strong> — empty state for now (&quot;No trades awaiting reflection — you&#x27;re caught up&quot;). Just the section frame; population is Wave 3.<br>3. <strong>Section: &quot;Insights&quot;</strong> — empty state for now (&quot;No insights yet. Cairn needs at least 20 closed trades to start surfacing patterns.&quot;). Just the frame; population is Wave 2.<br>4. <strong>Section: &quot;Period summary&quot;</strong> — populate this immediately. Show: closed trades, win-rate, expectancy in R, gross P&amp;L, clean-trade %, current win/loss streak. Pull from existing analytics services in <code>electron/services/analytics/</code>. If a needed metric isn&#x27;t there yet, use what exists and TodoWrite a follow-up — do not invent or stub.<br>5. <strong>Section: &quot;Recent reviews&quot;</strong> — list the existing <code>reviews</code> table rows for the period, with a click-through to a detail panel. The <code>reviews.ts</code> analytics service already exists; use it.<br><br>Visual standards: glassmorphism per <code>docs/design-system.md</code>, Framer Motion fade-in on section mount, JetBrains Mono for numbers, Inter for everything else, all numbers right-aligned in tables.<br><br>Wire the route in <code>src/router.tsx</code> (or wherever routes are defined — check, don&#x27;t assume), and add a sidebar nav item if not already present. Make sure the sidebar attribution &quot;Designed &amp; built by Jai Akash&quot; remains at bottom-left.<br><br>Tests: a render test for the empty states; a render test with seeded data confirming the period summary populates correctly.<br><br>NO-SLOP FOOTER applies.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">- <code>/review</code> (or the configured route) renders the four sections above. - Period summary populates from real data when trades exist in the chosen window. - Empty states copy is exactly the strings above (calm, no exclamation marks — match the spec voice). - Sidebar nav item exists and is selected when on the route. - Render tests pass.</div>
+  </div>
+</article>
+<article class="card" data-id="d41bd84229" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 0 — Prompt 4: Smoke E2E + housekeeping</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/testing.md</code> and <code>docs/roadmap-v1.2.md</code> §6 item 4. Today&#x27;s job: write the smoke E2E, remove the stub <code>export-service.ts</code>, and close out Wave 0.<br><br>Tasks:<br><br>1. <strong>Smoke E2E:</strong> in <code>tests/e2e/</code>, add a single Playwright test (<code>smoke.spec.ts</code>) that walks: launch app → complete onboarding → log a session bias → place a market trade → close the trade → land on Analytics and confirm the trade appears. Use a fresh temp DB per run. The test should fail loudly if any step blocks. Include a recorded video on failure (Playwright supports this; turn it on in config).<br>2. <strong>Remove the stub:</strong> delete <code>electron/services/export-service.ts</code> (the actual export logic lives in <code>electron/ipc/data.ts</code> per the roadmap). Update any imports.<br>3. <strong>CI step:</strong> if <code>.github/workflows/</code> exists, add the smoke E2E to the CI matrix. If not, TodoWrite a follow-up to add it in Stage 0 of v2.0.<br>4. <strong>Tick Wave 0 items in the roadmap:</strong> edit <code>docs/roadmap-v1.2.md</code> § 6 items 1, 2, 3, 4 to indicate completion. Add a <code>v1.2 Wave 0 — DONE on &lt;date&gt;</code> line at the top of §6.<br><br>NO-SLOP FOOTER applies. The smoke E2E is itself a quality gate for every subsequent wave — do not let it be flaky.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">- <code>pnpm test:e2e</code> runs and the smoke test passes locally. - <code>electron/services/export-service.ts</code> is gone; no broken imports. - Roadmap doc shows Wave 0 done.</div>
+  </div>
+</article>
+</section>
+<section class="stage"><h2 class="stage-h sdone">6. v1.2 — WAVE 1: FRICTION QUICK-WINS <span class="stage-count">6/6</span></h2>
+<article class="card" data-id="5f79523688" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 1 — Prompt 1: Remember last trade context</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/features-v1.md</code> (New Trade panel section), <code>docs/roadmap-v1.2.md</code> §4 Wave 1 item 1 and §6 item 5.<br><br>Implement &quot;remember last trade context&quot; in the New Trade panel:<br><br>- Add a Zustand slice (or extend an existing session store) in <code>src/stores/</code> called <code>last-trade-context</code> that holds <code>{ pair, setup, mode, accountId, timestamp }</code>.<br>- It is <strong>session-scoped</strong>, NOT persisted to disk. Clearing the session (close + reopen the app) resets it. Document this in the slice&#x27;s JSDoc.<br>- When the New Trade panel mounts, pre-fill pair/setup/mode from the slice if <code>timestamp</code> is within the last 6 hours.<br>- When a trade is submitted (placed, not draft), update the slice with the chosen pair/setup/mode.<br>- Add a small &quot;(from last trade)&quot; caption under the pre-filled fields so the trader can see what was inherited. Caption disappears on first edit.<br>- Add a &quot;Clear&quot; button next to the caption that resets to the account default in one tap.<br><br>Honesty check: this prompt must NOT pre-fill emotional state, urgency, or any field that requires real-time self-awareness. Only pair / setup / mode / account.<br><br>Tests: a render test confirming pre-fill happens within the window and not outside it; a test confirming Clear works; a test confirming the slice is not persisted (mount, set, unmount, remount → empty).<br><br>NO-SLOP FOOTER applies.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">§6 item 5 of the roadmap is met; manual: place a trade, close the panel, reopen → pair/setup/mode are pre-filled with caption. DONE</div>
+  </div>
+</article>
+<article class="card" data-id="da9878d166" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 1 — Prompt 2: Invalidation quick-chips</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/features-v1.md</code>, <code>docs/roadmap-v1.2.md</code> Wave 1 item 2 and §6 item 6, and <code>CLAUDE.md</code> §2.3 (honesty forcing functions).<br><br>The invalidation field currently requires ≥ 20 characters of free text. This is honest but slow. Add <strong>ICT-native quick-chips</strong> that satisfy the 20-char requirement in one tap, without removing the free-text path.<br><br>Chip set (use exactly these eight, plus a &quot;Custom…&quot; option that reveals the free-text field):<br><br>1. &quot;Below the OB I&#x27;m entering at&quot;<br>2. &quot;Liquidity sweep fails to reverse&quot;<br>3. &quot;Closes back inside the FVG&quot;<br>4. &quot;MSS in opposing direction&quot;<br>5. &quot;DXY contradicts the bias&quot;<br>6. &quot;Price reclaims the broken structure&quot;<br>7. &quot;Killzone ends without entry&quot;<br>8. &quot;Volume dries up before entry&quot;<br><br>Behaviour:<br>- Tapping a chip fills the invalidation field with the chip text and marks the field valid.<br>- Tapping a second chip replaces the previous one (single-select, never concatenated — that would be cheating).<br>- Free-text editing of the filled value is allowed; once edited, the chip selection is cleared.<br>- &quot;Custom…&quot; reveals the free-text field with the existing 20-char minimum.<br><br>Honesty check: the chip text MUST be at least 20 characters (all the above are). Verify in a test.<br><br>Store chips in <code>src/features/pre-trade/constants/invalidation-chips.ts</code> so they&#x27;re easy to extend later without touching component code.<br><br>NO-SLOP FOOTER applies.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">§6 item 6 met; chips render; tap fills field and validates; free-text path still works; tests cover both paths.</div>
+  </div>
+</article>
+<article class="card" data-id="6005975513" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 1 — Prompt 3: One-tap emotional state</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/features-v1.md</code>, <code>docs/roadmap-v1.2.md</code> Wave 1 item 3 and §6 item 7.<br><br>Replace the three sliders (focus / discipline / urgency? — confirm from the schema and current UI) with a single one-tap selector by default, with the sliders behind an &quot;Advanced&quot; disclosure.<br><br>Selector: three buttons — <strong>Focused / Neutral / Tilted</strong>. Mapping (store these in <code>src/features/pre-trade/constants/emotion-presets.ts</code>):<br><br>- Focused → focus 8, discipline 8, urgency 3<br>- Neutral → focus 6, discipline 6, urgency 5<br>- Tilted → focus 4, discipline 4, urgency 8 + the rule engine should flag this in the existing pre-trade evaluation<br><br>Below the three buttons, a small &quot;Advanced (set scores manually)&quot; disclosure reveals the three sliders. If the trader uses the sliders, the corresponding button highlights or de-highlights — they&#x27;re two views of the same data.<br><br>The schema does NOT change — the three numeric columns stay. Only the UI changes.<br><br>Tests: tap each preset, assert the three numbers match the constants; open advanced, drag a slider, assert preset highlight clears.<br><br>NO-SLOP FOOTER applies.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">§6 item 7 met; one-tap default works; advanced disclosure available; schema unchanged.</div>
+  </div>
+</article>
+<article class="card" data-id="c2de862d74" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 1 — Prompt 4: &quot;Closed clean at TP/SL&quot; one-click close</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/features-v1.md</code> Close Trade modal section, <code>docs/roadmap-v1.2.md</code> Wave 1 item 4 and §6 item 8, and <code>CLAUDE.md</code> §1.3 (honesty over speed for trades that deviated).<br><br>Add a one-click &quot;Closed clean at TP&quot; and &quot;Closed clean at SL&quot; button at the top of the Close Trade modal. Behaviour:<br><br>- Clicking &quot;Closed clean at TP&quot; pre-fills: exit price = TP, exit time = now, honesty Y/N = clean (plan followed), rules-broken checklist = empty, reflection = &quot;Closed clean at TP, plan followed&quot;.<br>- Clicking &quot;Closed clean at SL&quot; pre-fills: exit price = SL, exit time = now, honesty Y/N = clean (plan followed, accepted the SL), rules-broken checklist = empty, reflection = &quot;Closed clean at SL, plan followed&quot;.<br>- In BOTH cases, the trader must still click Submit; the prompt does NOT auto-submit. Honesty is preserved by the conscious final click.<br>- If the rule engine has flagged any violation during the trade life (e.g. SL was moved against), the &quot;Closed clean&quot; buttons are <strong>disabled</strong> with a tooltip: &quot;This trade has at least one flagged action; close manually.&quot;<br><br>Tests: TP/SL prefill correctly; submit is still required; disabled-when-flagged works.<br><br>NO-SLOP FOOTER applies. Critical: do NOT auto-close or skip the rules-broken checklist programmatically for any trade with engine-flagged actions. That would weaponise speed against discipline.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">§6 item 8 met; one-click path exists; disabled-when-dirty works; manual smoke confirms.</div>
+  </div>
+</article>
+<article class="card" data-id="39408288b1" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 1 — Prompt 5: Command palette (⌘K)</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/features-v1.md</code> TopBar section, <code>docs/roadmap-v1.2.md</code> Wave 1 item 5 and §6 item 9, and <code>docs/customization.md</code> v1.1 keyboard-shortcuts.<br><br>Implement a real ⌘K / Ctrl+K command palette to replace the existing TopBar &quot;coming soon&quot; slot.<br><br>Commands (initial set — extensible via a registry in <code>src/features/command-palette/registry.ts</code>):<br><br>- &quot;New trade&quot; → navigate to /new-trade<br>- &quot;Close trade&quot; → open the active-trade close modal (if there&#x27;s an open trade; otherwise toast &quot;No open trades&quot;)<br>- &quot;Log session bias&quot; → navigate to /bias<br>- &quot;Jump to account: &lt;name&gt;&quot; → one entry per account<br>- &quot;Settings: &lt;tab&gt;&quot; → one entry per settings tab<br>- &quot;Toggle theme&quot;<br>- &quot;Export trade review PDF&quot;<br>- &quot;Show keyboard shortcuts&quot;<br><br>UI: shadcn <code>&lt;Command&gt;</code> primitive with fuzzy search, frosted-glass surface, JetBrains Mono for the command keys, Inter for descriptions. Focus trap when open. Esc closes.<br><br>Wire ⌘K / Ctrl+K globally (NOT inside any input — never override the user&#x27;s typing). Document the shortcut in Settings → Shortcuts.<br><br>Tests: keyboard open/close; each command in the registry resolves to the expected route or action.<br><br>NO-SLOP FOOTER applies.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">§6 item 9 met; ⌘K opens, fuzzy search works, every command executes; documented in Settings.</div>
+  </div>
+</article>
+<article class="card" data-id="07f159e7fb" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 1 — Prompt 6: Calendar view</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/analytics.md</code> and <code>docs/roadmap-v1.2.md</code> Wave 1 item 6 and §6 item 10.<br><br>Add a Calendar view as a new tab inside Analytics (and a Dashboard widget linking to it).<br><br>Layout: month grid (Mon–Sun rows, weeks as rows). Each cell shows the date and a P&amp;L-coloured background (positive = the existing green scale, negative = the existing red scale, flat = neutral). Cells with zero trades have no colour. Hover shows: trades, win-rate, gross P&amp;L for the day. Click-through navigates to <code>/trades?date=YYYY-MM-DD</code> filtered.<br><br>Use existing analytics services (<code>electron/services/analytics/performance.ts</code> or equivalent) to fetch the per-day rollup. If a daily-rollup query doesn&#x27;t exist, add ONE — and add a unit test for it. Do not duplicate per-day math at the UI layer.<br><br>Tests: render test with a seeded month; click-through navigates correctly; the rollup query has a unit test.<br><br>NO-SLOP FOOTER applies.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">§6 item 10 met; calendar renders; click-through works; rollup query unit-tested.</div>
+  </div>
+</article>
+</section>
+<section class="stage"><h2 class="stage-h sdone">6.5 v1.2 — WAVE 1.5: REMEDIATION (run before Wave 2) <span class="stage-count">3/3</span></h2>
+<article class="card" data-id="f7df698e80" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 1.5 — Prompt 1: Fix the calendar timezone + bucketing bugs</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Opus 4.6 (date/time + per-day correctness — same class as money math).</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>CLAUDE.md</code> §17.6 (issues 1 and 2), <code>docs/customization.md</code> v1.1 (timezone, default America/New_York), and <code>docs/rules-engine.md</code> v1.1 (how daily-trade-limit and max-daily-loss bucket &quot;day&quot;). Then fix <code>getDailyHeatmap</code> in <code>electron/services/analytics/performance.ts</code>:<br><br>1. <strong>Timezone bug:</strong> the query buckets days with <code>strftime(&#x27;%Y-%m-%d&#x27;, updated_at/1000, &#x27;unixepoch&#x27;)</code> — that&#x27;s UTC. Bucket by the user&#x27;s <strong>configured timezone</strong> instead, the SAME way the per-day rules engine buckets a day. Do not invent a second definition of &quot;day&quot; — find the one the rules engine already uses and reuse it. If that logic isn&#x27;t shared, extract it to one helper and call it from both places.<br>2. <strong>Wrong-column bug:</strong> closed trades are bucketed by <code>updated_at</code>, which moves whenever a trade is later edited. Bucket closed trades by <code>exit_time</code> (the column exists). Decide and document how open/draft trades (null <code>exit_time</code>) are handled — they should not appear as phantom days.<br>3. Update the existing rollup unit test to cover: (a) a trade whose <code>exit_time</code> is near local midnight lands on the correct local day, NOT the UTC day; (b) editing a closed trade (bumping <code>updated_at</code>) does not move its calendar cell; (c) the calendar day for a trade matches the day the rules engine assigns it.<br><br>NO-SLOP FOOTER applies. This is correctness-critical: a calendar that disagrees with the rules engine erodes trust in both.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">§17.6 issues 1 + 2 resolved; calendar day == rules-engine day in tests; rollup test covers timezone + edit-stability + exit_time bucketing.</div>
+  </div>
+</article>
+<article class="card" data-id="d10b60e02b" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 1.5 — Prompt 2: Kill the floating promises + de-drift the clean-close test</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>CLAUDE.md</code> §17.6 (issues 3, 4, 5, 6) and §2.12 / §19 (no floating promises, every async path awaited or explicitly void-ed with rejection handled).<br><br>1. <strong>Floating promises (issue 3):</strong> in <code>src/features/command-palette/CommandPalette.tsx</code> (~L50, <code>ipc.accounts.list().then(...)</code>) and <code>src/features/post-trade/CloseTradeModal.tsx</code> (~L267, <code>Promise.all([...]).then(...)</code>), handle rejection — <code>void</code>-prefix AND add a <code>.catch</code> that surfaces the error (toast or logged), or convert to <code>await</code> inside a guarded async effect. No naked floating promise may remain.<br>2. <strong>Test drift (issue 4):</strong> <code>tests/unit/post-trade/close-clean-prefill.test.ts</code> re-implements <code>applyCleanClose</code> and <code>dbToDisplayPrice</code> inline. Extract the real prefill logic from <code>CloseTradeModal.tsx</code> into a pure module <code>src/features/post-trade/clean-close-prefill.ts</code> (exporting <code>buildCleanClosePrefill</code> and the price helper), have the component import and use it, and rewrite the test to import from that module so it can never drift from the component again.<br>3. <strong>Minor (issues 5, 6):</strong> reconcile the <code>last-trade-context.ts</code> JSDoc with actual behaviour (placed-only, not drafts). Remove the one duplicated import line in <code>tests/unit/analytics/adherence.test.ts</code> and <code>tests/unit/analytics/performance.test.ts</code>. Leave <code>matchCommand</code> as-is (shadcn <code>&lt;Command&gt;</code> provides fuzzy filtering) but add a one-line comment noting why substring is acceptable.<br><br>NO-SLOP FOOTER applies.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">zero floating promises in the Wave 1 files; clean-close logic lives in one pure module imported by both component and test; minor items cleared.</div>
+  </div>
+</article>
+<article class="card" data-id="87ae9b5f3a" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 1.5 — Prompt 3: Run all five gates green, then close out</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>CLAUDE.md</code> §17.6 (&quot;Verification NOT run&quot; + &quot;Wave 2 readiness verdict&quot;) and <code>docs/testing.md</code>.<br><br>The five quality gates were never executed this cycle because the review ran in a sandbox that couldn&#x27;t resolve the Windows-symlinked <code>node_modules</code>. They MUST be run locally now and all pass:<br><br>1. <code>pnpm typecheck</code><br>2. <code>pnpm lint</code> (max-warnings 0)<br>3. <code>pnpm test:unit</code><br>4. <code>pnpm build</code><br>5. <code>pnpm test:e2e</code> (smoke)<br><br>Fix whatever they surface. Do not weaken a gate to make it pass (no <code>--max-warnings</code> bump, no skipped tests, no <code>@ts-ignore</code>). If the smoke E2E is flaky, fix the flake — it gates every subsequent wave.<br><br>When all five are green: update <code>CLAUDE.md</code> §17.6 — move issues 1–6 from &quot;to fix&quot; into a &quot;Resolved&quot; subsection with the fixing commit hashes, change the &quot;Verification NOT run&quot; block to record the date the gates passed, and change the Wave 2 readiness verdict to &quot;Wave 1 DONE — gates green on &lt;date&gt;, Wave 2 unblocked.&quot; Tick the relevant §6 end-state items in <code>docs/roadmap-v1.2.md</code>.<br><br>NO-SLOP FOOTER applies.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">all five gates green locally; §17.6 updated to &quot;Wave 1 DONE&quot;; roadmap items ticked; committed and pushed.</div>
+  </div>
+</article>
+</section>
+<section class="stage"><h2 class="stage-h sdone">7. v1.2 — WAVE 2: AUTOMATIONS <span class="stage-count">7/7</span></h2>
+<article class="card" data-id="619294a857" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 2 — Prompt 1: Auto dashboard refresh + event bus</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/features-v1.md</code> Dashboard, <code>docs/roadmap-v1.2.md</code> Wave 2 item 1 and §6 item 11.<br><br>Bake the existing v1.1 dashboard-refresh fix into a single event flow so we never regress.<br><br>1. Add <code>src/lib/event-bus.ts</code> — a tiny typed event emitter (NOT a global window-attached one; export a singleton from this module). Events: <code>trade.placed</code>, <code>trade.closed</code>, <code>trade.partial-closed</code>, <code>session.locked</code>, <code>session.unlocked</code>, <code>rule.violated</code>.<br>2. Every IPC handler that mutates trade state in <code>electron/ipc/trades.ts</code> must emit the corresponding event AFTER the DB write commits.<br>3. The renderer subscribes via preload-exposed <code>cairn.events.on(name, cb)</code> (extend <code>electron/preload.ts</code>).<br>4. The Dashboard, the sidebar streak, and the Discipline Ring all subscribe to the relevant events and re-query their slice of state. No more setInterval polling.<br>5. Add a test (<code>tests/integration/event-bus.test.ts</code>) that places a trade via the IPC and asserts the event fires with the expected payload shape.<br><br>Do NOT remove existing manual-refresh affordances if they exist; just make them no-ops on the happy path.<br><br>NO-SLOP FOOTER applies.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">§6 item 11 met; place a trade, dashboard updates without manual refresh; event-bus test passes.</div>
+  </div>
+</article>
+<article class="card" data-id="e1cebbc29f" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 2 — Prompt 2: Derived analytics (TOD, DOW, expectancy, profit factor, R-distribution)</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6, escalate to <strong>Opus 4.6</strong> for the expectancy + profit-factor math (one Opus session inside this prompt).</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/analytics.md</code>, <code>docs/roadmap-v1.2.md</code> Wave 2 item 2 and §6 item 12.<br><br>Add five new analytics queries + their UI in the Analytics module:<br><br>1. <strong>Time-of-day P&amp;L heatmap</strong> — 24 buckets × day-of-week, coloured by expectancy in R.<br>2. <strong>Day-of-week summary</strong> — bar chart, P&amp;L and win-rate per weekday.<br>3. <strong>Expectancy in R</strong> — single big number with trend sparkline; formula = <code>mean(R outcome over closed trades)</code>. Use decimal.js for the average. Add a fast-check property test that asserts: if all R outcomes equal <code>x</code>, expectancy equals <code>x</code> regardless of count.<br>4. <strong>Profit factor</strong> — <code>gross_winners_in_R / gross_losers_abs_in_R</code>. If <code>gross_losers_abs_in_R</code> is zero, display <code>∞</code> and a tooltip explaining. Property test: scale-invariant (multiply all R by k → profit factor unchanged).<br>5. <strong>R-multiple distribution</strong> — histogram of R outcomes, bucketed at 0.5R. Vertical line at 0.<br><br>All queries live in <code>electron/services/analytics/</code> as pure functions taking a trade list and returning typed objects. UI components in <code>src/features/analytics/tabs/</code>.<br><br>The expectancy + profit-factor math must use decimal.js. NO <code>number</code> for these. Tests use fast-check.<br><br>NO-SLOP FOOTER applies, especially money/decimal rules.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">§6 item 12 met; five charts render; property tests pass; decimals throughout.</div>
+  </div>
+</article>
+<article class="card" data-id="4bdb0eb177" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 2 — Prompt 3: Local insight engine — the five heuristics</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/roadmap-v1.2.md</code> Wave 2 item 3 and §6 item 13. Read <code>CLAUDE.md</code> §1.3 (the third job is &quot;transform data into insights that change behavior&quot;). Critical: this is a <strong>local statistical engine</strong>, NOT an LLM call. No network. No paid model. No &quot;AI&quot; in the UI label — call it &quot;Patterns&quot; or &quot;Cairn observed.&quot;<br><br>Implement at least these five heuristics in <code>electron/services/insights/</code>:<br><br>1. <strong>Urgency hurts win-rate.</strong> Compute win-rate for <code>urgency &lt;= 5</code> vs <code>urgency &gt;= 7</code>. Surface only if the delta is &gt; 10 pp AND each bucket has &gt;= 10 trades. Copy: &quot;Your win-rate is X% when urgency ≤ 5, but Y% when urgency ≥ 7. (N₁/N₂ trades each.)&quot;<br>2. <strong>Outside-killzone expectancy.</strong> Compute expectancy in R for trades inside vs outside listed killzones. Surface if outside-killzone expectancy is negative AND &gt;= 10 outside-killzone trades exist.<br>3. <strong>Tilt cycle.</strong> Detect sequences of (loss, loss, loss, trade with risk_pct &gt; account.default_risk_pct * 1.5). Count occurrences in last 30 / 60 / 90 days. Surface if &gt;= 2 occurrences in last 30.<br>4. <strong>Best setup, under-used.</strong> Find the setup with the highest expectancy in R among setups with &gt;= 10 trades. If trader&#x27;s frequency of that setup is &lt; 20% of total trades, surface: &quot;Setup X is your highest-expectancy setup (+R per trade) but you take it only N% of the time.&quot;<br>5. <strong>Worst hour.</strong> Find the worst-expectancy hour-of-day among hours with &gt;= 5 trades. Surface if expectancy is negative.<br><br>Each heuristic is a pure function <code>(trades: ClosedTrade[]) =&gt; Insight | null</code>. They live in <code>electron/services/insights/&lt;heuristic-name&gt;.ts</code> with one fast-check property test each (e.g. &quot;if no trades have urgency &gt;= 7, heuristic 1 returns null&quot;).<br><br>The Review screen&#x27;s &quot;Insights&quot; section (built in Wave 0 Prompt 3) now lists the non-null returns, sorted by <code>severity</code> (which each heuristic computes). Each insight has a &quot;Dismiss for 7 days&quot; action that persists in a <code>dismissed_insights</code> table — add the migration.<br><br>Tests: each heuristic has unit tests + property test; the Review screen renders the list when seeded.<br><br>NO-SLOP FOOTER applies.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">§6 item 13 met; ≥ 5 heuristics wired; tests pass; manual: seed 50 trades into a dev DB, open Review, see insights appear with sensible copy.</div>
+  </div>
+</article>
+<article class="card" data-id="edef35e51e" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 2 — Prompt 4: Auto-detect rules broken at close</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6.</strong> Rule-engine surface — get this wrong and it lies.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/rules-engine.md</code> and <code>docs/roadmap-v1.2.md</code> Wave 2 item 4 and §6 item 14.<br><br>When opening the Close Trade modal, compute a planned-vs-actual diff for the active trade and <strong>pre-tick</strong> the rules-broken checklist with detected violations. The trader confirms or unticks each one. Honesty is preserved because the trader still makes the final call; recall friction is eliminated because the trader doesn&#x27;t have to remember every rule.<br><br>Detections to implement (extend the existing rule engine — do NOT bolt this on outside it):<br><br>1. <strong>SL widened</strong> — <code>current_sl</code> is further from entry than <code>planned_sl</code> was.<br>2. <strong>TP narrowed</strong> — <code>current_tp</code> is closer to entry than <code>planned_tp</code> was.<br>3. <strong>Risk increased mid-trade</strong> — current risk_$ exceeds planned by &gt; 10%.<br>4. <strong>Traded outside listed killzones</strong> — entry timestamp is not inside any killzone for the account.<br>5. <strong>Daily trade limit exceeded</strong> — this is the Nth+1 trade today where N is the account limit.<br>6. <strong>Max daily loss circuit breaker was tripped earlier this session and you still traded</strong> — rare but check.<br><br>Wire the detections into the existing rule engine as evaluators that return a list of violation codes. The Close Trade modal&#x27;s checklist pre-ticks the matching items by code, with a small &quot;✓ detected by Cairn&quot; badge next to each pre-ticked item.<br><br>Tests: a vitest suite per detector, plus an integration test that seeds a trade-with-widened-SL and asserts the modal pre-ticks the right item.<br><br>NO-SLOP FOOTER applies, especially: prevention over detection is the app&#x27;s north-star (§14 #14), so each of these detectors should ALSO have a real-time hook in the rule engine where applicable (e.g. SL widening flagged the moment it happens). Add the real-time hook for SL widening as part of this prompt; the others can be TodoWrite&#x27;d if not already present.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">§6 item 14 met; all six detectors implemented; modal pre-ticks correctly; real-time SL-widen hook fires.</div>
+  </div>
+</article>
+<article class="card" data-id="be55da00a3" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 2 — Prompt 5: Composite performance score</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6</strong> (it&#x27;s a metric users will judge themselves by — get the math right).</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/roadmap-v1.2.md</code> Wave 2 item 5 and §6 item 15. Read <code>CLAUDE.md</code> §1.2 — this metric must change behavior, not flatter it.<br><br>Add a <strong>Performance Score</strong> (0–100) displayed alongside the Discipline Score on the Dashboard. Formula (write the rationale in a comment block at the top of the file):<br><br>``<code><br>score = 0.30 * win_rate_score<br>      + 0.25 * expectancy_score<br>      + 0.20 * consistency_score<br>      + 0.15 * profit_factor_score<br>      + 0.10 * recency_score<br></code>`<code><br><br>Definitions (all on closed trades only):<br>- </code>win_rate_score<code>: linear, 0% → 0, 60% → 100, capped at 100.<br>- </code>expectancy_score<code>: linear, -0.5R → 0, +1.0R → 100, capped.<br>- </code>consistency_score<code>: 100 - (coefficient_of_variation_of_daily_PnL * 100), floored at 0.<br>- </code>profit_factor_score<code>: linear, 1.0 → 50, 3.0 → 100, capped. Below 1.0 → 0.<br>- </code>recency_score<code>: weighted toward last 14 days — last-14 contribution is 0.7 of the score, the rest is overall.<br><br>All math in decimal.js. The formula constants live in </code>electron/services/performance-score/constants.ts` so they can be tuned without changing logic.<br><br>UI: a small ring or bar with the number, a tooltip explaining the formula, &quot;tap to see contribution breakdown&quot; that opens a side panel.<br><br>Tests: fast-check property tests for each component (e.g. monotonicity: higher win-rate → higher score, holding others fixed); a known-input integration test with a seeded set of 30 trades whose expected score is computed by hand and asserted to 1 decimal.<br><br>NO-SLOP FOOTER applies.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">§6 item 15 met; score displays; breakdown panel works; tests pass; the math comment block accurately describes what the code does.</div>
+  </div>
+</article>
+<article class="card" data-id="13dffa50c3" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 2 — Prompt 6: Per-trade A–F quality grade</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/roadmap-v1.2.md</code> Wave 2 item 6 and §6 item 16.<br><br>For every closed trade, compute an A–F grade. The grade lives at the row level in the trade log and in the trade detail panel.<br><br>Formula (<code>electron/services/trade-grade.ts</code>):<br>``<code><br>baseline = 60<br>+ 20 if plan_followed (no rules broken)<br>+ 15 if R_outcome &gt;= planned_R<br>-  5 per rule broken<br>+ bonus for clean-on-tilt: +5 if emotional_state was Tilted at entry AND no rules broken<br><br>grade =<br>  A if score &gt;= 90<br>  B if score &gt;= 75<br>  C if score &gt;= 60<br>  D if score &gt;= 45<br>  F otherwise<br></code>`<code><br><br>The grade is a <strong>derived value</strong>, computed at read time — do NOT add it as a column. (If performance demands later, cache it in a materialised view, but not now.) Document this in </code>docs/data-model.md<code>.<br><br>UI: a small letter badge next to the trade ID in </code>/trades`, and a prominent letter on the trade detail. Colour: A green, B/C neutral, D/F amber/red but never alarming — match the spec voice.<br><br>Tests: a unit-test matrix walking all five branches; a render test for the trade-log badge.<br><br>NO-SLOP FOOTER applies.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">§6 item 16 met; grades appear in trade log + detail; tests pass.</div>
+  </div>
+</article>
+<article class="card" data-id="f99c266bc0" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 2 — Prompt 7: Notebook (free-form rich-text)</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/roadmap-v1.2.md</code> Wave 2 item 7 and §6 item 17.<br><br>Add a Notebook section, accessible from the sidebar, with three pre-loaded templates and the ability to create blank notes.<br><br>Schema: new table <code>notebook_entry { id (UUIDv7), account_id (nullable — notes can be global or account-scoped), title, body_md (markdown source), created_at, updated_at, deleted_at, version }</code>. Migration with forward + backward test.<br><br>Editor: a markdown editor with live preview. Use <code>@uiw/react-md-editor</code> or similar — do NOT roll your own rich-text editor. Save on blur and on Cmd+S. Each save bumps <code>updated_at</code>.<br><br>Templates (created on first Notebook open, but only if no entries exist):<br>1. <strong>Trading plan</strong> — sections: Mandate, Instruments, Sessions, Setups, Risk per trade, Max daily loss, Rules I will break least often, How I know I&#x27;m tilted.<br>2. <strong>Watchlist</strong> — table with columns: Instrument, Bias, Key level, Killzone, Notes.<br>3. <strong>Weekly review</strong> — sections: Wins, Losses, Patterns observed, One change for next week.<br><br>Search: a simple substring search across title + body.<br><br>Cmd+K integration: add &quot;New notebook entry&quot; and &quot;Search notebook&quot; to the command palette (Wave 1 Prompt 5).<br><br>Tests: migration test; create + edit + delete flow; template auto-seed only runs on empty notebook.<br><br>NO-SLOP FOOTER applies.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">§6 item 17 met; three templates exist on first open; markdown editing works; Cmd+K commands present.</div>
+  </div>
+</article>
+</section>
+<section class="stage"><h2 class="stage-h sdone">8. v1.2 — WAVE 3: FILE IMPORT + TWO-PHASE LOGGING <span class="stage-count">6/6</span></h2>
+<article class="card" data-id="3b14fc7882" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 3 — Prompt 1: MT5 statement parser</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6, escalate to <strong>Opus 4.6</strong> for the price-math reconciliation (one Opus session inside).</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/integrations-future.md</code>, <code>docs/roadmap-v1.2.md</code> Wave 3 item 6 and §6 items 18 + 21.<br><br>Build an MT5 statement import adapter that turns the broker&#x27;s HTML/CSV export into Cairn trade rows. Live in <code>electron/services/import-adapters/mt5/</code>.<br><br>Required:<br><br>1. <strong>Parser:</strong> read MT5&#x27;s HTML statement export. The structure is a series of <code>&lt;table&gt;</code> blocks; the relevant ones are labelled &quot;Deals&quot; and &quot;Orders&quot; (the labels vary slightly by terminal language — match case-insensitively and tolerate a few translations: English, Spanish, German). Use <code>cheerio</code> or <code>parse5</code>.<br>2. <strong>Reconciler:</strong> MT5 records every deal (entry leg, partial close, full close) as a separate row keyed by order ticket. Group them into Cairn trades by <code>order_id</code>. A Cairn trade = one open + N closes. Partial closes go into <code>trade_partials</code> (the integer-encoded table from Wave 0 Prompt 2). Use decimal.js for every price/lot/P&amp;L arithmetic.<br>3. <strong>Mapping:</strong> map MT5 symbol → Cairn pair using <code>electron/db/schema.ts</code> pairs. Unknown symbols are surfaced for the user to resolve, NOT silently dropped — block import until resolved.<br>4. <strong>Idempotency:</strong> importing the same statement twice produces zero new rows. Use the MT5 ticket number + open time as the dedupe key; store in a new column <code>external_ref</code> on <code>trades</code> and <code>trade_partials</code>. Migration with forward + backward test.<br>5. <strong>Pre-import preview:</strong> show the user a table — <code>N new trades, M skipped duplicates, K unresolved symbols</code>. Importing is a single click after preview.<br>6. <strong>Tests:</strong> unit tests against the fixture files; an integration test that imports, re-imports, and asserts no duplicates.<br><br>Critical: the parser must tolerate slightly malformed HTML (MT5 exports are not strict). It must NOT silently drop rows — anything it cannot parse must be reported in the preview. NO <code>try { ... } catch { return null }</code> patterns that swallow data.<br><br>NO-SLOP FOOTER applies.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">§6 item 18 met (partially — 21 lands here too if statements carry price series; otherwise 21 is the next prompt); preview UI works; re-import is a no-op.</div>
+  </div>
+</article>
+<article class="card" data-id="bb2c5d1531" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 3 — Prompt 2: cTrader statement parser</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read the cTrader HTML statement structure (Akash provides 2 fixture files in <code>tests/fixtures/import/ctrader/</code>).<br><br>Build <code>electron/services/import-adapters/ctrader/</code> following the same shape as the MT5 adapter — separate parser + reconciler + mapper + idempotency, sharing <code>external_ref</code> semantics.<br><br>Refactor common code (preview UI, dedupe by external_ref, symbol mapping) into <code>electron/services/import-adapters/_shared/</code> BEFORE writing cTrader-specific code. The two adapters must NOT each carry their own copy of the dedupe logic.<br><br>NO-SLOP FOOTER applies.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">§6 item 19 met; cTrader import works; shared code factored; both adapters pass identical idempotency tests.</div>
+  </div>
+</article>
+<article class="card" data-id="ba73a6f700" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 3 — Prompt 3: TradingView CSV import</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read the TradingView paper-trader / journal CSV format (Akash provides 2 fixture files in <code>tests/fixtures/import/tradingview/</code>).<br><br>Build <code>electron/services/import-adapters/tradingview/</code>. Same shape. Same dedupe via <code>external_ref</code>. Use <code>papaparse</code> for the CSV. Decimal.js for prices.<br><br>NO-SLOP FOOTER applies.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">§6 item 20 met; CSV import works; fixtures round-trip.</div>
+  </div>
+</article>
+<article class="card" data-id="86e15d34c3" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 3 — Prompt 4: MAE / MFE auto-compute from imported price series</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6</strong> (money + decimal + correctness-critical).</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/roadmap-v1.2.md</code> Wave 3 item 7 and §6 item 21.<br><br>When a statement import includes per-minute or per-tick price data for the trade window, compute MAE (max adverse excursion in R) and MFE (max favourable excursion in R) and store on the trade.<br><br>Algorithm (<code>electron/services/mae-mfe.ts</code>):<br>1. Given trade <code>entry_price</code>, <code>sl_price</code>, <code>direction</code>, and a list of <code>{ ts, high, low }</code> candles between <code>open_time</code> and <code>close_time</code>:<br>2. <code>risk_per_unit = |entry_price - sl_price|</code>.<br>3. For each candle: <code>adverse_move = max(0, entry - low) if long else max(0, high - entry)</code>; <code>favourable_move = max(0, high - entry) if long else max(0, entry - low)</code>.<br>4. MAE = <code>max(adverse_move) / risk_per_unit</code> (in R). MFE = <code>max(favourable_move) / risk_per_unit</code>.<br>5. All math in decimal.js.<br><br>If no price series is present in the import, MAE/MFE stay null. NO interpolation, NO guessing.<br><br>Tests: fast-check property — MAE &gt;= 0, MFE &gt;= 0, MAE+ outcome relationship makes sense (a stopped-out trade has MAE &gt;= 1R); a known-fixture test with hand-computed expected values.<br><br>NO-SLOP FOOTER applies.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">§6 item 21 met; MAE/MFE populates from imports when data present; property tests pass.</div>
+  </div>
+</article>
+<article class="card" data-id="561f5e1c4c" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 3 — Prompt 5: Two-phase logging — split the moment</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6.</strong> This is a structural change to the discipline pattern; getting the split wrong reintroduces the bad friction or worse, weakens the gate.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>CLAUDE.md</code> §1.2 + §2.1 + §2.2 + §2.3, <code>docs/roadmap-v1.2.md</code> §4 Wave 3 two-phase block AND §6 item 22 (the ≤ 20 s gate target).<br><br>Implement two-phase logging:<br><br><strong>Phase 1 — The Gate (in the moment, target ≤ 20 s).</strong> A &quot;fast-path&quot; New Trade panel toggle. Fields ONLY:<br>  - pair (pre-filled from Wave 1 Prompt 1)<br>  - direction<br>  - entry, SL, TP (numeric; risk calc auto)<br>  - one invalidation chip (Wave 1 Prompt 2)<br>  - one emotional state preset (Wave 1 Prompt 3)<br>  - submit<br>The rule engine still runs in full — hard locks still block, daily-trade-limit still checks, max-daily-loss still gates. The honesty-invalidation chip is still required (one tap, but required). The trade enters the local DB with <code>phase_2_complete = false</code>.<br><br><strong>Phase 2 — The Journal (deferred, batched).</strong> When the trade closes (or is partial-closed), the close modal collects only the exit fields (exit price, exit time — and if statement import is enabled, even those are inferred). Everything else — rules-broken checklist (pre-ticked from Wave 2 Prompt 4), MAE/MFE confirmation, screenshot, free-text reflection, tags — is <strong>deferred to the reflection queue</strong>.<br><br><strong>Reflection queue UI:</strong> a section on the Review screen called &quot;Trades awaiting reflection&quot;. A sidebar badge <code>cairn-reflection-pending</code> shows the count. The trader clears the queue at end-of-session in one calm pass, with keyboard nav between trades (J / K to move, R to mark reflected).<br><br>Schema: add <code>phase_2_complete BOOLEAN NOT NULL DEFAULT FALSE</code> to <code>trades</code>. Migration with backward test. Existing closed trades are migrated to <code>phase_2_complete = true</code> (they were captured under the old single-phase flow).<br><br>Settings: a toggle <code>pre_trade.fast_path_enabled</code> (default true). A trader who wants the old single-phase flow can turn it off; the settings panel must explain the trade-off honestly.<br><br>Tests: a vitest scenario that runs the Phase-1 flow end-to-end and asserts the trade enters <code>phase_2_complete = false</code>; a scenario that closes the trade and asserts the reflection queue badge increments; a scenario that completes Phase 2 and asserts the badge decrements.<br><br>Critical: the Gate must NOT skip any rule that exists today. The point is to make the *good* path faster, not to make the *bad* path easier.<br><br>NO-SLOP FOOTER applies. Plus an extra check: open the app, place a trade via fast-path, time yourself with a stopwatch. If it takes &gt; 20 s when you already know what to type, the Gate UI needs more work.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">§6 item 22 met (≤ 20 s fast-path measured); §6 item 23 met (sidebar badge); migration runs; existing trades unaffected.</div>
+  </div>
+</article>
+<article class="card" data-id="93de16f5a1" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 3 — Prompt 6: Setup templates / playbooks</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/roadmap-v1.2.md</code> Wave 3 item &quot;setup templates&quot; and §6 item 24.<br><br>Per-account playbooks. Schema: new table <code>playbook { id (UUIDv7), account_id, name, pair, setup_id, killzone, required_confluence_md (markdown), default_risk_pct, default_invalidation_chip, created_at, updated_at, deleted_at, version }</code>. Migration with forward + backward test.<br><br>UI:<br>- <strong>Playbooks tab in Settings</strong> for an account — list, edit, delete, create.<br>- <strong>In the New Trade panel</strong> (both the full and fast-path versions) — a &quot;Use playbook&quot; dropdown above the form. Selecting a playbook pre-fills pair / setup / killzone / risk % / invalidation chip. The trader still types live prices.<br>- <strong>In Analytics</strong> — a per-playbook expectancy view: take the existing per-setup expectancy and add playbook as a grouping dimension.<br><br>Cmd+K: add &quot;New trade from playbook: &lt;name&gt;&quot; entries dynamically.<br><br>Tests: migration; CRUD per playbook; pre-fill behaviour in the New Trade panel.<br><br>NO-SLOP FOOTER applies.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">§6 item 24 met; playbook CRUD works; one-tap pre-fill works; per-playbook analytics visible.</div>
+  </div>
+</article>
+</section>
+<section class="stage"><h2 class="stage-h ">8.7 v1.x — WAVE 4: LIVE BROKER INTEGRATION (MT5 + cTrader) <span class="stage-count">0/6</span></h2>
+<article class="card" data-id="30a7fe9c72" data-default="0">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 4 — Prompt 1: Internal <code>BrokerEvent</code> contract + ingest service skeleton</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6</strong> (defines the typed boundary every later prompt builds on; money-encoding-critical).</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/broker-integration.md</code> (all), <code>CLAUDE.md</code> §2.1/§2.3/§2.5/§19.5, and the Wave 3 shared import layer in <code>apps/desktop/electron/services/import-adapters/_shared/</code>.<br><br>Build the transport-agnostic core, no live transport yet:<br><br>1. Define <code>BrokerEvent</code>, <code>BrokerEventType</code>, and <code>LiveBrokerAdapter</code> (extends the existing <code>BrokerAdapter</code>) in <code>packages/shared-types/</code> per spec §4. No <code>any</code>. Money/pips are broker-native numbers on the event; storage encoding is integer-only.<br>2. Create <code>apps/desktop/electron/services/broker/</code> with an <code>ingest.ts</code> service: takes a <code>BrokerEvent</code>, maps the symbol via the Wave 3 <code>_shared/symbol-resolver.ts</code>, encodes money/pips via <code>_shared/encoder.ts</code> (decimal.js — never float), and upserts a <code>trades</code>/<code>trade_partials</code> row using <code>external_ref = brokerTradeId</code> with <code>ON CONFLICT DO UPDATE</code> (never a second insert). Reuse the Wave 3 <code>committer.ts</code> write path; do not fork it.<br>3. The service runs in the main process and exposes a typed IPC <code>broker:status</code> + emits a <code>cairn:event</code> <code>trade.placed</code>/<code>trade.closed</code> on each applied event so the dashboard updates (reuse the Wave 2 event bus).<br>4. No transport, no UI, no detection in this prompt — just the contract + ingest + dedupe, with a fake event source in tests.<br><br>Tests: feed a recorded <code>position_opened</code> → <code>partial_close</code> → <code>position_closed</code> sequence and assert one trade + correct integer-encoded partials; feed the same sequence twice and assert zero duplicate rows (external_ref dedupe); fast-check property that lot/price encoding round-trips.<br><br>NO-SLOP FOOTER applies. Money rules (§3) and boundaries (§4) are binding.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif"><code>BrokerEvent</code> contract committed in shared-types; ingest service upserts + dedupes by <code>external_ref</code>; no float storage; tests green; no transport code yet.</div>
+  </div>
+</article>
+<article class="card" data-id="cb1f62bb8f" data-default="0">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 4 — Prompt 2: Auto-log model (draft-awaiting-context + fully-auto) + Settings</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6</strong> (touches the honesty forcing-functions and analytics correctness).</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/broker-integration.md</code> §3, <code>CLAUDE.md</code> §2.3 (honesty forcing functions), and the Wave 3 two-phase logging code (<code>phase</code>/<code>awaiting_reflection</code>/<code>reflected_at</code>, <code>listAwaitingReflection</code>, <code>completePhase2</code>, the Review-screen queue, the sidebar badge).<br><br>Make the ingest service honour a configurable auto-log mode:<br><br>1. Add a setting <code>broker.auto_log_mode: &#x27;draft_awaiting_context&#x27; | &#x27;fully_auto&#x27;</code> (default <code>draft_awaiting_context</code>) in Settings → Integrations, with copy stating plainly that auto-log is *capture, not pre-trade prevention*.<br>2. <strong>draft_awaiting_context:</strong> the applied trade is created with mechanical fields filled and <code>awaiting_reflection = true</code> so it appears in the existing reflection queue + sidebar badge. Honesty fields (invalidation, emotion, plan-followed, rules-broken, reflection) stay **null/<code>unreviewed</code><strong> — never defaulted to clean.<br>3. </strong>fully_auto:** the trade is written complete and never enters the queue; honesty fields stay <code>unreviewed</code>.<br>4. <strong>Analytics correctness (critical):</strong> composite score, A–F grade, and clean-rate must treat <code>unreviewed</code> distinctly from <code>clean</code>. Audit <code>electron/services/analytics/composite-score.ts</code>, <code>src/lib/trade-grade.ts</code>, and clean-rate queries; a trade Cairn never reviewed must not count as a clean trade. Add an <code>unreviewed</code> state if the schema implies &quot;clean by absence&quot; today.<br><br>Tests: a fill in each mode produces the correct queue/honesty state; an <code>unreviewed</code> trade is excluded from clean-rate and does not grade as if clean; the Settings toggle round-trips.<br><br>NO-SLOP FOOTER applies. The honesty boundary in spec §3 is the binding constraint — do NOT let auto-logging fabricate self-assessment.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">both modes work; default is draft; <code>unreviewed</code> never counts as clean anywhere in analytics; Settings copy states capture-not-prevention; tests green.</div>
+  </div>
+</article>
+<article class="card" data-id="9df8ff5190" data-default="0">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 4 — Prompt 3: MT5 Expert Advisor (bridge) + localhost listener</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6</strong> for the listener/auth/framing (security boundary); the MQL5 EA itself is Sonnet 4.6.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/broker-integration.md</code> §2.1 and §8. Build the MT5 → Cairn bridge.<br><br>1. <strong>EA (MQL5)</strong> in <code>apps/desktop/resources/mt5-bridge/CairnBridge.mq5</code>: subscribe to <code>OnTradeTransaction</code>; serialise each transaction to the <code>BrokerEvent</code> JSON shape; send length-prefixed frames over a TCP socket to <code>127.0.0.1:&lt;port&gt;</code> using MQL5&#x27;s native <code>Socket*</code> API; emit a heartbeat every N seconds. The EA takes a pairing-token input and includes it on every frame. It is <strong>read-only</strong> — it must contain NO <code>OrderSend</code>/<code>OrderModify</code>/<code>OrderClose</code>/<code>trade.*</code> execution calls. Add a one-page <code>INSTALL.md</code> next to it.<br>2. <strong>Listener</strong> in <code>apps/desktop/electron/services/broker/mt5/listener.ts</code>: a loopback-only TCP server bound to <code>127.0.0.1</code> (never <code>0.0.0.0</code>), per-install pairing token check, frame size cap, JSON parse → <code>BrokerEvent</code> → hand to the Prompt-1 ingest service. Reject non-local connections and bad tokens; log (no PII) and drop malformed frames without crashing.<br>3. <strong>Settings → Integrations → MT5:</strong> show the pairing token, the <code>MQL5/Experts</code> destination path, and a live &quot;EA connected / last event Xs ago / disconnected&quot; indicator driven by <code>broker:status</code> + the heartbeat.<br>4. Wrap the listener as a <code>LiveBrokerAdapter</code> (<code>broker: &#x27;mt5&#x27;</code>).<br><br>Tests: a fixture that replays recorded EA frames into the listener and asserts the ingest service receives correct <code>BrokerEvent</code>s; a security test that a connection from a non-loopback address is refused; a test that a frame with a wrong/absent token is rejected; a <strong>grep test</strong> asserting the MQL5 file contains no order-execution calls.<br><br>NO-SLOP FOOTER applies. The loopback-only + token + size-cap posture (spec §8) is binding; the read-only assertion is non-negotiable.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">EA installs and connects to a real MT5 demo; taking a demo trade produces a Cairn trade per the active auto-log mode; non-local + bad-token connections refused; no execution path in the EA; tests green; manual smoke confirmed against a live terminal.</div>
+  </div>
+</article>
+<article class="card" data-id="f83d53b38f" data-default="0">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 4 — Prompt 4: cTrader Open API adapter (OAuth, read-only stream)</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6</strong> (OAuth token handling + keychain + read-only scope = security-critical).</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/broker-integration.md</code> §2.2 and §8. Build the cTrader live adapter in <code>apps/desktop/electron/services/broker/ctrader/</code>.<br><br>1. <strong>OAuth 2.0 authorization-code flow</strong> (read-only scopes). Store access + refresh tokens in the OS keychain via <code>keytar</code> — never plaintext on disk. Refresh on expiry. The client id/secret come from env/config, never source (<code>gitleaks</code> clean).<br>2. <strong>Stream:</strong> open the Open API connection (Protobuf over TLS), authorise the account, subscribe to order/position execution events, and map each to a <code>BrokerEvent</code> (<code>broker: &#x27;ctrader&#x27;</code>). Map cTrader symbols via the Wave 3 <code>_shared/symbol-resolver.ts</code>.<br>3. Wrap as a <code>LiveBrokerAdapter</code>; reconnect with backoff on drop; surface status to <code>broker:status</code>.<br>4. <strong>Settings → Integrations → cTrader:</strong> connect/disconnect, connection status, and a disclosure that events transit Spotware (read-only inbound), unlike the on-device MT5 bridge.<br><br>Tests: map a set of recorded cTrader execution payloads to <code>BrokerEvent</code>s and assert the ingest output; a token-refresh unit test; a test asserting no order-execution call exists in the adapter surface. Mock the network — no live Spotware calls in CI.<br><br>NO-SLOP FOOTER applies. Secrets/logs (§5) are binding: tokens in keychain, none in logs, read-only scopes only.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">cTrader connects via OAuth against a real account; an executed trade streams into Cairn per the active auto-log mode; tokens in keychain; read-only; reconnect works; tests green (network mocked).</div>
+  </div>
+</article>
+<article class="card" data-id="0af721f8ba" data-default="0">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 4 — Prompt 5: Live detection — real-time rule warnings on the open position</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6.</strong> Rule-engine surface; &quot;prevention over detection&quot; is the app&#x27;s reason to exist.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/broker-integration.md</code> §5, <code>docs/rules-engine.md</code>, and the Wave 2 real-time hooks (<code>no_sl_widening</code>, <code>no_tp_narrowing</code>, <code>position_size_matches_plan</code>) — extend the existing engine, do NOT bolt detection on outside it.<br><br>On each <code>position_opened</code>/<code>position_modified</code> <code>BrokerEvent</code>, evaluate the account&#x27;s rules against the live position and raise <strong>non-blocking</strong> warnings (Cairn cannot block a broker order; it can only alert) for: SL widened against the position, size increased mid-trade beyond tolerance, TP cut toward entry, daily-trade-limit exceeded, trading after the max-daily-loss circuit breaker tripped this session, and trade outside the configured killzones.<br><br>- <strong>Plan source:</strong> if a Cairn pre-trade draft for the same symbol/direction was logged shortly before the fill, link the live trade to it and measure against that plan. Otherwise the first observed SL/TP/size is the baseline; subsequent modifications are measured against it.<br>- <strong>Surfacing:</strong> mentor-voice toast/log (<code>CLAUDE.md</code> §1 voice — calm, direct, no emoji) and a persisted <code>rule_violations</code> row so the breach appears in analytics and at reflection time.<br>- Settings copy must state these are detections (warnings), not blocks.<br><br>Tests: a vitest suite per detector driven by <code>BrokerEvent</code> sequences (e.g. open then a widen-SL modify → SL-widen warning + <code>rule_violations</code> row); a test that a clean trade raises nothing; a test that a linked-draft plan is used as the baseline when present.<br><br>NO-SLOP FOOTER applies. Prevention is the north star (§14 #14): the warning must fire on the modify event, not at close.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">all six live detectors fire on the open position from both MT5 and cTrader streams; warnings are non-blocking, mentor-voice, and recorded as <code>rule_violations</code>; plan-linking works; tests green.</div>
+  </div>
+</article>
+<article class="card" data-id="37fc5c3f50" data-default="0">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 4 — Prompt 6: Reconciliation with statement import + closeout</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6 (escalate to <strong>Opus 4.6</strong> for the conflict-resolution money rule).</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/broker-integration.md</code> §6 and §7, and the Wave 3 import adapters.<br><br>1. Guarantee a live-streamed trade and the same trade later appearing in a statement import resolve to ONE row via <code>external_ref = brokerTradeId</code>. On conflict, the statement (settled record) wins for monetary fields; the live stream wins for intra-trade timing/modification history. Document the rule inline.<br>2. If building on top of the v2.0 sync engine: confirm the ingest service writes through <code>enqueueSyncOp</code> so streamed fills sync to the web app (close this if the import-adapter sync-gap follow-up hasn&#x27;t already).<br>3. Update docs: append a &quot;Wave 4 — DONE&quot; note to <code>docs/build-status.md</code> with commit hashes; tick the Wave 4 end-state list in <code>docs/roadmap-v1.2.md</code> §6.1; update the <code>CLAUDE.md</code> §17.5 Wave 4 row and §17.6 headline.<br>4. Manual end-to-end: take a demo trade in MT5 and one in cTrader, watch both auto-log per the active mode, modify a stop to trigger a live warning, then import the day&#x27;s statement and confirm no duplicates.<br><br>NO-SLOP FOOTER applies.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">no double-counting live-vs-import (tested); conflict rule implemented + documented; (if post-sync) streamed trades sync; docs updated; manual two-broker smoke passes. <strong>Wave 4 is complete</strong> — tag <code>v1.x-wave4-live-broker</code>.</div>
+  </div>
+</article>
+</section>
+<section class="stage"><h2 class="stage-h sdone">8.5 v0.1.1 RELEASE HOTFIX — PACKAGED MIGRATION PATH (DONE 2026-06-03) <span class="stage-count">1/1</span></h2>
+<article class="card" data-id="aa7ed97a6f" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Prompt used to replicate (for reference / re-running)</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6 (mechanical two-line fix); no Opus needed.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>CLAUDE.md</code> §2.5 (data integrity) and the v0.1.1 launch-failure analysis. The packaged Windows installer fails on first launch with <code>Can&#x27;t find meta/_journal.json file</code> because Drizzle migrations are packaged inside <code>resources/app.asar/electron/db/migrations</code> but the runtime looks for them at <code>resources/migrations</code>. Apply exactly two changes: (1) in <code>electron/db/index.ts</code>, change the <code>app.isPackaged</code> migrations path from <code>join(process.resourcesPath, &#x27;migrations&#x27;)</code> to <code>join(process.resourcesPath, &#x27;app.asar&#x27;, &#x27;electron&#x27;, &#x27;db&#x27;, &#x27;migrations&#x27;)</code>; (2) in <code>electron-builder.yml</code>, add <code>- electron/db/**/*</code> to the <code>files</code> list. Do not change the dev (<code>__dirname</code>-relative) branch. Then run the five quality gates and verify the migration files appear in the asar.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">typecheck + lint + test green; packaged installer ships migrations; clean-machine onboarding completes with no _journal.json error.</div>
+  </div>
+</article>
+</section>
+<section class="stage"><h2 class="stage-h ">9. v2.0 — STAGE 0: ENGINEERING QUALITY BASELINE <span class="stage-count">1/2</span></h2>
+<article class="card" data-id="c914d1f02a" data-default="0">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Stage 0 — Prompt 1: ESLint + CI + Husky + ADR-0001</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6</strong> (architecture + CI setup, foundation-level).</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>CLAUDE.md</code> §2.12, §3, §14 #25, §18.2, §19 (the whole section), and <code>docs/conventions.md</code>.<br><br>Implement the §19 no-slop baseline. Do NOT add features.<br><br>1. <strong>TypeScript strict everywhere:</strong> verify <code>tsconfig.json</code> (and <code>tsconfig.node.json</code>) have <code>&quot;strict&quot;: true</code>, <code>&quot;noUncheckedIndexedAccess&quot;: true</code>, <code>&quot;exactOptionalPropertyTypes&quot;: true</code>. Fix every error that appears. Use <code>unknown</code> and proper type guards instead of <code>any</code>. If a library is untyped, write a <code>.d.ts</code> wrapper in <code>src/types/&lt;lib&gt;.d.ts</code>.<br>2. <strong>ESLint:</strong> install <code>@typescript-eslint/eslint-plugin@strict</code>, <code>eslint-plugin-import</code>, <code>eslint-plugin-promise</code>. Enable: <code>no-floating-promises</code>, <code>no-explicit-any</code> (error), <code>no-console</code> (error, with <code>warn</code>/<code>error</code> allowed only inside <code>electron/main.ts</code> error handlers), <code>consistent-return</code>, <code>import/order</code>, <code>no-restricted-imports</code> (block <code>lodash</code> if not already used; force <code>lodash-es</code>). Make <code>pnpm lint</code> fail on any warning.<br>3. <strong>Prettier:</strong> ensure <code>pnpm format:check</code> runs in CI.<br>4. <strong>Husky + lint-staged:</strong> pre-commit runs <code>pnpm typecheck</code>, <code>pnpm lint --max-warnings 0</code> on staged files, <code>pnpm format:check</code>.<br>5. <strong>commitlint:</strong> Conventional Commits enforced on commit-msg hook.<br>6. <strong>GitHub Actions CI:</strong> add <code>.github/workflows/ci.yml</code>. Jobs: <code>typecheck</code>, <code>lint</code>, <code>test</code>, <code>build</code>, <code>audit</code> (<code>npm audit --production --audit-level=high</code>). All run on PR and on push to main. Block merge if any fail.<br>7. <strong>Renovate:</strong> add <code>renovate.json</code> weekly. Or Dependabot if you prefer; Renovate is more powerful for monorepos.<br>8. <strong>License check:</strong> add <code>scripts/check-licenses.ts</code> that walks <code>node_modules</code> and fails on GPL/AGPL transitives. Wire into CI.<br>9. <strong>gitleaks:</strong> add <code>.github/workflows/gitleaks.yml</code> running on every PR.<br>10. <strong>Sentry:</strong> install <code>@sentry/electron</code> for main + renderer. Wire behind <code>settings.telemetry.optIn</code> (default false). When false, init is a no-op. NEVER initialise without the flag.<br>11. <strong>ADR folder:</strong> create <code>docs/adr/</code>. Write <code>0001-local-first-with-e2e-sync.md</code> explaining the v2.0 architecture decision per CLAUDE.md §18.0. Format: Status / Context / Decision / Consequences. Future ADRs follow this.<br>12. <strong>Pull request template:</strong> <code>.github/pull_request_template.md</code> with the No-Slop checklist.<br>13. <strong>Coverage gate:</strong> <code>vitest.config.ts</code> → <code>coverage.threshold.global = { lines: 70, statements: 70, branches: 65, functions: 70 }</code> for now. Document the climb in <code>docs/conventions.md</code>: 70 → 75 by end of Stage 3 → 80 by end of Stage 6.<br><br>CI must be <strong>green</strong> before you finish — fix every existing lint or type error you encounter. Do not commit a red CI.<br><br>NO-SLOP FOOTER applies in full.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">every item above present; CI green on a fresh PR; ADR-0001 written.</div>
+  </div>
+</article>
+<article class="card" data-id="795eea2973" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Stage 0 — Prompt 2: Monorepo move (apps/desktop)</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Haiku 4.5</strong> for the mechanical moves, <strong>Sonnet 4.6</strong> to fix imports.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>CLAUDE.md</code> §3.3 (v2.0 monorepo layout) and §18.3.<br><br>Convert the repo to a pnpm workspace monorepo.<br><br>1. Create <code>pnpm-workspace.yaml</code> with <code>apps/*</code> and <code>packages/*</code>.<br>2. <code>git mv electron apps/desktop/electron</code>. <code>git mv src apps/desktop/src</code>. <code>git mv shared apps/desktop/shared</code>. <code>git mv tests apps/desktop/tests</code>. Update <code>package.json</code> to be the workspace root; move app-specific deps to <code>apps/desktop/package.json</code>.<br>3. Create empty <code>packages/shared-types/</code>, <code>packages/shared-zod/</code>, <code>packages/sync-protocol/</code>, <code>packages/billing-types/</code>. Each has its own <code>package.json</code> (private), <code>tsconfig.json</code>, <code>src/index.ts</code>.<br>4. Update every import in <code>apps/desktop/</code> so paths still resolve (relative paths are unchanged; only the top-level moved). Update <code>electron-vite.config.ts</code>, <code>tailwind.config.ts</code>, <code>vitest.config.ts</code>, <code>electron-builder.yml</code> for the new paths.<br>5. <code>pnpm install</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> all green from the workspace root.<br>6. Commit the move as a single commit titled <code>chore: convert to pnpm workspace monorepo</code>. Git blame is preserved because <code>git mv</code> was used.<br><br>Do NOT add new features. Do NOT change <code>apps/desktop/</code> code beyond import-path fixes.<br><br>NO-SLOP FOOTER applies.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">workspace exists; tests green from root; one commit; blame preserved.</div>
+  </div>
+</article>
+</section>
+<section class="stage"><h2 class="stage-h sdone">10. v2.0 — STAGE 1: FINISH &amp; STABILIZE v1.1 (post-v1.2 audit) <span class="stage-count">1/1</span></h2>
+<article class="card" data-id="4e33b97c9d" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Stage 1 — Prompt 1: §16.a audit + decimal.js conversion sweep</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6</strong> for the P&amp;L conversion; <strong>Sonnet 4.6</strong> for the audit walk.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>CLAUDE.md</code> §16.a (all 17 items) and §19.5.<br><br>Step 1: walk each §16.a item against the live <code>apps/desktop/</code>. Produce a punch-list of unmet items. Many will be met (v1.2 likely covered most). Open TodoWrite entries for the ones that aren&#x27;t.<br><br>Step 2: convert all monetary and pip math in <code>apps/desktop/electron/services/pnl-calculator.ts</code> and any helper it calls to <code>decimal.js</code> if not already. The conversion must:<br>- Replace every <code>number</code> representing money or pips with <code>Decimal</code>.<br>- Replace every <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code> on those values with the <code>Decimal</code> methods.<br>- Add fast-check property tests: associativity holds within decimal precision; scale-invariance for R-multiple (multiply entry/SL/TP/exit by k → R unchanged).<br>- Add a migration test that runs all existing migrations forward + backward on a fresh DB and on a seeded DB.<br><br>Step 3: deliver the punch-list as a markdown report committed to <code>docs/v1.1-audit-&lt;date&gt;.md</code>.<br><br>NO-SLOP FOOTER applies, §19.5 hardest.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">every §16.a item is true OR has a follow-up TodoWrite; decimal.js conversion complete; property tests green; migration test passes.</div>
+  </div>
+</article>
+</section>
+<section class="stage"><h2 class="stage-h sdone">11. v2.0 — STAGE 2: SYNC-READY DATA MODEL + CRYPTO <span class="stage-count">2/2</span></h2>
+<article class="card" data-id="4033cdbc2b" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Stage 2 — Prompt 1: Add sync columns to every syncable table</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6.</strong> Schema migration on every table = high blast radius.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>CLAUDE.md</code> §18.4, <code>docs/data-model.md</code>, and existing migrations in <code>apps/desktop/electron/db/migrations/</code>.<br><br>Add to every <strong>syncable</strong> table (NOT ephemeral / UI-state tables like <code>session_state</code>, <code>ui_pref</code> — list explicitly in the commit message which tables you excluded and why):<br><br>- <code>id</code> — UUIDv7 if not already; if existing rows use integer primary keys, add <code>uuid TEXT UNIQUE NOT NULL DEFAULT (&lt;generator&gt;)</code> and migrate references over a follow-up prompt.<br>- <code>updated_at INTEGER NOT NULL</code> — ms since epoch UTC.<br>- <code>deleted_at INTEGER NULL</code> — soft-delete tombstone.<br>- <code>device_id TEXT NOT NULL</code> — id of the device that last touched the row.<br>- <code>version INTEGER NOT NULL DEFAULT 0</code> — Lamport counter incremented on every write.<br>- <code>dirty INTEGER NOT NULL DEFAULT 1</code> — bit indicating &quot;needs upload.&quot;<br><br>Also create:<br><br>- <code>device { id, name, os, created_at, last_seen_at }</code><br>- <code>vault_meta { user_id (nullable for offline), salt, kdf_iterations, wrapped_data_key, key_version, schema_version, created_at, updated_at }</code><br>- <code>sync_queue { op_id (UUIDv7), table, record_id, op_type (&#x27;insert&#x27; | &#x27;update&#x27; | &#x27;delete&#x27;), payload_ciphertext (BLOB), created_at }</code><br><br>Migration with forward + backward test on a seeded DB. Every existing row gets <code>updated_at = now</code>, <code>device_id = bootstrap-uuid</code>, <code>version = 0</code>, <code>dirty = 1</code>.<br><br>Every existing IPC handler that writes a row must now bump <code>version</code> and set <code>dirty = 1</code>. Make this a single shared helper <code>applySyncMeta(record)</code> in <code>apps/desktop/electron/db/sync-meta.ts</code> so each handler is a one-liner.<br><br>Tests: a vitest scenario that updates a trade, asserts <code>version</code> bumped and <code>dirty = 1</code>; a migration test forward and backward.<br><br>NO record encryption yet. Existing data continues to work plaintext. This stage only adds capability.<br><br>NO-SLOP FOOTER applies, §19.6 hardest.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">migration runs; every syncable table has the six columns; handlers bump version; tests pass.</div>
+  </div>
+</article>
+<article class="card" data-id="f94f50b05f" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Stage 2 — Prompt 2: Crypto library (libsodium, Argon2id, XChaCha20-Poly1305)</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6.</strong> Non-negotiable. Crypto in <code>Sonnet</code> would be slop by definition.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>CLAUDE.md</code> §2.4, §2.13, §18.4, §19.1–19.4. Write <code>docs/security.md</code> as your FIRST act of this prompt — Status, Threat model summary, Crypto primitives, KDF params with rationale, Data key wrap/unwrap, Recovery phrase, OS keychain usage, KEK rotation plan. Use real numbers, not &quot;TODO.&quot;<br><br>Then implement <code>packages/shared-types/src/crypto.ts</code> (the types) and <code>apps/desktop/electron/services/crypto/</code> (the implementation). Use <code>libsodium-wrappers</code> (battle-tested) — not @stablelib (less reviewed).<br><br>Functions:<br>- <code>deriveKEK(password: string, salt: Uint8Array, params: KDFParams): Promise&lt;Uint8Array&gt;</code> — Argon2id, params from <code>vault_meta</code>. Defaults: memlimit <code>INTERACTIVE</code> (≈ 64 MiB), opslimit 3, output 32 bytes.<br>- <code>wrapDataKey(dataKey, kek): WrappedKey</code> — XChaCha20-Poly1305 with a fresh 24-byte nonce.<br>- <code>unwrapDataKey(wrapped, kek): Uint8Array</code> — throws <code>WRONG_KEY</code> typed error on tag mismatch.<br>- <code>encryptRecord(plaintext: Uint8Array, dataKey, ad?: Uint8Array): EncryptedRecord</code> — XChaCha20-Poly1305, fresh nonce, associated data optional (use <code>table:id</code> as AD to bind a ciphertext to its row).<br>- <code>decryptRecord(record, dataKey, ad?): Uint8Array</code>.<br>- <code>generateRecoveryPhrase(): { phrase: string[24], entropy: Uint8Array }</code> — BIP-39 wordlist.<br>- <code>keyFromRecoveryPhrase(phrase): Promise&lt;Uint8Array&gt;</code> — re-derives KEK from the phrase (using a separate Argon2id config so phrase ≠ password).<br><br>Critical:<br>- No <code>any</code>. Every public function has TSDoc.<br>- Every function has unit tests with <strong>RFC test vectors</strong> (libsodium ships these).<br>- Round-trip property tests via fast-check: encrypt then decrypt yields original; wrong AD fails to decrypt; tampered ciphertext fails to decrypt; wrong key fails to decrypt.<br>- Negative tests are mandatory — show the function REFUSES, not just that it accepts.<br>- NEVER log plaintext, key material, or nonces. Pino redactor list updated.<br><br>The OS keychain interface goes in <code>apps/desktop/electron/services/keychain.ts</code> using <code>keytar</code>. Stores: <code>cairn:dataKey:&lt;userId&gt;</code> → unwrapped data key bytes. Read on app start; clear on lock.<br><br>Do NOT yet encrypt any actual rows. Stage 2&#x27;s scope ends here.<br><br>NO-SLOP FOOTER applies in full. Plus an extra item: a second pass with a fresh Opus session reviewing the diff before merge. Mandatory per §19.11.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif"><code>docs/security.md</code> exists and is honest; crypto module exists with RFC-vector + property tests; keychain wrapper exists; nothing in the app actually encrypts yet; second-model review documented.</div>
+  </div>
+</article>
+</section>
+<section class="stage"><h2 class="stage-h sdone">12. v2.0 — STAGE 3: BACKEND CORE <span class="stage-count">3/3</span></h2>
+<article class="card" data-id="8fd0e2466b" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Stage 3 — Prompt 1: API skeleton + database schema + env validation</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6.</strong> Foundation choices echo for years.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>CLAUDE.md</code> §3.1b, §3.4, §3.5, §3.7, §18.5, §19 (all of it), §20 (all of it).<br><br>Create <code>apps/server/</code>. TypeScript strict + Fastify + Drizzle (Postgres) + Zod + Pino.<br><br>1. <strong>Scaffold:</strong> <code>apps/server/{src,tests,Dockerfile,docker-compose.yml,package.json,tsconfig.json,drizzle.config.ts,.env.example}</code>. Workspace deps via <code>pnpm</code>.<br>2. <strong>Env validation:</strong> <code>src/env.ts</code> reads env once via Zod. Required: <code>DATABASE_URL</code>, <code>JWT_ACCESS_SECRET</code>, <code>JWT_REFRESH_SECRET</code>, <code>PASSWORD_PEPPER</code>, <code>RESEND_API_KEY</code> (or <code>POSTMARK_TOKEN</code>), <code>STRIPE_WEBHOOK_SECRET</code>, <code>RAZORPAY_WEBHOOK_SECRET</code>, <code>CORS_ORIGINS</code> (CSV), <code>LOG_LEVEL</code>. Server throws if any are missing.<br>3. <strong>Drizzle schema</strong> in <code>src/db/schema.ts</code>:<br>   - <code>user { id (UUIDv7), email (citext, unique), email_verified_at, created_at, updated_at }</code><br>   - <code>user_credential { user_id, password_hash, password_algo (&#x27;argon2id&#x27;), updated_at }</code><br>   - <code>user_session { id, user_id, refresh_token_hash (sha-256 of opaque token), refresh_family_id, issued_at, expires_at, revoked_at, replaced_by, user_agent, ip_hash }</code> — refresh-reuse detection via family_id.<br>   - <code>email_token { user_id, kind (&#x27;verify&#x27; | &#x27;magic&#x27; | &#x27;reset&#x27;), token_hash, expires_at, consumed_at }</code>.<br>   - <code>device { id, user_id, name, os, created_at, last_seen_at }</code>.<br>   - <code>vault { user_id (PK), salt, kdf_iterations, kdf_memlimit, kdf_opslimit, wrapped_data_key, key_version, schema_version, created_at, updated_at }</code>.<br>   - <code>vault_blob { user_id, op_id (UUIDv7, PK with user_id), table, record_id, op_type, payload_ciphertext (BYTEA), nonce (BYTEA), ad (BYTEA), created_at }</code> — server never decrypts.<br>   - <code>audit_log { id, user_id (nullable), kind, severity, payload_json, created_at, request_id }</code>.<br>   - <code>subscription { id, user_id, provider (&#x27;stripe&#x27;|&#x27;razorpay&#x27;), provider_subscription_id, plan_id, status (&#x27;trial&#x27;|&#x27;active&#x27;|&#x27;past_due&#x27;|&#x27;canceled&#x27;), current_period_end, trial_ends_at, canceled_at, updated_at }</code>.<br>   - <code>webhook_event { id, provider, external_id, payload_json, received_at }</code> — UNIQUE(provider, external_id) for idempotency.<br>4. <strong>Migrations</strong> generated via <code>drizzle-kit generate</code>. Initial migration + forward/backward test in <code>tests/integration/migrations.test.ts</code>. Use a Docker-Compose Postgres in CI.<br>5. <strong>Fastify shell:</strong> <code>src/app.ts</code> — <code>helmet</code>, <code>cors</code> with allowlist from env, <code>@fastify/rate-limit</code>, <code>@fastify/sensible</code>, JSON-only with body size limit 100 KB by default (overridable per route for vault push), strict Content-Type. Request id propagation via <code>x-request-id</code>. Pino with redact list: <code>password</code>, <code>token</code>, <code>secret</code>, <code>ciphertext</code>, <code>Authorization</code>, <code>cookie</code>.<br>6. **<code>/health</code> route:** returns <code>{ ok: true, version, commit, db: &#x27;up&#x27;|&#x27;down&#x27; }</code>. Used by load balancers.<br>7. **<code>docker-compose.yml</code>:<strong> Postgres 16, the API, Mailpit for transactional email testing.<br>8. </strong>OpenAPI:** <code>@fastify/swagger</code> + Scalar UI at <code>/docs</code>, gated behind <code>NODE_ENV !== &#x27;production&#x27;</code> OR an admin token.<br>9. <strong>Result contract:</strong> every route returns <code>{ ok: true, data } | { ok: false, error: { code, message, details? } }</code>. Error codes enumerated in <code>packages/shared-types/src/error-codes.ts</code>.<br><br>NO real Stripe/Razorpay calls. NO frontend code. NO auth routes yet (next prompt).<br><br>Write <code>docs/backend-architecture.md</code> documenting: deployment topology (single Fastify behind LB → Postgres → Redis), why Fastify, why Drizzle on both ends, the request-life-cycle middleware order, the env contract.<br><br>NO-SLOP FOOTER applies in full. Plus: gitleaks must report clean. <code>.env</code> is gitignored. <code>.env.example</code> has every variable with a comment and fake value.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif"><code>pnpm --filter @cairn/server dev</code> boots; <code>/health</code> returns 200; migrations apply cleanly via compose; <code>docs/backend-architecture.md</code> exists.</div>
+  </div>
+</article>
+<article class="card" data-id="7a2757500a" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Stage 3 — Prompt 2: Auth (Argon2id + JWT + refresh rotation + reuse detection)</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6.</strong> Auth bugs are the longest tail.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>CLAUDE.md</code> §2.13, §18.5, §19.4, §19.11.<br><br>Implement auth in <code>apps/server/src/auth/</code>:<br><br>1. <strong>Password hashing:</strong> <code>@node-rs/argon2</code>, params: memlimit 64 MiB, time cost 3, parallelism 1, output 32 bytes; pepper from <code>PASSWORD_PEPPER</code> env (HMAC the password with pepper before hashing). NEVER fall back to bcrypt or SHA.<br>2. <strong>Signup</strong> <code>POST /auth/signup</code>: rate limited per IP (5 / 15 min) and per email (3 / hour). Body validated. Creates user + credential. Sends verify email via Resend/Postmark. Returns <code>{ ok: true, data: { userId } }</code> without leaking whether the email already existed (timing safe).<br>3. <strong>Email verify</strong> <code>POST /auth/verify</code>: consumes the token, sets <code>email_verified_at</code>. Tokens single-use, 24 h expiry, sha-256 hashed in DB.<br>4. <strong>Login</strong> <code>POST /auth/login</code>: rate limited 5 / 15 min per IP + per email. Verifies password (constant-time compare via the Argon2 verifier). Issues access JWT (15 min, HS256, includes <code>userId</code>, <code>emailVerified</code>, <code>entitlement: &#x27;free&#x27;|&#x27;trial&#x27;|&#x27;pro&#x27;</code>) and an opaque refresh token (32 bytes random, sha-256 stored, 30 day expiry). Refresh token returned as <code>__Host-refresh</code> cookie (<code>SameSite=Strict</code>, <code>Secure</code>, <code>HttpOnly</code>, path <code>/auth/refresh</code> only). A new <code>user_session</code> row stores the hashed refresh + family_id.<br>5. <strong>Refresh</strong> <code>POST /auth/refresh</code>: validates the cookie token against the latest session in the family. If valid: issues a new access token + new refresh, rotates the cookie, marks old refresh as <code>replaced_by</code>. **If the presented refresh is already <code>replaced_by</code>** (i.e. someone reused an old token), revoke EVERY session in the family AND write an <code>audit_log</code> row with severity <code>critical</code>. The client is forced to re-login.<br>6. <strong>Logout</strong> <code>POST /auth/logout</code>: revokes current refresh family, clears cookie.<br>7. <strong>Magic link</strong> <code>POST /auth/magic-request</code> + <code>POST /auth/magic-consume</code>: same single-use 15-min token in <code>email_token</code>. Issues same access+refresh pair.<br>8. <strong>OAuth stubs:</strong> <code>GET /auth/oauth/apple</code> and <code>GET /auth/oauth/google</code> return 501 with <code>{ error: { code: &#x27;NOT_IMPLEMENTED&#x27; } }</code>. Routes registered so Stage 5 can wire them.<br>9. <strong>Middleware:</strong> <code>requireAuth</code> decorator on Fastify that validates the access JWT and attaches <code>req.user</code>. <code>requireVerifiedEmail</code> for sync endpoints.<br>10. <strong>Tests</strong> (<code>tests/integration/auth.test.ts</code> against real Postgres in compose):<br>    - signup happy path<br>    - signup with existing email → same response shape, no leak<br>    - verify happy path, verify with expired token → 400<br>    - login bad password → 401, after 5 attempts → 429<br>    - refresh rotation: old refresh stops working, new refresh works<br>    - <strong>refresh-reuse detection: a) login, b) refresh once, c) try to use the OLD refresh again → entire family revoked, new refresh also rejected.</strong> This is the single most important auth test.<br>    - magic link round-trip<br>    - email-verify required for sync endpoint (<code>/vault/manifest</code> returns 403 without it)<br><br>NO production secrets in tests. Use <code>crypto.randomBytes(32).toString(&#x27;hex&#x27;)</code> for JWT secrets in test env.<br><br>NO-SLOP FOOTER applies in full. Second-model review mandatory (§19.11).</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">every test above passes; <code>audit_log</code> row written on refresh-reuse; secrets out of source.</div>
+  </div>
+</article>
+<article class="card" data-id="4efc8737c0" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Stage 3 — Prompt 3: Vault endpoints + device registry + webhook scaffolding</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Sonnet 4.6</strong> for endpoints/devices, <strong>Opus 4.6</strong> for webhook idempotency and the reconciliation race test.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>CLAUDE.md</code> §3.1b, §18.5, §20.4.<br><br>Implement:<br><br>1. **<code>/devices</code>** routes — <code>POST</code> (register), <code>GET</code> (list), <code>DELETE /:id</code> (revoke). Each requires auth + verified email.<br>2. **<code>/vault/manifest</code>** <code>GET</code> — returns <code>{ key_version, schema_version, latest_op_id_per_table }</code> so a client knows what to pull.<br>3. **<code>/vault/push</code>** <code>POST</code> — body is <code>{ device_id, ops: EncryptedOp[] }</code>. Server validates the shape, asserts <code>device_id</code> belongs to the user, appends each op to <code>vault_blob</code>. The server NEVER inspects payload_ciphertext. Size limit 5 MB per request; reject larger with 413. Atomicity: a single SQL transaction per request.<br>4. **<code>/vault/pull</code>** <code>POST</code> — body <code>{ since_op_id_per_table? }</code>. Returns ops newer than the cursors. Pagination: 500 ops per response, <code>next_cursor</code> returned. Server still does not inspect content.<br>5. <strong>Stripe webhook</strong> <code>POST /webhooks/stripe</code>: raw-body parser (not JSON) so signature verification works. <code>stripe.webhooks.constructEvent</code> with <code>STRIPE_WEBHOOK_SECRET</code>. On valid event: INSERT into <code>webhook_event</code> with <code>ON CONFLICT (provider, external_id) DO NOTHING</code>; if the insert returned 0 rows, the event was already processed — return 200 without acting. Otherwise dispatch to a typed handler. Write an <code>audit_log</code> row.<br>6. <strong>Razorpay webhook</strong> <code>POST /webhooks/razorpay</code>: same shape, Razorpay signature verify (HMAC-SHA256 of body with secret, constant-time compare).<br>7. <strong>Idempotency test (Opus pass):</strong> simulate Stripe sending the same event twice 10ms apart — assert only one state change. Simulate a webhook arriving BEFORE the matching <code>/billing/checkout</code> callback — assert eventual consistency (next <code>/billing/status</code> poll matches). Hammer test: 200 concurrent webhook deliveries of the same id → exactly one row in <code>webhook_event</code>.<br>8. <strong>Audit log query:</strong> <code>GET /admin/audit-log</code> requires admin token; returns recent rows. Protected by env <code>ADMIN_TOKEN</code>; do NOT expose without it.<br><br>Tests in <code>tests/integration/vault.test.ts</code> and <code>tests/integration/webhooks.test.ts</code>. Use a Stripe mock (no real network).<br><br>NO-SLOP FOOTER applies. Plus: every endpoint has a Zod input AND output schema. Drift between them is a tested error.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">vault round-trip works against compose; webhooks reject bad signatures, dedupe correctly, survive the hammer test.</div>
+  </div>
+</article>
+</section>
+<section class="stage"><h2 class="stage-h sdone">13. v2.0 — STAGE 4: SYNC ENGINE <span class="stage-count">3/3</span></h2>
+<article class="card" data-id="ce36455106" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Stage 4 — Prompt 1: Sync protocol doc + vector clocks + push</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6.</strong></div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Write <code>docs/sync-protocol.md</code> as your FIRST act. Cover: op-log shape, per-record vector clocks (<code>{ deviceId: version }</code>), push request/response, pull request/response, conflict detection rule (concurrent if neither vector clock dominates the other), conflict resolution policy (last-write-wins by wall clock for non-concurrent; concurrent → both retained as <code>conflict</code> until UI resolves), device-id stability, the &quot;wrong key, fail loudly&quot; rule, error codes.<br><br>Then implement push in <code>apps/desktop/electron/services/sync/</code>:<br><br>1. <code>push.ts</code>: read <code>sync_queue</code> ordered by <code>created_at</code>, batch up to 200 ops, encrypt EACH op with the data key (using <code>table:record_id</code> as AD), <code>POST /vault/push</code>. On 200 ack, delete those rows from <code>sync_queue</code>. On 401, refresh access token via cookie and retry once; on still 401, surface a &quot;session expired, please log in&quot; toast.<br>2. <code>clock.ts</code>: in-memory vector-clock cache keyed by <code>(table, record_id)</code>. Hydrated on app start by querying max(version) grouped by record across all syncable tables.<br>3. <code>runner.ts</code>: leaky-bucket scheduled run every 60 s; also runs on window focus; also exposes a manual <code>cairn.sync.now()</code> IPC.<br>4. Failure handling: any 5xx → exponential backoff with jitter, capped at 5 min. Any 4xx other than 401 → toast, do not retry until next manual run.<br>5. Tests: encrypt-then-roundtrip-to-API; AD-binding test (an op encrypted with <code>trades:abc</code> must not decrypt under <code>trades:def</code>); rate-limit-respect test.<br><br>NO record actually encrypted in the UI flow yet — the push pulls from <code>sync_queue</code> which currently has 0 rows in real installs. That&#x27;s fine. Next prompt wires the actual encryption-on-write.<br><br>NO-SLOP FOOTER applies in full. §19.11 second-model review mandatory.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif"><code>docs/sync-protocol.md</code> written; push module exists with tests; <code>cairn.sync.now()</code> IPC available; the API server logs only ciphertext when triggered with seeded queue data.</div>
+  </div>
+</article>
+<article class="card" data-id="84ba56f703" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Stage 4 — Prompt 2: Encryption-on-write + pull + merge</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6.</strong></div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/sync-protocol.md</code> and <code>apps/desktop/electron/services/sync/push.ts</code>.<br><br>1. <strong>Encryption-on-write:</strong> every IPC handler that mutates a syncable row, AFTER the DB commit, also: (a) serializes the row to canonical JSON (sorted keys, integer fields explicit), (b) encrypts it with the data key (Stage 2 module), (c) appends to <code>sync_queue</code>. Use a single helper <code>enqueueSyncOp(table, record_id, op_type, plaintext_row)</code> so each IPC handler is a one-liner. The helper is the ONLY way to enqueue.<br>2. <strong>Pull:</strong> <code>pull.ts</code> calls <code>/vault/pull</code> with the cursor, receives ops, decrypts each (AD = <code>table:record_id</code>), validates the Zod schema for that table, applies to local SQLite inside ONE transaction per pull response. Schema-validation failure → quarantine the op in <code>apps/desktop/electron/db/sync-quarantine</code> table + audit-log entry; do NOT silently discard.<br>3. <strong>Merge / conflict detection:</strong> for each pulled op, compare vector clock vs local vector clock:<br>   - Local is ancestor → apply.<br>   - Pulled is ancestor → skip.<br>   - Concurrent (neither dominates) → write BOTH versions into a <code>conflict</code> table and surface in the UI (next prompt builds the modal).<br>4. <strong>Runner update:</strong> the 60-s tick now alternates push then pull. On focus, do both.<br>5. <strong>Tests:</strong><br>   - <strong>Two-device offline edit simulation.</strong> Spin up two in-memory SQLite DBs that share an encrypted server (in-process). Edit trade <code>T</code> on device A. Edit trade <code>T</code> on device B. Both go online. Sync. Assert: conflict row exists in both DBs.<br>   - <strong>Linear edit:</strong> edit on A, sync. Then edit on B which pulled first. No conflict. B sees A&#x27;s change.<br>   - <strong>Wrong AD attack:</strong> craft a row whose AD doesn&#x27;t match. Decrypt fails. Op is quarantined.<br>   - <strong>Server cannot decrypt:</strong> in a test, get the raw bytes the server stored and assert that without the data key, no <code>decryptRecord</code> call succeeds.<br><br>NO-SLOP FOOTER applies in full. §19.11 review mandatory.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">every test passes; the server cannot decrypt; quarantine table works; the runner is steady.</div>
+  </div>
+</article>
+<article class="card" data-id="a5021af491" data-default="1">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Stage 4 — Prompt 3: Device enrollment, conflict UI, recovery phrase</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6</strong> for the enrollment + recovery cryptography; <strong>Sonnet 4.6</strong> for the conflict UI.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">1. <strong>First-login enrollment:</strong> when a user signs in on a fresh desktop, prompt for password → derive KEK via Argon2id with params from <code>/vault/manifest</code> → fetch wrapped data key from server → unwrap → cache in OS keychain (<code>apps/desktop/electron/services/keychain.ts</code>). Register the device. Upload no data yet.<br>2. <strong>Subsequent launches:</strong> keychain entry present → unwrap is a no-op (already unwrapped). Missing → re-prompt for password.<br>3. <strong>Recovery phrase flow:</strong><br>   - On signup, generate a 24-word phrase (Stage 2 module). Show it ONCE with a forced acknowledgement: a typed confirmation <code>I have written this down</code> (gated like an override per §2.2).<br>   - Add <code>/auth/forgot-password</code> and a &quot;Restore from recovery phrase&quot; flow that asks for the phrase, derives an alternate KEK, unwraps the data key, sets a new password, re-wraps with the new KEK, uploads the new wrapped key.<br>   - Add a test: write a known phrase + password, lose the password, recover via phrase, assert vault decrypts.<br>4. <strong>Conflict UI:</strong> a modal in <code>apps/desktop/src/features/sync/conflict-resolver.tsx</code>. For each row in the <code>conflict</code> table, show both versions diffed by field; the user picks one or merges manually. Resolving writes a new row with both vector-clock heads as parents (so the conflict ends).<br>5. <strong>Settings → Sync:</strong> a panel showing sync state (last successful push/pull timestamps), enrolled devices, &quot;Revoke device&quot; action, &quot;Sync now,&quot; and a prominent &quot;Reveal recovery phrase&quot; requiring password re-entry.<br><br>Critical: never show the recovery phrase in logs, in screenshots, in clipboard history without explicit user action. Disable Windows clipboard history for the recovery-phrase field via input attributes / focus management.<br><br>NO-SLOP FOOTER applies in full. Second-model review mandatory.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">new desktop install can sign in, sync, see data; recovery phrase recovers a vault when password is lost (tested); conflicts surface in UI and resolve cleanly.</div>
+  </div>
+</article>
+</section>
+<section class="stage"><h2 class="stage-h ">14. v2.0 — STAGE 5: WEB APP <span class="stage-count">0/2</span></h2>
+<article class="card" data-id="9923ffc84a" data-default="0">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Stage 5 — Prompt 1: Transport abstraction + IPC refactor</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>CLAUDE.md</code> §3.6, §3.7, §18.7.<br><br>1. **Define <code>Transport</code> interface** in <code>packages/shared-types/src/transport.ts</code> per §3.6.<br>2. **<code>ElectronTransport</code>** in <code>apps/desktop/src/lib/transport-electron.ts</code>: forwards calls over the existing IPC.<br>3. <strong>Refactor every UI call site</strong> in <code>apps/desktop/src/features/**</code> and <code>apps/desktop/src/components/**</code> to depend on the <code>Transport</code> interface only. The <code>Procedures</code> map (the typed catalog of <code>name → { input, output }</code>) lives in <code>packages/shared-zod/src/procedures.ts</code> so it can be shared with the server later.<br>4. <strong>Boundary:</strong> <code>cairn.ipc.invoke(name, payload)</code> (the existing preload bridge) is now called by <code>ElectronTransport</code> only. Nothing else may touch <code>window.cairn.ipc.*</code> directly. ESLint rule <code>no-restricted-syntax</code> to enforce.<br>5. <strong>Tests:</strong> every <code>Procedures</code> entry has a Zod schema for input and output; a vitest contract test asserts <code>apps/desktop/electron/ipc/*</code> handler signatures match.<br><br>NO-SLOP FOOTER applies. No behavioural change should be visible to the user — every feature still works the same on desktop.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">transport abstraction landed; no direct IPC calls outside the transport; tests green.</div>
+  </div>
+</article>
+<article class="card" data-id="5f1e7f8070" data-default="0">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Stage 5 — Prompt 2: HttpTransport + web shell + auth screens</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6; escalate to <strong>Opus 4.6</strong> for the cookie / CSP / CSRF middleware decisions.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>CLAUDE.md</code> §3.1c, §18.7, and <code>docs/security.md</code>.<br><br>1. **<code>apps/web/</code>** workspace: Vite + React + TypeScript strict. Imports the shared features from <code>apps/desktop/src/features/**</code>. (Configure tsconfig paths + Vite alias.)<br>2. **<code>HttpTransport</code>** in <code>apps/web/src/lib/transport-http.ts</code>: <code>fetch</code> with credentials, automatic refresh on 401 (single in-flight refresh promise — don&#x27;t dogpile), maps server <code>{ ok, error.code }</code> to the same Result shape the renderer already expects.<br>3. <strong>Auth screens:</strong> login, signup, email-verify, forgot-password, magic-link consume, OAuth callback (501 page), recovery-phrase prompt on first sign-in.<br>4. <strong>Client-side decryption:</strong> vault data fetched via HttpTransport is ciphertext; the crypto module from Stage 2 (now exposed via <code>packages/shared-crypto/</code> — extract it from <code>apps/desktop/electron/services/crypto/</code> to a package) decrypts in-browser, caches in IndexedDB (Dexie). Plaintext never leaves the browser.<br>5. <strong>Service Worker:</strong> offline read of the IndexedDB-cached vault only. NO offline writes (would conflict with sync model).<br>6. <strong>Security:</strong><br>   - <strong>CSP:</strong> strict, with nonces injected at HTML render time. No <code>unsafe-inline</code>. No <code>unsafe-eval</code>.<br>   - <strong>SRI</strong> on every external script (there should be ~0 of these; bundle everything).<br>   - <strong>Cookies:</strong> access token NEVER in a cookie — kept in memory only. Refresh token in <code>__Host-refresh</code> cookie, <code>SameSite=Strict</code>, <code>Secure</code>, <code>HttpOnly</code>.<br>   - <strong>CSRF:</strong> because access token isn&#x27;t a cookie and CORS is strict allowlist, the standard CSRF surface is closed; double-submit token on <code>/auth/refresh</code> for belt-and-braces.<br>   - <strong>Memory hygiene:</strong> zero out key bytes on logout (use <code>sodium.memzero</code>).<br>7. <strong>&quot;Cairn Pro required&quot; gate:</strong> when free user tries to use the web app, show the upgrade screen with the entitlement model spelled out (free = desktop-only, pro = web + sync).<br>8. <strong>Tests:</strong> Playwright e2e covers <code>signup → verify → recovery-phrase save → sync → multi-device-conflict (two browser contexts)</code>. Run in CI.<br><br>NO behavioural feature change vs desktop. NO new functionality. Web and desktop must show the same numbers.<br><br>NO-SLOP FOOTER applies in full. Second-model review for cookies, CSP, refresh logic.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif"><code>pnpm --filter @cairn/web dev</code> boots; signup → verify → login → see seeded vault works; CSP errors zero in the browser console; Playwright e2e passes.</div>
+  </div>
+</article>
+</section>
+<section class="stage"><h2 class="stage-h ">15. v2.0 — STAGE 6: BILLING &amp; SUBSCRIPTIONS <span class="stage-count">0/2</span></h2>
+<article class="card" data-id="fd7cb9834d" data-default="0">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Stage 6 — Prompt 1: BillingProvider interface + Stripe implementation</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6.</strong> Every word in §20 of CLAUDE.md applies.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>CLAUDE.md</code> §2.14, §3.1d, §18.8, §20 (every subsection).<br><br>1. **<code>packages/billing-types/</code>** — <code>Plan</code>, <code>Feature</code>, <code>PlanSnapshot</code>, <code>Entitlement</code>, <code>WebhookEvent</code>, <code>CreateCustomerInput</code>, etc. Plan/feature matrix in <code>packages/billing-types/src/plans.ts</code> per §20.3.<br>2. **<code>apps/server/src/billing/provider.ts</code>** — the <code>BillingProvider</code> interface per §20.2.<br>3. **<code>apps/server/src/billing/stripe.ts</code>** — <code>StripeBillingProvider</code>. Uses the Stripe SDK. Implements <code>createCustomer</code>, <code>createCheckout</code>, <code>openPortal</code>, <code>cancelSubscription</code>, <code>verifyWebhook</code>. Subscription events translated to internal <code>WebhookEvent</code> shape.<br>4. <strong>Webhook handler updated</strong> (built in Stage 3) to dispatch through <code>BillingProvider.verifyWebhook</code> + a per-event-type handler that mutates <code>subscription</code> table inside a transaction and writes an <code>audit_log</code> row.<br>5. **<code>EntitlementService</code>** in <code>apps/server/src/billing/entitlement-service.ts</code> per §20.1. Reads from <code>subscription</code>. Caches in Redis (Upstash) with a 60-s TTL, with a Redis-pub-sub invalidation on webhook receipt for immediate consistency.<br>6. <strong>Sync endpoint gating:</strong> <code>/vault/push</code> and <code>/vault/pull</code> now <code>await entitlements.canUse(userId, &#x27;cloud_sync&#x27;)</code>; if false → <code>402 Payment Required</code> with payload <code>{ code: &#x27;UPGRADE_REQUIRED&#x27;, upgrade_url }</code>.<br>7. <strong>State machine</strong> per §20.5 — explicit transitions only; every illegal transition throws <code>ILLEGAL_STATE</code> and writes <code>audit_log</code>.<br>8. <strong>Stripe Tax:</strong> enable in dashboard, use checkout <code>automatic_tax: { enabled: true }</code>. Document tax-code mapping in <code>docs/billing.md</code>.<br>9. <strong>Tests</strong> (<code>tests/integration/billing-stripe.test.ts</code>):<br>   - signup → start checkout → mocked-webhook <code>customer.subscription.created</code> → <code>subscription</code> row is <code>trial</code>.<br>   - trial → <code>invoice.paid</code> → <code>active</code>.<br>   - <code>invoice.payment_failed</code> → <code>past_due</code>.<br>   - <code>invoice.paid</code> after past_due → <code>active</code>.<br>   - 14 days in <code>past_due</code> (advance the clock) → <code>canceled</code>.<br>   - <code>customer.subscription.deleted</code> mid-period → <code>canceled</code> (effective period_end).<br>   - Refund webhook → entitlement revoked immediately.<br>   - <strong>Signature mismatch → 400 + no DB write.</strong> This is the most important security test.<br>   - <strong>Replay (same webhook id twice) → exactly one DB write.</strong><br>   - <strong>Race: webhook arrives before checkout-success callback → reconciliation works.</strong><br><br>Write <code>docs/billing.md</code> with: plan matrix, grace period (3-day soft, 14-day hard), state diagram, how to add a new provider (template referencing Stage 6 Prompt 2&#x27;s Razorpay impl as the worked example).<br><br>NO-SLOP FOOTER applies in full. Second-model review for the webhook + state machine.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">Stripe test mode end-to-end works locally with <code>stripe-cli</code> listening; all tests pass; entitlement gate proven on <code>/vault/push</code>.</div>
+  </div>
+</article>
+<article class="card" data-id="51d1a3bd06" data-default="0">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Stage 6 — Prompt 2: Razorpay implementation + checkout/portal UI</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6</strong> for Razorpay + GST; Sonnet 4.6 for the checkout UI.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/billing.md</code> (just written) and Razorpay&#x27;s subscription docs.<br><br>1. **<code>apps/server/src/billing/razorpay.ts</code>** — <code>RazorpayBillingProvider</code> implementing the same interface. Razorpay&#x27;s webhook signature is HMAC-SHA256 over the raw body. Subscription model is slightly different (subscription + plan + customer); map to internal <code>WebhookEvent</code> consistently.<br>2. <strong>GST handling:</strong> Razorpay collects GST. Document the IN-specific plan price (inclusive vs exclusive of GST) in <code>docs/billing.md</code>. The plan_id in the matrix is the same, the regional gateway is selected by user&#x27;s country at checkout time.<br>3. <strong>Country routing:</strong> new endpoint <code>POST /billing/checkout</code> accepts <code>{ country, plan_id, interval }</code>. If <code>country === &#x27;IN&#x27;</code>, route to Razorpay; else Stripe. The choice is stored on the resulting <code>subscription</code> row.<br>4. <strong>Customer Portal:</strong> <code>/billing/portal</code> returns a URL — Stripe Customer Portal for Stripe customers; Razorpay-hosted invoices/cancel page for Razorpay customers.<br>5. <strong>Frontend (web + desktop):</strong><br>   - <strong>Pricing page:</strong> two plans (free + pro), monthly + annual toggle. Localized to INR for IN, USD elsewhere (Geo via Cloudflare header on web; a country dropdown on desktop).<br>   - <strong>Upgrade modal</strong> triggered by <code>/vault/push</code> 402 response. Honest copy explaining the trade-off (sync = paid, local = free forever).<br>   - <strong>Settings → Billing:</strong> subscription state, next billing date, &quot;Open billing portal,&quot; &quot;Cancel.&quot;<br>6. <strong>Tests</strong> mirror the Stripe ones; signature mismatch and replay tests are mandatory.<br>7. <strong>Free → Trial → Active flow:</strong> when a user starts checkout, immediately create a <code>subscription</code> row in <code>trial</code> state with <code>trial_ends_at = now + 14 days</code> and <code>provider_subscription_id = null</code> (filled by webhook). This lets the user use Pro features during the redirect to checkout without race conditions.<br><br>NO-SLOP FOOTER applies in full.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">Razorpay test mode works locally; IN user goes Razorpay, others Stripe; portal links resolve; tests green.</div>
+  </div>
+</article>
+</section>
+<section class="stage"><h2 class="stage-h ">16. v2.0 — STAGE 7: PRODUCTION HARDENING &amp; LAUNCH <span class="stage-count">0/3</span></h2>
+<article class="card" data-id="752410c5af" data-default="0">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Stage 7 — Prompt 1: Threat model + ASVS L2 + dependency hardening</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6.</strong></div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>CLAUDE.md</code> §2.13, §18.9, §19.7, §19.8.<br><br>1. **<code>docs/threat-model.md</code>:<strong> assets (vault, password hash, payment data, sync log, recovery phrase), trust boundaries, attackers (curious admin, network attacker, malicious browser tab, stolen device, compromised dependency, hostile co-tenant in the hosting platform), STRIDE per component, </strong>mitigations matrix mapped to code paths<strong>. No &quot;TODO.&quot; If something isn&#x27;t mitigated, that&#x27;s a separate row called Outstanding with an owner and a deadline.<br>2. </strong><code>docs/asvs-checklist.md</code>:<strong> OWASP ASVS Level 2 row-by-row. Each row → Done / N/A / Outstanding with a link to the code or doc that proves it. Build this as a markdown table; do not hand-wave any row.<br>3. </strong>CI security:** add jobs to <code>.github/workflows/ci.yml</code> for <code>gitleaks</code>, <code>trivy fs .</code>, <code>trivy image</code>, <code>npm audit --production --audit-level=high</code>. High/critical findings block merge.<br>4. <strong>Dependency review:</strong> add <code>socket.dev</code> GitHub app (free tier) for supply-chain alerts; configure to block PRs introducing risky deps.<br>5. <strong>CSP final pass on web:</strong> verify zero report-only violations during a full Playwright run. If any, fix the source, do not relax the policy.<br>6. <strong>Run a real pen-test pass yourself:</strong> use <code>zap-baseline.py</code> against the staging API in CI; fix anything red.<br><br>NO-SLOP FOOTER applies. Plus: a second-model review of the threat-model.md by a fresh Opus session is mandatory.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">both docs exist with no TODO; CI security jobs green; ZAP baseline clean.</div>
+  </div>
+</article>
+<article class="card" data-id="b7333467c6" data-default="0">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Stage 7 — Prompt 2: Observability, backups, DR runbook</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">1. <strong>Sentry:</strong> server-side always-on with PII scrubbing (use <code>Sentry.captureException</code> with <code>beforeSend</code> to redact); client-side gated on opt-in (default false), with the user&#x27;s email salted-and-hashed before being attached as <code>user.id</code> so support can correlate without seeing the address.<br>2. <strong>OpenTelemetry:</strong> <code>@opentelemetry/sdk-node</code> on the API. Spans from incoming request → Drizzle queries → outbound webhooks/email. Exporter to either Grafana Tempo Cloud (free tier) or Honeycomb (free tier). Service name <code>cairn-api</code>. Sampling: head-based 10 % for healthy traffic, 100 % for 5xx and slow requests.<br>3. <strong>Metrics:</strong> OTel meter for: requests-per-second per route, latency p95 per route, sync-push-ops-per-minute, webhook-receive-rate per provider, signup-funnel counters.<br>4. <strong>Grafana dashboards</strong> as JSON under <code>ops/dashboards/</code>: API health, auth funnel, sync throughput, webhook lag, billing state distribution.<br>5. <strong>Daily backup-verify GitHub Action</strong> (<code>.github/workflows/backup-verify.yml</code>): pulls the most recent Supabase/Neon PITR snapshot into a scratch DB, runs migrations forward, runs a query that asserts a known row count is non-zero. Fails loudly if anything misbehaves. Run for three consecutive days before declaring §16.b #47 met.<br>6. **<code>docs/runbook.md</code>:** paging policy (none for the solo dev — but a clear severity scale), P1/P2/P3 examples, rollback procedure (Drizzle migrations + deploy revert), KEK rotation procedure, GDPR / DPDP data-export procedure (Akash runs the script, the user receives an export ZIP), data-deletion procedure (90-day retention then crypto-shred by deleting wrapped data key).<br><br>NO-SLOP FOOTER applies. Telemetry must be opt-in on the client; verify with a test that disables and asserts no network calls.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">Sentry shows errors when seeded; OTel shows spans in the chosen vendor; backup-verify job has run green 3 consecutive nights; <code>docs/runbook.md</code> exists with no TODO.</div>
+  </div>
+</article>
+<article class="card" data-id="4ccf53afa9" data-default="0">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Stage 7 — Prompt 3: Code signing + release pipeline + launch checklist</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6.</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">1. <strong>Windows code-signing:</strong> integrate signtool into electron-builder. The EV cert procurement is Akash&#x27;s offline task — the prompt sets up the wiring so that when the cert is supplied, the build signs automatically. Document the cert procurement process in <code>docs/runbook.md</code>.<br>2. <strong>macOS notarization:</strong> <code>electron-builder</code> <code>notarize: true</code> with <code>notarytool</code>. Apple Developer account, app-specific password in env, signed + notarized DMG.<br>3. <strong>Linux:</strong> AppImage with <code>--no-sandbox</code> warning disabled cleanly.<br>4. <strong>Release workflow</strong> <code>.github/workflows/release.yml</code>: triggered by a <code>v*.*.*</code> tag, builds desktop for all three platforms, uploads signed artefacts to a draft GitHub Release, attaches SHA-256 checksums.<br>5. <strong>Launch checklist</strong> <code>docs/launch-checklist.md</code>: 30 items covering legal (privacy policy, ToS, DPA, cookie banner, subprocessor list, Article 30 records), product (pricing live, refund policy live, support email live, status page at <code>status.cairn.app</code>), tech (Sentry production, OTel production, backup verify green 3 days), comms (changelog, blog announcement, X/HN/Reddit-ready post).<br>6. <strong>Soft launch plan:</strong> invite-only access list of ~50 traders, two-week stability window, daily-stand-up-with-myself note template, public launch trigger condition (<code>&lt; 0.1 % 5xx rate over the window AND no critical bugs open</code>).<br><br>NO-SLOP FOOTER applies.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">all three platforms produce signed builds in CI; launch checklist exists with no TODO; soft-launch invite list ready.</div>
+  </div>
+</article>
+</section>
+</main>
+<script>
+const KEY="cairn_prompts_checklist_v1";
+function load(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return {}}}
+function save(s){localStorage.setItem(KEY,JSON.stringify(s))}
+let state=load();
+const cards=[...document.querySelectorAll('.card')];
+function apply(){
+  let done=0;
+  cards.forEach(c=>{
+    const id=c.dataset.id;
+    const def=c.dataset.default==="1";
+    const v = (id in state)? state[id] : def;
+    const chk=c.querySelector('.chk');
+    chk.checked=v; c.classList.toggle('done',v);
+    if(v) done++;
+  });
+  document.getElementById('dcount').textContent=done;
+  document.getElementById('pf').style.width=(done/cards.length*100)+'%';
+  const first=cards.find(c=>!c.querySelector('.chk').checked);
+  const nx=document.getElementById('next');
+  if(first){nx.textContent='▶ Continue: '+first.querySelector('.ttl').textContent;}
+  else{nx.textContent='✓ All prompts complete';}
+  // stage counts
+  document.querySelectorAll('.stage').forEach(s=>{
+    const cs=[...s.querySelectorAll('.card')];
+    const d=cs.filter(c=>c.querySelector('.chk').checked).length;
+    s.querySelector('.stage-count').textContent=d+'/'+cs.length;
+    s.querySelector('.stage-h').classList.toggle('sdone',d===cs.length);
+  });
+}
+cards.forEach(c=>{
+  c.querySelector('.chk').addEventListener('change',e=>{
+    state[c.dataset.id]=e.target.checked; save(state); apply();
+  });
+});
+document.getElementById('reset').addEventListener('click',()=>{
+  state={}; localStorage.removeItem(KEY); apply();
+});
+document.getElementById('toggleHide').addEventListener('click',e=>{
+  document.getElementById('main').classList.toggle('hide-done');
+  e.target.textContent=document.getElementById('main').classList.contains('hide-done')?'Show done':'Hide done';
+});
+apply();
+</script>
+</body></html>

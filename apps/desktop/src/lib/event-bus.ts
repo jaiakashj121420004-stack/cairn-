@@ -14,6 +14,7 @@ export type CairnEventName =
   | 'session.locked'
   | 'session.unlocked'
   | 'rule.violated'
+  | 'sync:toast'
 
 export interface CairnEventPayload {
   'trade.placed': { tradeId: string; accountId: string }
@@ -23,6 +24,9 @@ export interface CairnEventPayload {
   'session.locked': { accountId: string }
   'session.unlocked': { accountId: string }
   'rule.violated': { accountId: string; ruleKey: string; tradeId: string | null }
+  /** Emitted by the main-process sync runner when it pauses, backs off, or hits an
+   *  auth/key problem. Pre-written copy only — never any vault content. */
+  'sync:toast': { level: 'error' | 'warning' | 'info'; code: string; message: string }
 }
 
 type Listener<N extends CairnEventName> = (payload: CairnEventPayload[N]) => void

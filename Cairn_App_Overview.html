@@ -1,0 +1,895 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cairn — What the App Does</title>
+    <style>
+      :root {
+        --bg: #070b14;
+        --bg2: #0b1220;
+        --panel: rgba(255, 255, 255, 0.04);
+        --panel-brd: rgba(255, 255, 255, 0.09);
+        --txt: #e8eef7;
+        --muted: #9fb0c7;
+        --accent: #5eead4;
+        --accent2: #7dd3fc;
+        --gold: #f5c97b;
+        --good: #34d399;
+        --paid: #f5c97b;
+        --soon: #a78bfa;
+        --shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+        --glass-blur: 18px;
+      }
+      [data-theme='light'] {
+        --bg: #eef2f8;
+        --bg2: #dde6f2;
+        --panel: rgba(255, 255, 255, 0.6);
+        --panel-brd: rgba(20, 40, 70, 0.12);
+        --txt: #0d1726;
+        --muted: #4a5b73;
+        --accent: #0d9488;
+        --accent2: #0284c7;
+        --gold: #b97e22;
+        --good: #0f9d6b;
+        --paid: #b97e22;
+        --soon: #7c3aed;
+        --shadow: 0 20px 50px rgba(40, 70, 120, 0.18);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        font-family: Inter, 'Segoe UI', system-ui, sans-serif;
+        color: var(--txt);
+        background:
+          radial-gradient(1200px 700px at 12% -10%, rgba(94, 234, 212, 0.16), transparent 60%),
+          radial-gradient(1000px 600px at 100% 0%, rgba(125, 211, 252, 0.14), transparent 55%),
+          linear-gradient(160deg, var(--bg), var(--bg2));
+        background-attachment: fixed;
+        min-height: 100vh;
+        line-height: 1.6;
+        transition:
+          background 0.5s,
+          color 0.3s;
+      }
+      .mono {
+        font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 0 22px;
+      }
+
+      /* nav */
+      header.bar {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        backdrop-filter: blur(14px);
+        background: linear-gradient(to bottom, rgba(7, 11, 20, 0.7), transparent);
+        border-bottom: 1px solid var(--panel-brd);
+      }
+      [data-theme='light'] header.bar {
+        background: linear-gradient(to bottom, rgba(238, 242, 248, 0.8), transparent);
+      }
+      .bar .wrap {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 66px;
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 800;
+        letter-spacing: 0.4px;
+        font-size: 20px;
+      }
+      .logo .stack {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        align-items: center;
+      }
+      .logo .stack i {
+        display: block;
+        height: 3px;
+        border-radius: 3px;
+        background: var(--accent);
+      }
+      .logo .stack i:nth-child(1) {
+        width: 9px;
+      }
+      .logo .stack i:nth-child(2) {
+        width: 15px;
+      }
+      .logo .stack i:nth-child(3) {
+        width: 21px;
+      }
+      .nav-links {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .nav-links a {
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 8px 12px;
+        border-radius: 10px;
+        transition: 0.2s;
+      }
+      .nav-links a:hover {
+        color: var(--txt);
+        background: var(--panel);
+      }
+      .toggle {
+        cursor: pointer;
+        border: 1px solid var(--panel-brd);
+        background: var(--panel);
+        color: var(--txt);
+        border-radius: 999px;
+        padding: 8px 14px;
+        font-size: 13px;
+        font-weight: 700;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        transition: 0.2s;
+      }
+      .toggle:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow);
+      }
+      @media (max-width: 760px) {
+        .nav-links {
+          display: none;
+        }
+      }
+
+      /* hero */
+      .hero {
+        text-align: center;
+        padding: 90px 0 50px;
+      }
+      .pill {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: var(--accent);
+        border: 1px solid var(--panel-brd);
+        background: var(--panel);
+        padding: 7px 16px;
+        border-radius: 999px;
+        margin-bottom: 26px;
+      }
+      .hero h1 {
+        font-size: clamp(40px, 7vw, 76px);
+        line-height: 1.02;
+        margin: 0 0 18px;
+        font-weight: 800;
+        letter-spacing: -2px;
+        background: linear-gradient(120deg, var(--txt), var(--accent) 60%, var(--accent2));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .hero p.sub {
+        font-size: clamp(17px, 2.4vw, 22px);
+        color: var(--muted);
+        max-width: 680px;
+        margin: 0 auto 12px;
+      }
+      .hero .tag {
+        color: var(--accent2);
+        font-weight: 600;
+        margin-top: 18px;
+        font-size: 15px;
+      }
+      .credit {
+        margin-top: 8px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      section {
+        padding: 46px 0;
+      }
+      .eyebrow {
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+      h2.title {
+        font-size: clamp(28px, 4vw, 42px);
+        margin: 8px 0 6px;
+        font-weight: 800;
+        letter-spacing: -1px;
+      }
+      .lead {
+        color: var(--muted);
+        max-width: 720px;
+        font-size: 16px;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--panel-brd);
+        border-radius: 20px;
+        padding: 24px;
+        backdrop-filter: blur(var(--glass-blur));
+        box-shadow: var(--shadow);
+        transition: 0.3s;
+      }
+      .card:hover {
+        transform: translateY(-4px);
+        border-color: var(--accent);
+      }
+      .grid {
+        display: grid;
+        gap: 18px;
+      }
+      .g2 {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .g3 {
+        grid-template-columns: repeat(3, 1fr);
+      }
+      @media (max-width: 820px) {
+        .g2,
+        .g3 {
+          grid-template-columns: 1fr;
+        }
+      }
+      .card h3 {
+        margin: 0 0 8px;
+        font-size: 19px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .card p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14.5px;
+      }
+      .ic {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        font-size: 20px;
+        background: linear-gradient(135deg, rgba(94, 234, 212, 0.22), rgba(125, 211, 252, 0.18));
+        flex: none;
+      }
+
+      /* principle strip */
+      .principles {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+        margin-top: 26px;
+      }
+      @media (max-width: 820px) {
+        .principles {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      .principles .card {
+        padding: 18px;
+        text-align: center;
+      }
+      .principles .big {
+        font-size: 30px;
+        margin-bottom: 6px;
+      }
+      .principles small {
+        display: block;
+        color: var(--muted);
+        font-size: 12.5px;
+        margin-top: 4px;
+      }
+
+      /* steps timeline */
+      .steps {
+        position: relative;
+        margin-top: 30px;
+        padding-left: 34px;
+      }
+      .steps:before {
+        content: '';
+        position: absolute;
+        left: 11px;
+        top: 6px;
+        bottom: 6px;
+        width: 2px;
+        background: linear-gradient(var(--accent), var(--accent2));
+      }
+      .step {
+        position: relative;
+        margin-bottom: 22px;
+      }
+      .step .dot {
+        position: absolute;
+        left: -34px;
+        top: 2px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--bg);
+        border: 2px solid var(--accent);
+        color: var(--accent);
+        display: grid;
+        place-items: center;
+        font-size: 12px;
+        font-weight: 800;
+      }
+      .step h4 {
+        margin: 0 0 4px;
+        font-size: 17px;
+      }
+      .step p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14.5px;
+      }
+
+      /* tier badges */
+      .tier {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        padding: 4px 10px;
+        border-radius: 999px;
+        margin-bottom: 14px;
+      }
+      .t-free {
+        color: var(--good);
+        background: rgba(52, 211, 153, 0.13);
+        border: 1px solid rgba(52, 211, 153, 0.35);
+      }
+      .t-paid {
+        color: var(--paid);
+        background: rgba(245, 201, 123, 0.13);
+        border: 1px solid rgba(245, 201, 123, 0.35);
+      }
+      .t-soon {
+        color: var(--soon);
+        background: rgba(167, 139, 250, 0.13);
+        border: 1px solid rgba(167, 139, 250, 0.35);
+      }
+      ul.clean {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      ul.clean li {
+        padding: 7px 0 7px 26px;
+        position: relative;
+        color: var(--muted);
+        font-size: 14.5px;
+        border-bottom: 1px dashed var(--panel-brd);
+      }
+      ul.clean li:last-child {
+        border-bottom: 0;
+      }
+      ul.clean li:before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 13px;
+        width: 9px;
+        height: 9px;
+        border-radius: 3px;
+        background: var(--accent);
+      }
+      ul.clean.paid li:before {
+        background: var(--paid);
+      }
+      ul.clean.soon li:before {
+        background: var(--soon);
+      }
+
+      .note {
+        font-size: 13px;
+        color: var(--muted);
+        font-style: italic;
+        margin-top: 14px;
+        border-left: 3px solid var(--accent);
+        padding: 8px 14px;
+        background: var(--panel);
+        border-radius: 0 10px 10px 0;
+      }
+
+      footer {
+        text-align: center;
+        padding: 60px 0 80px;
+        color: var(--muted);
+        font-size: 13px;
+        border-top: 1px solid var(--panel-brd);
+        margin-top: 40px;
+      }
+      .reveal {
+        opacity: 0;
+        transform: translateY(22px);
+        transition: 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+      }
+      .reveal.in {
+        opacity: 1;
+        transform: none;
+      }
+      .quote {
+        text-align: center;
+        font-style: italic;
+        color: var(--muted);
+        font-size: 17px;
+        max-width: 620px;
+        margin: 40px auto 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="bar">
+      <div class="wrap">
+        <div class="logo">
+          <span class="stack"><i></i><i></i><i></i></span> Cairn
+        </div>
+        <nav class="nav-links">
+          <a href="#what">What it is</a>
+          <a href="#onboard">Onboarding</a>
+          <a href="#features">Capabilities</a>
+          <a href="#tiers">Free / Paid</a>
+          <a href="#soon">Upcoming</a>
+          <a href="#howto">How to use</a>
+        </nav>
+        <button class="toggle" id="themeBtn">🌙 <span id="themeLbl">Dark</span></button>
+      </div>
+    </header>
+
+    <div class="wrap">
+      <!-- HERO -->
+      <div class="hero reveal">
+        <span class="pill">A Discipline-First Trading Cockpit</span>
+        <h1>Cairn knows the rule.<br />So you can't break it.</h1>
+        <p class="sub">
+          Most journals record what you did. Cairn is a system that changes what you do — an
+          external discipline layer that replaces willpower with structure.
+        </p>
+        <p class="tag">
+          Prevention over detection · Local-first &amp; private · Built for ICT / SMC traders
+        </p>
+        <p class="credit">
+          Designed &amp; built by Jai Akash · Version 0.1.0 (v1.2 feature-complete, v2.0 cloud in
+          progress)
+        </p>
+      </div>
+
+      <!-- WHAT IT IS -->
+      <section id="what" class="reveal">
+        <span class="eyebrow">The Core Idea</span>
+        <h2 class="title">Trade <em>through</em> Cairn, not after it</h2>
+        <p class="lead">
+          Trading failure is ~80% discipline, ~20% knowledge. You know how to take a good trade —
+          you lack the system that stops the bad ones. Cairn solves one pattern:
+          <strong
+            >"I know the rule. I break the rule. I lose. I promise to follow it. I break it
+            again."</strong
+          >
+        </p>
+        <div class="principles">
+          <div class="card">
+            <div class="big">🛡️</div>
+            <strong>Prevent</strong><small>Block rule-breaking before the click, not after</small>
+          </div>
+          <div class="card">
+            <div class="big">✍️</div>
+            <strong>Capture</strong><small>Honest, complete data on every trade</small>
+          </div>
+          <div class="card">
+            <div class="big">📈</div>
+            <strong>Transform</strong><small>Insights that change behavior week over week</small>
+          </div>
+          <div class="card">
+            <div class="big">🔒</div>
+            <strong>Private</strong><small>Your data lives on your machine, offline forever</small>
+          </div>
+        </div>
+      </section>
+
+      <!-- ONBOARDING -->
+      <section id="onboard" class="reveal">
+        <span class="eyebrow">First Run</span>
+        <h2 class="title">Onboarding — from install to first trade</h2>
+        <p class="lead">Cairn sets up your trading identity once, then gets out of the way.</p>
+        <div class="steps">
+          <div class="step">
+            <div class="dot">1</div>
+            <h4>Open the app</h4>
+            <p>
+              Cairn launches as a desktop app (Windows / Mac / Linux). No login required — it works
+              fully offline from the first second.
+            </p>
+          </div>
+          <div class="step">
+            <div class="dot">2</div>
+            <h4>Create your first account</h4>
+            <p>
+              Add a trading account: name it, set starting balance, currency, and leverage (default
+              100:1). Mark it as a personal or prop/firm account with its own configurable rule set
+              — no prop-firm names are hardcoded.
+            </p>
+          </div>
+          <div class="step">
+            <div class="dot">3</div>
+            <h4>Set your rules</h4>
+            <p>
+              Define the rules you keep breaking: daily trade limit, max daily loss circuit breaker,
+              risk % per trade, R-target alerts, allowed killzone hours, and your instrument list
+              (19 defaults included).
+            </p>
+          </div>
+          <div class="step">
+            <div class="dot">4</div>
+            <h4>Pick your timezone</h4>
+            <p>
+              Defaults to America/New_York so killzones line up with the ICT session model. Fully
+              changeable in Settings.
+            </p>
+          </div>
+          <div class="step">
+            <div class="dot">5</div>
+            <h4>Build your playbook</h4>
+            <p>
+              Add your setups (the patterns you actually trade) so each trade can be tagged and
+              later graded by setup.
+            </p>
+          </div>
+          <div class="step">
+            <div class="dot">6</div>
+            <h4>You're live</h4>
+            <p>
+              The dashboard now shows your balance, discipline ring, and streaks. Open the New Trade
+              panel and the cockpit takes over.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- CAPABILITIES -->
+      <section id="features" class="reveal">
+        <span class="eyebrow">What Cairn Does Today</span>
+        <h2 class="title">Capabilities so far</h2>
+        <p class="lead">
+          Everything below is built and shipping in the desktop app (v1.1 + v1.2, Waves 0–3
+          complete).
+        </p>
+
+        <div class="grid g2" style="margin-top: 26px">
+          <div class="card">
+            <h3><span class="ic">🎯</span> Pre-Trade Gate</h3>
+            <p>
+              Before you place a trade, Cairn runs the rule engine: daily trade limit, max-loss
+              circuit breaker, risk size, killzone timing. Violations are blocked or require a typed
+              acknowledgment. Hard locks can't be overridden.
+            </p>
+          </div>
+          <div class="card">
+            <h3><span class="ic">🧮</span> Risk Calculator</h3>
+            <p>
+              Enter risk in $ or % and Cairn auto-computes lot size using your account's leverage
+              and the instrument's pip value — money math in decimal types, correct to the cent/pip.
+            </p>
+          </div>
+          <div class="card">
+            <h3><span class="ic">📝</span> Fast Trade Logging</h3>
+            <p>
+              Round-trip logging under ~90 seconds. Remember-last-trade, invalidation chips, one-tap
+              emotion, and clean-close shortcuts remove busywork while keeping honesty fields
+              intact.
+            </p>
+          </div>
+          <div class="card">
+            <h3><span class="ic">🧠</span> Honesty Forcing Fields</h3>
+            <p>
+              Invalidation, emotional state, and rules-broken are structured so they can't be
+              silently skipped or defaulted to "N/A". Self-awareness is required, not optional.
+            </p>
+          </div>
+          <div class="card">
+            <h3><span class="ic">✂️</span> Partial Closes &amp; Screenshots</h3>
+            <p>
+              Scale out with partial exits (% based), attach an optional chart screenshot to any
+              trade. Screenshots never block submission.
+            </p>
+          </div>
+          <div class="card">
+            <h3><span class="ic">🗓️</span> Calendar &amp; Trade Log</h3>
+            <p>
+              A P&amp;L calendar view plus a full searchable trade log. Activate drafts, review any
+              past trade, export a trade review to PDF.
+            </p>
+          </div>
+          <div class="card">
+            <h3><span class="ic">📊</span> Analytics Suite</h3>
+            <p>
+              Six analytics tabs with a shared filter bar: performance, adherence, behavioral
+              patterns, setups, and more — built on your real, honest data.
+            </p>
+          </div>
+          <div class="card">
+            <h3><span class="ic">💡</span> Local Insight Engine</h3>
+            <p>
+              On-device statistical heuristics surface findings like "win-rate drops when urgency
+              &gt; 7", tilt-cycle detection, and expectancy-by-setup — no LLM, no network, no
+              telemetry.
+            </p>
+          </div>
+          <div class="card">
+            <h3><span class="ic">🏅</span> Composite Score &amp; A–F Grade</h3>
+            <p>
+              Every trade and session gets a discipline composite score and letter grade.
+              Rules-broken are auto-detected from your data, not self-reported.
+            </p>
+          </div>
+          <div class="card">
+            <h3><span class="ic">📓</span> Notebook &amp; Playbooks</h3>
+            <p>
+              A free-form notebook for reflection and structured playbooks for your setups, so
+              review is connected to the patterns you trade.
+            </p>
+          </div>
+          <div class="card">
+            <h3><span class="ic">📥</span> Statement Import</h3>
+            <p>
+              Import trade history from MT5, cTrader, and TradingView HTML/CSV statements. A parser
+              + de-duper eliminates double entry — free, no paid data feeds.
+            </p>
+          </div>
+          <div class="card">
+            <h3><span class="ic">💾</span> Backup &amp; Self-Healing</h3>
+            <p>
+              Local SQLite is the canonical store with a backup service and self-healing checks.
+              Point it at any synced folder for cloud-style backup, no APIs required.
+            </p>
+          </div>
+        </div>
+        <div class="note">
+          Design language: glassmorphism with depth — frosted surfaces, layered glow, and
+          physics-based motion. The calm UI is itself a discipline feature. Voice is a respected
+          mentor: direct, calm, never cutesy or alarmist.
+        </div>
+      </section>
+
+      <!-- TIERS -->
+      <section id="tiers" class="reveal">
+        <span class="eyebrow">Pricing Model</span>
+        <h2 class="title">Free, Paid &amp; what's coming</h2>
+        <p class="lead">
+          Cairn is local-first forever. The desktop app is fully usable offline with no account.
+          Paid tiers add optional cloud capabilities — they never take features away or hold your
+          data hostage.
+        </p>
+
+        <div class="grid g2" style="margin-top: 26px">
+          <div class="card">
+            <span class="tier t-free">Free · Local Forever</span>
+            <h3>Everything that makes Cairn, Cairn</h3>
+            <ul class="clean">
+              <li>Full desktop app, offline, no account needed</li>
+              <li>Unlimited accounts, trades &amp; playbooks</li>
+              <li>Real-time rule engine, hard locks &amp; circuit breakers</li>
+              <li>Risk calculator &amp; two-phase logging</li>
+              <li>All six analytics tabs + local insight engine</li>
+              <li>Composite score, A–F grade, calendar, notebook</li>
+              <li>Statement import (MT5 / cTrader / TradingView)</li>
+              <li>PDF trade-review export &amp; local backups</li>
+            </ul>
+          </div>
+          <div class="card">
+            <span class="tier t-paid">Cairn Pro · Paid (v2.0)</span>
+            <h3>Optional cloud, never a wall</h3>
+            <ul class="clean paid">
+              <li>End-to-end-encrypted cloud sync across devices</li>
+              <li>Web client — same cockpit in the browser</li>
+              <li>Server stores ciphertext only; it cannot read your trades</li>
+              <li>Multi-device enrollment with a recovery phrase</li>
+              <li>Managed backups with point-in-time recovery</li>
+              <li>Priority crash-report handling (opt-in)</li>
+            </ul>
+            <div class="note">
+              Cancelling Pro stops sync but <strong>never deletes your local data</strong>. Billing
+              via Stripe (global) &amp; Razorpay (India).
+            </div>
+          </div>
+        </div>
+        <div class="note">
+          Privacy contract: data is encrypted on your device before it ever leaves. Your password
+          derives a key (Argon2id) that never leaves the client. No admin override, no backdoor, no
+          selling data, no ads.
+        </div>
+      </section>
+
+      <!-- UPCOMING -->
+      <section id="soon" class="reveal">
+        <span class="eyebrow">On the Roadmap</span>
+        <h2 class="title">Upcoming features</h2>
+        <div class="grid g3" style="margin-top: 24px">
+          <div class="card">
+            <span class="tier t-soon">In progress</span>
+            <h3>Live Broker Detection</h3>
+            <p>
+              Read-only MT5 (local socket bridge) &amp; cTrader (Open API) connection that warns in
+              real time when you widen a stop, size up, cut a target, or over-trade — on trades
+              placed outside Cairn. Cairn never places or moves an order.
+            </p>
+          </div>
+          <div class="card">
+            <span class="tier t-soon">In progress</span>
+            <h3>Cloud Sync &amp; Web App</h3>
+            <p>
+              The v2.0 backend: E2E-encrypted sync, a browser version of the cockpit, and
+              multi-device support. Sync engine and server are built; conflict UI and remaining
+              tables are landing.
+            </p>
+          </div>
+          <div class="card">
+            <span class="tier t-soon">Planned</span>
+            <h3>Subscriptions Go Live</h3>
+            <p>
+              Entitlement service + billing providers are wired behind the scenes. Turning Pro on is
+              a config switch — trial, grace period, and dunning flows are first-class.
+            </p>
+          </div>
+          <div class="card">
+            <span class="tier t-soon">Planned</span>
+            <h3>Configurable Auto-Log</h3>
+            <p>
+              Broker fills auto-create draft trades awaiting your reflection (default), or
+              fully-auto records. "Unreviewed" honesty is never counted as "clean".
+            </p>
+          </div>
+          <div class="card">
+            <span class="tier t-soon">Planned</span>
+            <h3>Expanded Reports</h3>
+            <p>
+              Deeper report exports and richer analytics views closing the zero-cost gap with
+              mainstream journals — without chasing them feature-for-feature.
+            </p>
+          </div>
+          <div class="card">
+            <span class="tier t-soon">Explicitly not coming</span>
+            <h3>Boundaries we keep</h3>
+            <p>
+              No order execution ever, no news feed, no social network, no prop-firm lock-in, no
+              mobile app in v2.0, no telemetry on by default.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- HOW TO USE -->
+      <section id="howto" class="reveal">
+        <span class="eyebrow">Step by Step</span>
+        <h2 class="title">How to use Cairn</h2>
+        <p class="lead">A day in the cockpit, from market open to weekly review.</p>
+        <div class="steps">
+          <div class="step">
+            <div class="dot">1</div>
+            <h4>Set your session bias</h4>
+            <p>
+              Open the dashboard and log your bias for the session. This frames every trade you take
+              today.
+            </p>
+          </div>
+          <div class="step">
+            <div class="dot">2</div>
+            <h4>Size the trade in the calculator</h4>
+            <p>
+              In the New Trade panel, type your entry, stop, and risk ($ or %). Cairn returns the
+              exact lot size — no mental math, no float errors.
+            </p>
+          </div>
+          <div class="step">
+            <div class="dot">3</div>
+            <h4>Pass the gate</h4>
+            <p>
+              Hit submit and the rule engine checks you in under 20 seconds. If you're inside your
+              rules: trade clean. If not: Cairn blocks it, or makes you type an acknowledgment, or
+              hard-locks the session if a circuit breaker tripped.
+            </p>
+          </div>
+          <div class="step">
+            <div class="dot">4</div>
+            <h4>Manage &amp; close</h4>
+            <p>
+              Scale out with partial closes, attach a screenshot if you want. On close, the
+              mechanical fields fill fast and the trade drops into your reflection queue.
+            </p>
+          </div>
+          <div class="step">
+            <div class="dot">5</div>
+            <h4>Reflect on the Review screen</h4>
+            <p>
+              Later — not mid-trade — work through the deferred queue: invalidation, emotion, what
+              you'd change. Honest reflection without front-loading it onto the close click.
+            </p>
+          </div>
+          <div class="step">
+            <div class="dot">6</div>
+            <h4>Import what you traded elsewhere</h4>
+            <p>
+              Drop in your MT5 / cTrader / TradingView statement. Cairn parses and de-dupes so your
+              journal is complete without double entry.
+            </p>
+          </div>
+          <div class="step">
+            <div class="dot">7</div>
+            <h4>Read the insights weekly</h4>
+            <p>
+              Open Analytics. The local insight engine tells you where discipline slips — by setup,
+              by emotion, by time of day. Check your A–F grade and composite score trend.
+            </p>
+          </div>
+          <div class="step">
+            <div class="dot">8</div>
+            <h4>Adjust your rules</h4>
+            <p>
+              Every preference is configurable in Settings. Tighten the rules that the data shows
+              you keep breaking. Next week, the gate enforces the better version of you.
+            </p>
+          </div>
+        </div>
+        <p class="quote">
+          "A cairn is a stack of stones placed on a trail to mark the way. Each stone is deliberate.
+          Each stone stays where it's placed."
+        </p>
+      </section>
+    </div>
+
+    <footer>
+      Cairn — Discipline-First Trading Journal · Designed &amp; built by Jai Akash<br />
+      Local-first &amp; private · Prevention over detection · Build the stack.
+    </footer>
+
+    <script>
+      const root = document.documentElement,
+        btn = document.getElementById('themeBtn'),
+        lbl = document.getElementById('themeLbl')
+      function setTheme(t) {
+        root.setAttribute('data-theme', t)
+        btn.firstChild.textContent = t === 'dark' ? '🌙 ' : '☀️ '
+        lbl.textContent = t === 'dark' ? 'Dark' : 'Light'
+      }
+      let cur = 'dark'
+      setTheme(cur)
+      btn.addEventListener('click', () => {
+        cur = cur === 'dark' ? 'light' : 'dark'
+        setTheme(cur)
+      })
+      // reveal on scroll
+      const io = new IntersectionObserver(
+        (es) =>
+          es.forEach((e) => {
+            if (e.isIntersecting) e.target.classList.add('in')
+          }),
+        { threshold: 0.12 },
+      )
+      document.querySelectorAll('.reveal').forEach((el) => io.observe(el))
+    </script>
+  </body>
+</html>

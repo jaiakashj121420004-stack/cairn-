@@ -1,0 +1,2 @@
+# Cairn commit-msg gate (§13.3 / §19) — enforce Conventional Commits.
+pnpm exec commitlint --edit "$1"

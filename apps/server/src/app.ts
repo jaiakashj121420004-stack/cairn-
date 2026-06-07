@@ -112,7 +112,8 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       sendError(reply, err)
       return
     }
-    const status = typeof err.statusCode === 'number' ? err.statusCode : 500
+    const statusCode = (err as { statusCode?: unknown }).statusCode
+    const status = typeof statusCode === 'number' ? statusCode : 500
     // Fastify emits 413 when a request body exceeds the route's bodyLimit.
     if (status === 413) {
       sendError(reply, new AppError(ERROR_CODES.PAYLOAD_TOO_LARGE, 'request body too large'), 413)

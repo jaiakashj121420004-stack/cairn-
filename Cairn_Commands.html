@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cairn — Command Cheat Sheet</title>
+    <style>
+      :root {
+        --bg: #070b14;
+        --bg2: #0b1220;
+        --panel: rgba(255, 255, 255, 0.04);
+        --brd: rgba(255, 255, 255, 0.1);
+        --txt: #e8eef7;
+        --muted: #9fb0c7;
+        --accent: #5eead4;
+        --accent2: #7dd3fc;
+        --code: #0a0f1a;
+        --ok: #34d399;
+        --warn: #f5c97b;
+      }
+      [data-theme='light'] {
+        --bg: #eef2f8;
+        --bg2: #dde6f2;
+        --panel: rgba(255, 255, 255, 0.65);
+        --brd: rgba(20, 40, 70, 0.14);
+        --txt: #0d1726;
+        --muted: #4a5b73;
+        --accent: #0d9488;
+        --accent2: #0284c7;
+        --code: #10243a;
+        --ok: #0f9d6b;
+        --warn: #b97e22;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: Inter, 'Segoe UI', system-ui, sans-serif;
+        color: var(--txt);
+        line-height: 1.6;
+        background:
+          radial-gradient(1100px 600px at 10% -10%, rgba(94, 234, 212, 0.15), transparent 60%),
+          radial-gradient(900px 500px at 100% 0, rgba(125, 211, 252, 0.13), transparent 55%),
+          linear-gradient(160deg, var(--bg), var(--bg2));
+        background-attachment: fixed;
+        min-height: 100vh;
+        transition: 0.4s;
+      }
+      .wrap {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 0 22px;
+      }
+      header.bar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        backdrop-filter: blur(14px);
+        border-bottom: 1px solid var(--brd);
+        background: linear-gradient(to bottom, rgba(7, 11, 20, 0.7), transparent);
+      }
+      [data-theme='light'] header.bar {
+        background: linear-gradient(to bottom, rgba(238, 242, 248, 0.85), transparent);
+      }
+      .bar .wrap {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        height: 64px;
+      }
+      .logo {
+        font-weight: 800;
+        font-size: 19px;
+        letter-spacing: 0.4px;
+      }
+      .toggle {
+        cursor: pointer;
+        border: 1px solid var(--brd);
+        background: var(--panel);
+        color: var(--txt);
+        border-radius: 999px;
+        padding: 8px 14px;
+        font-weight: 700;
+        font-size: 13px;
+      }
+      .hero {
+        padding: 56px 0 20px;
+      }
+      .hero h1 {
+        font-size: clamp(32px, 6vw, 52px);
+        margin: 0 0 10px;
+        font-weight: 800;
+        letter-spacing: -1.5px;
+        background: linear-gradient(120deg, var(--txt), var(--accent));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .hero p {
+        color: var(--muted);
+        font-size: 17px;
+        max-width: 680px;
+        margin: 0;
+      }
+      section {
+        margin: 30px 0;
+      }
+      .step-h {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin: 34px 0 14px;
+      }
+      .num {
+        flex: none;
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        background: linear-gradient(135deg, rgba(94, 234, 212, 0.25), rgba(125, 211, 252, 0.2));
+        color: var(--accent2);
+        border: 1px solid var(--brd);
+      }
+      .step-h h2 {
+        margin: 0;
+        font-size: 21px;
+        font-weight: 800;
+      }
+      p.desc {
+        color: var(--muted);
+        margin: 0 0 12px;
+        font-size: 15px;
+      }
+      .codebox {
+        position: relative;
+        background: var(--code);
+        border: 1px solid var(--brd);
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 14px 40px rgba(0, 0, 0, 0.4);
+        margin-bottom: 12px;
+      }
+      .codebox .top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--brd);
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .codebox .top span {
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+      }
+      .copy {
+        cursor: pointer;
+        border: 1px solid var(--brd);
+        background: transparent;
+        color: var(--accent);
+        border-radius: 8px;
+        padding: 5px 12px;
+        font-size: 12px;
+        font-weight: 700;
+        transition: 0.2s;
+      }
+      .copy:hover {
+        background: rgba(94, 234, 212, 0.12);
+      }
+      .copy.done {
+        color: var(--ok);
+        border-color: var(--ok);
+      }
+      pre {
+        margin: 0;
+        padding: 16px 18px;
+        overflow-x: auto;
+        font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+        font-size: 13.5px;
+        line-height: 1.7;
+        color: #cfe9ff;
+        white-space: pre;
+      }
+      [data-theme='light'] pre {
+        color: #dceefc;
+      }
+      .cmt {
+        color: #6b8199;
+      }
+      .callout {
+        border-left: 3px solid var(--warn);
+        background: var(--panel);
+        padding: 12px 16px;
+        border-radius: 0 12px 12px 0;
+        color: var(--muted);
+        font-size: 14px;
+        margin: 12px 0;
+      }
+      .callout b {
+        color: var(--txt);
+      }
+      .ok-callout {
+        border-left-color: var(--ok);
+      }
+      a {
+        color: var(--accent2);
+      }
+      footer {
+        text-align: center;
+        color: var(--muted);
+        font-size: 13px;
+        padding: 50px 0 70px;
+        border-top: 1px solid var(--brd);
+        margin-top: 40px;
+      }
+      kbd {
+        background: var(--panel);
+        border: 1px solid var(--brd);
+        border-radius: 6px;
+        padding: 2px 7px;
+        font-size: 12px;
+        font-family: monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="bar">
+      <div class="wrap">
+        <div class="logo">⌘ Cairn — Command Cheat Sheet</div>
+        <button class="toggle" id="t">🌙 Dark</button>
+      </div>
+    </header>
+
+    <div class="wrap">
+      <div class="hero">
+        <h1>Run, commit &amp; release Cairn</h1>
+        <p>
+          Copy each block, paste it into the Command Prompt, press <kbd>Enter</kbd>. Do the steps in
+          order the first time; after that you'll mostly use steps 4 and 6.
+        </p>
+      </div>
+
+      <div class="callout">
+        <b>How to open CMD in the right place:</b> Open the <b>JOR_CLAUDE</b> folder in File
+        Explorer → click the address bar → type <b>cmd</b> → press <kbd>Enter</kbd>. A black window
+        opens already pointing at the app folder.
+      </div>
+
+      <!-- STEP 1 -->
+      <section>
+        <div class="step-h">
+          <div class="num">1</div>
+          <h2>Clear the stuck git lock (one-time fix)</h2>
+        </div>
+        <p class="desc">
+          A leftover lock file is currently blocking git. This removes it. Safe to run — it only
+          deletes a temporary file.
+        </p>
+        <div class="codebox">
+          <div class="top"><span>cmd</span><button class="copy">Copy</button></div>
+          <pre>del /f /q .git\index.lock</pre>
+        </div>
+      </section>
+
+      <!-- STEP 2 -->
+      <section>
+        <div class="step-h">
+          <div class="num">2</div>
+          <h2>Tell git who you are (one-time)</h2>
+        </div>
+        <p class="desc">
+          Only needed if git ever complains about identity. Skip if commits already work.
+        </p>
+        <div class="codebox">
+          <div class="top"><span>cmd</span><button class="copy">Copy</button></div>
+          <pre>
+git config user.name "Jai Akash"
+git config user.email "jaiakashj121420004@gmail.com"</pre
+          >
+        </div>
+      </section>
+
+      <!-- STEP 3 -->
+      <section>
+        <div class="step-h">
+          <div class="num">3</div>
+          <h2>Commit everything done so far</h2>
+        </div>
+        <p class="desc">Stages every change and saves a snapshot to your local history.</p>
+        <div class="codebox">
+          <div class="top"><span>cmd</span><button class="copy">Copy</button></div>
+          <pre>
+git add -A
+git commit -m "feat: Wave 4 broker integration + docs and app-overview pages"</pre
+          >
+        </div>
+        <div class="callout ok-callout">
+          If it says <b>nothing to commit</b>, you're already saved — move on.
+        </div>
+      </section>
+
+      <!-- STEP 4 -->
+      <section>
+        <div class="step-h">
+          <div class="num">4</div>
+          <h2>Run the app locally</h2>
+        </div>
+        <p class="desc">
+          Installs dependencies (first time only) and launches Cairn in development mode.
+        </p>
+        <div class="codebox">
+          <div class="top"><span>cmd · first time</span><button class="copy">Copy</button></div>
+          <pre>pnpm install</pre>
+        </div>
+        <div class="codebox">
+          <div class="top"><span>cmd · every time</span><button class="copy">Copy</button></div>
+          <pre>pnpm --filter desktop dev</pre>
+        </div>
+        <div class="callout">
+          If <b>pnpm</b> isn't recognized, install it once with: <b>npm install -g pnpm</b>. If
+          <b>--filter desktop</b> errors, try <b>pnpm dev</b> from inside the
+          <b>apps\desktop</b> folder.
+        </div>
+      </section>
+
+      <!-- STEP 5 -->
+      <section>
+        <div class="step-h">
+          <div class="num">5</div>
+          <h2>Connect to GitHub (one-time)</h2>
+        </div>
+        <p class="desc">
+          You don't have a remote yet. First create an empty repo on GitHub (no README), copy its
+          URL, then link it. Replace the URL below with yours.
+        </p>
+        <div class="codebox">
+          <div class="top"><span>cmd</span><button class="copy">Copy</button></div>
+          <pre><span class="cmt">REM check current branch name (likely feat/vault-enrollment-server or master)</span>
+git branch --show-current
+
+<span class="cmt">REM link your GitHub repo (paste YOUR url)</span>
+git remote add origin https://github.com/YOUR-USERNAME/cairn.git
+
+<span class="cmt">REM push your main branch and remember it</span>
+git push -u origin master</pre>
+        </div>
+        <div class="callout">
+          GitHub will ask you to sign in the first time. Easiest path: install
+          <a href="https://desktop.github.com/">GitHub Desktop</a> or the
+          <a href="https://cli.github.com/">GitHub CLI</a> (<b>gh auth login</b>) to handle the
+          login. If your branch isn't <b>master</b>, swap it in the last line (e.g.
+          <b>git push -u origin main</b>).
+        </div>
+      </section>
+
+      <!-- STEP 6 -->
+      <section>
+        <div class="step-h">
+          <div class="num">6</div>
+          <h2>Push a new version &amp; cut a release</h2>
+        </div>
+        <p class="desc">
+          Do this each time you want to publish an update. It bumps the version number, saves it,
+          tags it, and pushes the tag to GitHub.
+        </p>
+        <div class="codebox">
+          <div class="top"><span>cmd · save your work</span><button class="copy">Copy</button></div>
+          <pre>
+git add -A
+git commit -m "describe what changed in this version"
+git push</pre
+          >
+        </div>
+        <div class="codebox">
+          <div class="top">
+            <span>cmd · bump version (pick one)</span><button class="copy">Copy</button>
+          </div>
+          <pre><span class="cmt">REM 0.1.0 -> 0.1.1  (small fix)</span>
+pnpm version patch
+
+<span class="cmt">REM 0.1.0 -> 0.2.0  (new features)</span>
+<span class="cmt">REM pnpm version minor</span>
+
+<span class="cmt">REM 0.1.0 -> 1.0.0  (big release)</span>
+<span class="cmt">REM pnpm version major</span></pre>
+        </div>
+        <div class="codebox">
+          <div class="top">
+            <span>cmd · push the version tag</span><button class="copy">Copy</button>
+          </div>
+          <pre>
+git push
+git push --tags</pre
+          >
+        </div>
+        <div class="callout">
+          <b>Create the GitHub Release:</b> Go to your repo on GitHub → <b>Releases</b> →
+          <b>Draft a new release</b> → choose the tag you just pushed (e.g. <b>v0.1.1</b>) → add
+          notes → <b>Publish release</b>.<br /><br />
+          Prefer the command line? With GitHub CLI installed:
+        </div>
+        <div class="codebox">
+          <div class="top">
+            <span>cmd · release via gh CLI</span><button class="copy">Copy</button>
+          </div>
+          <pre>
+gh release create v0.1.1 --title "Cairn v0.1.1" --notes "What changed in this release"</pre
+          >
+        </div>
+        <div class="callout ok-callout">
+          <b>To attach an installer</b> (the .exe users double-click), first build it, then add the
+          file to the release:
+          <div style="height: 8px"></div>
+          <span class="cmt">build the Windows installer →</span> <b>pnpm --filter desktop build</b
+          ><br />
+          <span class="cmt">the installer lands in</span> <b>apps\desktop\release\</b>
+          <span class="cmt">— upload it on the Releases page, or:</span><br />
+          <b>gh release upload v0.1.1 apps\desktop\release\Cairn-Setup-0.1.1.exe</b>
+        </div>
+      </section>
+
+      <!-- QUICK REF -->
+      <section>
+        <div class="step-h">
+          <div class="num">★</div>
+          <h2>Daily quick reference</h2>
+        </div>
+        <div class="codebox">
+          <div class="top"><span>cmd</span><button class="copy">Copy</button></div>
+          <pre>git status            <span class="cmt">REM see what changed</span>
+git add -A            <span class="cmt">REM stage everything</span>
+git commit -m "msg"   <span class="cmt">REM save a snapshot</span>
+git push              <span class="cmt">REM send to GitHub</span>
+pnpm --filter desktop dev   <span class="cmt">REM run the app</span></pre>
+        </div>
+      </section>
+    </div>
+
+    <footer>Cairn · Designed &amp; built by Jai Akash · Keep each stone deliberate.</footer>
+
+    <script>
+      const root = document.documentElement,
+        b = document.getElementById('t')
+      let d = true
+      b.onclick = () => {
+        d = !d
+        root.setAttribute('data-theme', d ? 'dark' : 'light')
+        b.textContent = d ? '🌙 Dark' : '☀️ Light'
+      }
+      document.querySelectorAll('.copy').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const code = btn.closest('.codebox').querySelector('pre')
+          const txt = code.innerText
+            .split('\n')
+            .filter((l) => !l.trim().startsWith('REM'))
+            .join('\n')
+            .trim()
+          navigator.clipboard.writeText(txt).then(() => {
+            btn.textContent = 'Copied ✓'
+            btn.classList.add('done')
+            setTimeout(() => {
+              btn.textContent = 'Copy'
+              btn.classList.remove('done')
+            }, 1600)
+          })
+        })
+      })
+    </script>
+  </body>
+</html>

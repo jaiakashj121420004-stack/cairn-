@@ -205,6 +205,7 @@ export function getHourDayHeatmap(db: CairnDb, filter: AnalyticsFilter): HourDay
 export function getRecoveryPattern(db: CairnDb, filter: AnalyticsFilter): RecoveryPattern {
   const rows = rowsFor(db, filter)
   let recovery = 0
+  let ratedRecovery = 0 // recoveries Cairn actually reviewed (isClean not null)
   let cleanRecovery = 0
   for (let i = 1; i < rows.length; i++) {
     const prev = rows[i - 1]
@@ -212,13 +213,18 @@ export function getRecoveryPattern(db: CairnDb, filter: AnalyticsFilter): Recove
     if (!prev || !cur) continue
     if ((prev.pnlR ?? 0) < 0 && (cur.pnlR ?? 0) > 0) {
       recovery++
-      if (cur.isClean === 1) cleanRecovery++
+      // Clean-rate counts only reviewed recoveries. An unreviewed one
+      // (isClean IS NULL) is unknown, never assumed clean OR dirty (§2.3).
+      if (cur.isClean !== null) {
+        ratedRecovery++
+        if (cur.isClean === 1) cleanRecovery++
+      }
     }
   }
   return {
     recoveryCount: recovery,
     cleanRecoveryCount: cleanRecovery,
-    cleanRateBps: recovery > 0 ? Math.round((cleanRecovery / recovery) * 10000) : 0,
+    cleanRateBps: ratedRecovery > 0 ? Math.round((cleanRecovery / ratedRecovery) * 10000) : 0,
   }
 }
 

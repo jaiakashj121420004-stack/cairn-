@@ -10,7 +10,7 @@ export function ThemeToggle() {
 
   function cycle() {
     const order = ['dark', 'light', 'system'] as const
-    const next = order[(order.indexOf(themePreference) + 1) % order.length]
+    const next = order[(order.indexOf(themePreference) + 1) % order.length] ?? themePreference
     setThemePreference(next)
   }
 

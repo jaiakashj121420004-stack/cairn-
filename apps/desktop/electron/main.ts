@@ -4,6 +4,7 @@ import log from 'electron-log'
 import { getBackupSettings } from './ipc/backup'
 import { setupIpcHandlers } from './ipc/index'
 import { runScheduledLocalBackup, createBackup } from './services/backup-service'
+import { startCtraderBridge, startMt5Bridge } from './services/broker/index'
 import { runSelfHealing, installCrashHandlers } from './services/self-healing'
 import { getActiveSyncRunner } from './services/sync'
 import { initMainTelemetry } from './services/telemetry'
@@ -112,6 +113,14 @@ void app.whenReady().then(() => {
   }
 
   scheduleBackups()
+
+  // Start the read-only MT5 loopback bridge (docs/broker-integration.md §2.1).
+  // Non-fatal: a bind failure is logged inside and the app continues.
+  void startMt5Bridge()
+
+  // Resume the read-only cTrader Open API stream if an account is already linked
+  // (docs/broker-integration.md §2.2). Non-fatal: logged inside, app continues.
+  void startCtraderBridge()
 
   // Re-expose scheduleBackups so backup settings changes take effect immediately
   ipcMain.handle('backup:reschedule', () => {

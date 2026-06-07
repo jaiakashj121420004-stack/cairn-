@@ -111,7 +111,13 @@ describe('calculatePnl — invariants', () => {
         // not of the float→decimal change — it held under the old Math.round code too.
         expect(Math.abs(short.pnlCents + long.pnlCents)).toBeLessThanOrEqual(1)
         expect(Math.abs(short.pnlR + long.pnlR)).toBeLessThanOrEqual(1)
-        expect(Math.abs(short.pnlPctBps + long.pnlPctBps)).toBeLessThanOrEqual(1)
+        // pnlPctBps is computed from the already-rounded pnlCents, not directly from
+        // signedTenths. A 1-unit skew in pnlCents propagates as ⌈10_000 / accountSizeCents⌉
+        // basis points. With realistic accounts (≥ $100) the amplification is ≤ 1 bps;
+        // with tiny synthetic accounts (1 cent) it can be 10_000 bps. The +1 absorbs
+        // pnlPctBps's own rounding step.
+        const pctBound = Math.ceil(10_000 / inp.accountSizeCents) + 1
+        expect(Math.abs(short.pnlPctBps + long.pnlPctBps)).toBeLessThanOrEqual(pctBound)
       }),
     )
   })

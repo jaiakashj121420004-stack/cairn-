@@ -164,7 +164,7 @@ function extractTitleText(table: string): string {
   // The first <tr> is the section title row (e.g. <td colspan=13><b>Deals</b></td>)
   const rowMatch = table.match(/<tr[^>]*>([\s\S]*?)<\/tr>/i)
   if (!rowMatch) return ''
-  return cellText(rowMatch[1])
+  return cellText(rowMatch[1] ?? '')
 }
 
 // ─── Row / cell parsing ───────────────────────────────────────────────────────
@@ -186,7 +186,7 @@ function extractCells(row: string): string[] {
   const re = /<td[^>]*>([\s\S]*?)<\/td>/gi
   let m: RegExpExecArray | null
   while ((m = re.exec(row)) !== null) {
-    cells.push(cellText(m[1]))
+    cells.push(cellText(m[1] ?? ''))
   }
   return cells
 }
@@ -247,7 +247,9 @@ function cell(cells: string[], idx: number): string {
 function parseMt5Date(s: string): number | null {
   const m = s.match(/^(\d{4})\.(\d{2})\.(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/)
   if (!m) return null
-  const ms = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6])
+  const [, y, mo, d, h, mi, sec] = m
+  if (!y || !mo || !d || !h || !mi || !sec) return null
+  const ms = Date.UTC(+y, +mo - 1, +d, +h, +mi, +sec)
   return Number.isFinite(ms) ? ms : null
 }
 

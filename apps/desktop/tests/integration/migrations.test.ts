@@ -81,6 +81,7 @@ describe('migration journal wiring', () => {
       '0011_sync',
       '0012_sync_merge',
       '0013_sync_clocks',
+      '0014_live_detection_outcome',
     ])
     // Every journaled tag must resolve to a non-empty .sql file.
     for (const tag of orderedTags()) {

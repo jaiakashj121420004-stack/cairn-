@@ -38,8 +38,8 @@ export function createBackup(kind: 'auto_local' | 'manual', destinationDir: stri
   const exportsDir = join(dataDir, 'exports')
 
   const db = getDb()
-  const [{ value: tradeCount }] = db.select({ value: count() }).from(schema.trades).all()
-  const [{ value: accountCount }] = db.select({ value: count() }).from(schema.accounts).all()
+  const tradeCount = db.select({ value: count() }).from(schema.trades).get()?.value ?? 0
+  const accountCount = db.select({ value: count() }).from(schema.accounts).get()?.value ?? 0
 
   const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
   const filename = `cairn-backup-${ts}.zip`

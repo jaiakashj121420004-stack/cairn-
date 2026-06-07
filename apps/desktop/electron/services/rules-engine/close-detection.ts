@@ -79,6 +79,20 @@ export function detectRiskIncreased(p: {
   return p.actualRiskCents * 100 > p.plannedRiskCents * (100 + p.thresholdPct)
 }
 
+/** Size increased mid-trade: actual lots exceed the baseline lots by more than
+ *  the tolerance percentage. Same pure ratio test as {@link detectRiskIncreased},
+ *  expressed in lots — a live broker event carries lots, not settled risk cents.
+ *  Compare in one consistent lot unit (both raw lots, or both lots×100). */
+export function detectSizeIncreased(p: {
+  baselineLots: number
+  actualLots: number
+  thresholdPct: number
+}): boolean {
+  if (p.baselineLots <= 0) return false
+  // actual > baseline * (1 + threshold/100)  ⟺  actual*100 > baseline*(100+threshold)
+  return p.actualLots * 100 > p.baselineLots * (100 + p.thresholdPct)
+}
+
 /** Outside killzone: the entry timestamp falls inside no active killzone. */
 export function detectOutsideKillzone(p: {
   entryTs: number

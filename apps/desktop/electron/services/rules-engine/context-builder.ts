@@ -23,10 +23,10 @@ export function buildContext(
   db: CairnDb,
   accountId: string,
   opts: {
-    now?: number
-    draft?: DraftTrade
-    modification?: TradeModification
-    tradeUnderModificationId?: string
+    now?: number | undefined
+    draft?: DraftTrade | undefined
+    modification?: TradeModification | undefined
+    tradeUnderModificationId?: string | undefined
   } = {},
 ): RuleContext {
   const now = opts.now ?? Date.now()
