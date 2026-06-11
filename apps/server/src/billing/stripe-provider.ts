@@ -22,7 +22,8 @@ import type { IncomingHttpHeaders } from 'node:http'
 export class StripeBillingProvider implements BillingProvider {
   readonly name = 'stripe' as const
   private readonly stripe: Stripe
-  private readonly priceId: string
+  private readonly priceMonthly: string
+  private readonly priceAnnual: string | null
   private readonly webhookSecret: string
 
   constructor(env: Env) {
@@ -33,7 +34,8 @@ export class StripeBillingProvider implements BillingProvider {
     if (!env.STRIPE_WEBHOOK_SECRET)
       throw new AppError(ERROR_CODES.NOT_IMPLEMENTED, 'STRIPE_WEBHOOK_SECRET is not configured')
     this.stripe = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: '2025-02-24.acacia' as const })
-    this.priceId = env.STRIPE_PRICE_ID
+    this.priceMonthly = env.STRIPE_PRICE_ID
+    this.priceAnnual = env.STRIPE_PRICE_ID_ANNUAL ?? null
     this.webhookSecret = env.STRIPE_WEBHOOK_SECRET
   }
 
@@ -46,12 +48,21 @@ export class StripeBillingProvider implements BillingProvider {
   }
 
   async createCheckout(input: CheckoutInput): Promise<{ url: string }> {
+    // Annual price when configured; otherwise fall back to monthly (documented in
+    // docs/billing.md). The webhook reconciles state — the price only sets the cadence.
+    const price =
+      input.interval === 'annual' && this.priceAnnual ? this.priceAnnual : this.priceMonthly
     const session = await this.stripe.checkout.sessions.create({
       mode: 'subscription',
-      line_items: [{ price: this.priceId, quantity: 1 }],
+      line_items: [{ price, quantity: 1 }],
       success_url: input.successUrl,
       cancel_url: input.cancelUrl,
-      ...(input.customerId ? { customer: input.customerId } : { customer_email: input.email }),
+      // Stripe Tax computes VAT / sales tax from the address collected at checkout
+      // (CLAUDE.md §20.6). India is served by Razorpay (GST), never this path.
+      automatic_tax: { enabled: true },
+      ...(input.customerId
+        ? { customer: input.customerId, customer_update: { address: 'auto' as const } }
+        : { customer_email: input.email }),
       // Stamp the user id so the subscription webhook can reconcile to a Cairn user.
       subscription_data: { metadata: { cairn_user_id: input.userId } },
       client_reference_id: input.userId,

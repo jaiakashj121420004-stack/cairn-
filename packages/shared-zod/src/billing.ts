@@ -12,10 +12,26 @@ export type BillingProviderName = z.infer<typeof billingProviderSchema>
 /** The single purchasable plan today. The matrix (§20.3) is the source of truth. */
 export const purchasablePlanSchema = z.enum(['pro'])
 
+/** Billing interval. The price/plan id the provider charges is selected from this. */
+export const billingIntervalSchema = z.enum(['monthly', 'annual'])
+export type BillingInterval = z.infer<typeof billingIntervalSchema>
+
+/**
+ * ISO 3166-1 alpha-2 country code, normalised to upper-case. The server routes the
+ * checkout to a regional gateway from this (`IN` ⇒ Razorpay, else Stripe) — the client
+ * never names a provider (§20.9: no hard-coded provider ids in the renderer).
+ */
+export const countrySchema = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z]{2}$/, 'expected a 2-letter ISO country code')
+  .transform((c) => c.toUpperCase())
+
 /** POST /billing/checkout request. */
 export const checkoutInputSchema = z.object({
-  provider: billingProviderSchema,
+  country: countrySchema,
   plan: purchasablePlanSchema.default('pro'),
+  interval: billingIntervalSchema.default('monthly'),
 })
 export type CheckoutInputBody = z.infer<typeof checkoutInputSchema>
 

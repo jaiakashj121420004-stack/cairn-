@@ -27,7 +27,8 @@ const RAZORPAY_API = 'https://api.razorpay.com/v1'
 export class RazorpayBillingProvider implements BillingProvider {
   readonly name = 'razorpay' as const
   private readonly authHeader: string
-  private readonly planId: string
+  private readonly planMonthly: string
+  private readonly planAnnual: string | null
   private readonly webhookSecret: string
 
   constructor(env: Env) {
@@ -39,7 +40,8 @@ export class RazorpayBillingProvider implements BillingProvider {
     if (!env.RAZORPAY_WEBHOOK_SECRET)
       throw new AppError(ERROR_CODES.NOT_IMPLEMENTED, 'RAZORPAY_WEBHOOK_SECRET is not configured')
     this.authHeader = `Basic ${Buffer.from(`${env.RAZORPAY_KEY_ID}:${env.RAZORPAY_KEY_SECRET}`).toString('base64')}`
-    this.planId = env.RAZORPAY_PLAN_ID
+    this.planMonthly = env.RAZORPAY_PLAN_ID
+    this.planAnnual = env.RAZORPAY_PLAN_ID_ANNUAL ?? null
     this.webhookSecret = env.RAZORPAY_WEBHOOK_SECRET
   }
 
@@ -65,10 +67,15 @@ export class RazorpayBillingProvider implements BillingProvider {
   }
 
   async createCheckout(input: CheckoutInput): Promise<{ url: string }> {
+    // Annual plan when configured; otherwise fall back to the monthly plan.
+    const planId =
+      input.interval === 'annual' && this.planAnnual ? this.planAnnual : this.planMonthly
+    // Annual bills 10 cycles, monthly 120 — both ~10 years of a long-lived subscription.
+    const totalCount = input.interval === 'annual' ? 10 : 120
     // A Razorpay subscription exposes a hosted `short_url` the user completes payment on.
     const subscription = await this.request<{ short_url?: string }>('POST', '/subscriptions', {
-      plan_id: this.planId,
-      total_count: 120,
+      plan_id: planId,
+      total_count: totalCount,
       customer_notify: 1,
       notes: { cairn_user_id: input.userId },
     })

@@ -2,46 +2,49 @@ import { createHmac } from 'node:crypto'
 import { ERROR_CODES } from '@cairn/shared-types'
 import { eq } from 'drizzle-orm'
 import Stripe from 'stripe'
+import { applyLifecycleEvent, seedSubscription } from '../billing/apply'
 import { subscriptions, webhookEvents } from '../db/schema'
 import { appendAudit } from '../lib/audit'
 import { webhookAckSchema } from '../lib/contracts'
 import { timingSafeEqualHex } from '../lib/crypto-random'
 import { AppError } from '../lib/errors'
 import { sendError, sendValidated, toAppError } from '../lib/http'
+import type { LifecycleEvent } from '../billing/apply'
+import type { EntitlementService } from '../billing/entitlement-service'
 import type { Db } from '../db/client'
-import type { EntitlementValue } from '../db/schema'
 import type { Env } from '../env'
 import type { FastifyInstance } from 'fastify'
 
 /**
- * Billing webhook endpoints (CLAUDE.md §2.13, §2.14).
+ * Billing webhook endpoints (CLAUDE.md §2.13, §2.14, §20.4, §20.5).
  *
  * Both Stripe and Razorpay require raw-body access for HMAC signature verification.
- * These routes are registered inside a scoped Fastify plugin that replaces the
- * default JSON parser with a Buffer parser — so `req.body` is a Buffer here.
+ * These routes are registered inside a scoped Fastify plugin that replaces the default
+ * JSON parser with a Buffer parser — so `req.body` is a Buffer here.
  *
- * Idempotency: every event is INSERT … ON CONFLICT DO NOTHING into `webhook_event`.
- * If the insert returns 0 rows, the event is a duplicate — we return 200 without
- * re-applying side effects. This handles concurrent duplicate deliveries safely at
- * the database level (the unique index is the dedup lock).
+ * Order of operations per delivery (§20.4):
+ *   1. Verify the signature before any DB read. A bad signature ⇒ 400, no state change.
+ *   2. Dedupe via `webhook_event(provider, external_id)` — a duplicate ⇒ 200, no replay.
+ *   3. Record a receipt audit row, then dispatch the event through the §20.5 state
+ *      machine (`applyLifecycleEvent`) or the provider-authoritative seed path.
+ *   4. Invalidate the affected user's entitlement cache so gates are immediately
+ *      consistent rather than waiting out the cache TTL.
  *
- * State changes (subscription upserts) are keyed by `metadata.cairn_user_id` embedded
- * in the event — set by Cairn when creating the Stripe/Razorpay checkout session.
+ * Lifecycle transitions that the §20.5 graph forbids throw `ILLEGAL_STATE`; the
+ * dispatcher records a warning audit row and still acks 200, because re-delivering a
+ * structurally-impossible event will never succeed (retrying it forever helps nobody).
  */
 
 export interface WebhookRouteDeps {
   readonly db: Db
   readonly env: Env
+  readonly entitlements: EntitlementService
 }
 
 export function registerWebhookRoutes(app: FastifyInstance, deps: WebhookRouteDeps): void {
-  const { db, env } = deps
+  const { db, env, entitlements } = deps
 
-  // Register webhook routes inside a scoped plugin so the content-type parser
-  // override (raw Buffer) is isolated from the rest of the application.
   void app.register(async (webhookApp) => {
-    // Override the default JSON parser for this scope only.
-    // `parseAs: 'buffer'` means req.body is a Buffer, not a parsed object.
     webhookApp.addContentTypeParser(
       'application/json',
       { parseAs: 'buffer' },
@@ -52,10 +55,6 @@ export function registerWebhookRoutes(app: FastifyInstance, deps: WebhookRouteDe
 
     // ── Stripe ─────────────────────────────────────────────────────────────────
 
-    // Webhook receivers opt out of the user-facing per-IP rate limit: deliveries
-    // arrive from a provider's shared IPs and can legitimately burst (retries,
-    // backfills). Abuse is already contained by HMAC signature verification and the
-    // idempotency ledger — an unsigned or duplicate event never causes a state change.
     webhookApp.post('/webhooks/stripe', { config: { rateLimit: false } }, async (req, reply) => {
       try {
         if (!env.STRIPE_SECRET_KEY || !env.STRIPE_WEBHOOK_SECRET) {
@@ -79,7 +78,6 @@ export function registerWebhookRoutes(app: FastifyInstance, deps: WebhookRouteDe
           throw new AppError(ERROR_CODES.VALIDATION_FAILED, 'invalid stripe webhook signature')
         }
 
-        // Idempotency: insert or skip.
         const inserted = await db
           .insert(webhookEvents)
           .values({
@@ -92,7 +90,6 @@ export function registerWebhookRoutes(app: FastifyInstance, deps: WebhookRouteDe
           .returning({ id: webhookEvents.id })
 
         if (inserted.length === 0) {
-          // Duplicate delivery — return 200 without acting.
           sendValidated(reply, webhookAckSchema, { received: true, duplicate: true })
           return
         }
@@ -103,7 +100,8 @@ export function registerWebhookRoutes(app: FastifyInstance, deps: WebhookRouteDe
           detail: { provider: 'stripe', event_id: event.id, event_type: event.type },
         })
 
-        await dispatchStripeEvent(db, event)
+        const userId = await dispatchStripeEvent(db, event)
+        if (userId) await entitlements.invalidate(userId)
 
         sendValidated(reply, webhookAckSchema, { received: true, duplicate: false })
       } catch (err) {
@@ -163,7 +161,8 @@ export function registerWebhookRoutes(app: FastifyInstance, deps: WebhookRouteDe
           detail: { provider: 'razorpay', event_type: parsed.event, external_id: externalId },
         })
 
-        await dispatchRazorpayEvent(db, parsed)
+        const userId = await dispatchRazorpayEvent(db, parsed)
+        if (userId) await entitlements.invalidate(userId)
 
         sendValidated(reply, webhookAckSchema, { received: true, duplicate: false })
       } catch (err) {
@@ -173,96 +172,272 @@ export function registerWebhookRoutes(app: FastifyInstance, deps: WebhookRouteDe
   })
 }
 
+// ── Shared helpers ─────────────────────────────────────────────────────────────────────
+
+/** Convert a provider unix timestamp (seconds) to a Date, or null. */
+function unixToDate(seconds: number | null | undefined): Date | null {
+  return typeof seconds === 'number' && Number.isFinite(seconds) ? new Date(seconds * 1000) : null
+}
+
+/**
+ * Run a lifecycle transition, swallowing an `ILLEGAL_STATE` into a warning audit row so
+ * the webhook still acks (a forbidden event is never made valid by retrying). Returns the
+ * affected user id for cache invalidation, or null when nothing changed.
+ */
+async function runLifecycle(
+  db: Db,
+  input: {
+    userId: string
+    event: LifecycleEvent
+    provider: 'stripe' | 'razorpay'
+    providerSubscriptionId?: string | null
+    currentPeriodEnd?: Date | null
+  },
+): Promise<string> {
+  try {
+    await applyLifecycleEvent(db, input)
+  } catch (err) {
+    if (err instanceof AppError && err.code === ERROR_CODES.ILLEGAL_STATE) {
+      await appendAudit(db, {
+        event: 'billing.illegal_transition',
+        severity: 'warning',
+        userId: input.userId,
+        detail: { provider: input.provider, event: input.event, reason: err.message },
+      })
+      return input.userId
+    }
+    throw err
+  }
+  return input.userId
+}
+
+/** Resolve a Cairn user id from a metadata hint, else by provider subscription/customer id. */
+async function resolveStripeUser(
+  db: Db,
+  hint: { userId?: string | null; subscriptionId?: string | null; customerId?: string | null },
+): Promise<string | null> {
+  if (hint.userId) return hint.userId
+  if (hint.subscriptionId) {
+    const rows = await db
+      .select({ userId: subscriptions.userId })
+      .from(subscriptions)
+      .where(eq(subscriptions.providerSubscriptionId, hint.subscriptionId))
+      .limit(1)
+    if (rows[0]) return rows[0].userId
+  }
+  if (hint.customerId) {
+    const rows = await db
+      .select({ userId: subscriptions.userId })
+      .from(subscriptions)
+      .where(eq(subscriptions.providerCustomerId, hint.customerId))
+      .limit(1)
+    if (rows[0]) return rows[0].userId
+  }
+  return null
+}
+
 // ── Stripe event dispatcher ──────────────────────────────────────────────────────────
 
-async function dispatchStripeEvent(db: Db, event: Stripe.Event): Promise<void> {
-  switch (event.type) {
+/** Returns the affected user id (for cache invalidation), or null if the event was ignored. */
+async function dispatchStripeEvent(db: Db, event: Stripe.Event): Promise<string | null> {
+  // Switch on the raw type string so newer event names (e.g. `refund.created`) that may
+  // not be in this SDK version's literal union still compile; payloads are cast below.
+  switch (event.type as string) {
     case 'customer.subscription.created':
     case 'customer.subscription.updated': {
       const sub = event.data.object as Stripe.Subscription
       const userId = sub.metadata['cairn_user_id']
-      if (!userId) return
-      const entitlement = stripeStatusToEntitlement(sub.status)
-      const periodEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null
-      const providerCustomerId =
-        typeof sub.customer === 'string' ? sub.customer : (sub.customer?.id ?? null)
-      await db
-        .insert(subscriptions)
-        .values({
+      if (!userId) return null
+      const periodEnd = unixToDate(sub.current_period_end)
+      const customerId = typeof sub.customer === 'string' ? sub.customer : (sub.customer?.id ?? null)
+
+      // Stripe's status is authoritative for the entry / direct status changes.
+      if (sub.status === 'trialing') {
+        await seedSubscription(db, {
           userId,
-          entitlement,
-          currentPeriodEnd: periodEnd,
+          status: 'trial',
           provider: 'stripe',
-          providerCustomerId,
+          providerCustomerId: customerId,
           providerSubscriptionId: sub.id,
+          currentPeriodEnd: periodEnd,
+          trialEndsAt: unixToDate(sub.trial_end),
         })
-        .onConflictDoUpdate({
-          target: subscriptions.userId,
-          set: {
-            entitlement,
-            currentPeriodEnd: periodEnd,
-            provider: 'stripe',
-            providerCustomerId,
-            providerSubscriptionId: sub.id,
-            updatedAt: new Date(),
-          },
+        return userId
+      }
+      if (sub.status === 'active') {
+        await seedSubscription(db, {
+          userId,
+          status: 'active',
+          provider: 'stripe',
+          providerCustomerId: customerId,
+          providerSubscriptionId: sub.id,
+          currentPeriodEnd: periodEnd,
         })
-      return
+        return userId
+      }
+      if (sub.status === 'past_due' || sub.status === 'unpaid') {
+        return runLifecycle(db, {
+          userId,
+          event: 'payment_failed',
+          provider: 'stripe',
+          providerSubscriptionId: sub.id,
+          currentPeriodEnd: periodEnd,
+        })
+      }
+      if (sub.status === 'canceled') {
+        return runLifecycle(db, {
+          userId,
+          event: 'canceled',
+          provider: 'stripe',
+          providerSubscriptionId: sub.id,
+          currentPeriodEnd: periodEnd,
+        })
+      }
+      return userId
     }
+
+    case 'invoice.paid':
+    case 'invoice.payment_succeeded': {
+      const invoice = event.data.object as Stripe.Invoice & {
+        subscription?: string | { id?: string } | null
+        subscription_details?: { metadata?: Record<string, string> | null } | null
+      }
+      const subscriptionId =
+        typeof invoice.subscription === 'string'
+          ? invoice.subscription
+          : (invoice.subscription?.id ?? null)
+      const userId = await resolveStripeUser(db, {
+        userId: invoice.subscription_details?.metadata?.['cairn_user_id'] ?? null,
+        subscriptionId,
+      })
+      if (!userId) return null
+      return runLifecycle(db, {
+        userId,
+        event: 'payment_succeeded',
+        provider: 'stripe',
+        providerSubscriptionId: subscriptionId,
+        currentPeriodEnd: unixToDate(invoice.lines.data[0]?.period?.end ?? invoice.period_end),
+      })
+    }
+
+    case 'invoice.payment_failed': {
+      const invoice = event.data.object as Stripe.Invoice & {
+        subscription?: string | { id?: string } | null
+        subscription_details?: { metadata?: Record<string, string> | null } | null
+      }
+      const subscriptionId =
+        typeof invoice.subscription === 'string'
+          ? invoice.subscription
+          : (invoice.subscription?.id ?? null)
+      const userId = await resolveStripeUser(db, {
+        userId: invoice.subscription_details?.metadata?.['cairn_user_id'] ?? null,
+        subscriptionId,
+      })
+      if (!userId) return null
+      return runLifecycle(db, {
+        userId,
+        event: 'payment_failed',
+        provider: 'stripe',
+        providerSubscriptionId: subscriptionId,
+      })
+    }
+
     case 'customer.subscription.deleted': {
       const sub = event.data.object as Stripe.Subscription
       const userId = sub.metadata['cairn_user_id']
-      if (!userId) return
-      await db
-        .update(subscriptions)
-        .set({ entitlement: 'free', currentPeriodEnd: null, updatedAt: new Date() })
-        .where(eq(subscriptions.userId, userId))
-      return
+      if (!userId) return null
+      return runLifecycle(db, {
+        userId,
+        event: 'canceled',
+        provider: 'stripe',
+        providerSubscriptionId: sub.id,
+        currentPeriodEnd: unixToDate(sub.current_period_end),
+      })
     }
-    // All other events: already audit-logged by the caller; no state change.
-  }
-}
 
-function stripeStatusToEntitlement(status: string): EntitlementValue {
-  if (status === 'active') return 'pro'
-  if (status === 'trialing') return 'trial'
-  return 'free'
+    case 'charge.refunded':
+    case 'refund.created': {
+      const obj = event.data.object as {
+        customer?: string | { id?: string } | null
+        metadata?: Record<string, string> | null
+      }
+      const customerId = typeof obj.customer === 'string' ? obj.customer : (obj.customer?.id ?? null)
+      const userId = await resolveStripeUser(db, {
+        userId: obj.metadata?.['cairn_user_id'] ?? null,
+        customerId,
+      })
+      if (!userId) return null
+      return runLifecycle(db, { userId, event: 'refunded', provider: 'stripe' })
+    }
+
+    default:
+      // Audit-logged by the caller; no state change.
+      return null
+  }
 }
 
 // ── Razorpay event dispatcher ────────────────────────────────────────────────────────
 
-async function dispatchRazorpayEvent(db: Db, event: RazorpayWebhookEvent): Promise<void> {
+async function dispatchRazorpayEvent(db: Db, event: RazorpayWebhookEvent): Promise<string | null> {
+  const entity = event.payload.subscription?.entity
+  const userId = entity?.notes?.['cairn_user_id'] ?? null
+  const subId = entity?.id ?? null
+  const periodEnd = unixToDate(entity?.current_end)
+
   switch (event.event) {
-    case 'subscription.activated':
+    case 'subscription.activated': {
+      if (!userId) return null
+      await seedSubscription(db, {
+        userId,
+        status: 'active',
+        provider: 'razorpay',
+        providerSubscriptionId: subId,
+        currentPeriodEnd: periodEnd,
+      })
+      return userId
+    }
     case 'subscription.charged': {
-      const entity = event.payload.subscription?.entity
-      const userId = entity?.notes?.['cairn_user_id']
-      if (!userId) return
-      const providerSubscriptionId = entity?.id ?? null
-      await db
-        .insert(subscriptions)
-        .values({ userId, entitlement: 'pro', provider: 'razorpay', providerSubscriptionId })
-        .onConflictDoUpdate({
-          target: subscriptions.userId,
-          set: {
-            entitlement: 'pro',
-            provider: 'razorpay',
-            providerSubscriptionId,
-            updatedAt: new Date(),
-          },
-        })
-      return
+      if (!userId) return null
+      return runLifecycle(db, {
+        userId,
+        event: 'payment_succeeded',
+        provider: 'razorpay',
+        providerSubscriptionId: subId,
+        currentPeriodEnd: periodEnd,
+      })
     }
-    case 'subscription.cancelled':
+    case 'subscription.pending':
+    case 'subscription.halted': {
+      if (!userId) return null
+      return runLifecycle(db, {
+        userId,
+        event: 'payment_failed',
+        provider: 'razorpay',
+        providerSubscriptionId: subId,
+        currentPeriodEnd: periodEnd,
+      })
+    }
+    case 'subscription.cancelled': {
+      if (!userId) return null
+      return runLifecycle(db, {
+        userId,
+        event: 'canceled',
+        provider: 'razorpay',
+        providerSubscriptionId: subId,
+        currentPeriodEnd: periodEnd,
+      })
+    }
     case 'subscription.expired': {
-      const userId = event.payload.subscription?.entity.notes?.['cairn_user_id']
-      if (!userId) return
-      await db
-        .update(subscriptions)
-        .set({ entitlement: 'free', updatedAt: new Date() })
-        .where(eq(subscriptions.userId, userId))
-      return
+      if (!userId) return null
+      return runLifecycle(db, { userId, event: 'canceled', provider: 'razorpay', providerSubscriptionId: subId })
     }
+    case 'refund.created':
+    case 'refund.processed': {
+      if (!userId) return null
+      return runLifecycle(db, { userId, event: 'refunded', provider: 'razorpay' })
+    }
+    default:
+      return null
   }
 }
 

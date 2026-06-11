@@ -5,6 +5,7 @@ import helmet from '@fastify/helmet'
 import rateLimit from '@fastify/rate-limit'
 import Fastify from 'fastify'
 import { AuthService } from './auth/service'
+import { EntitlementService } from './billing/entitlement-service'
 import { createBillingProviders } from './billing/registry'
 import { createEmailProvider } from './email'
 import { AppError } from './lib/errors'
@@ -37,6 +38,8 @@ export interface BuildAppOptions {
   readonly rateLimitStore?: RateLimitStore
   /** Defaults to the providers configured in `env`. Tests inject fakes (no network). */
   readonly billingProviders?: BillingProviders
+  /** Defaults to a fresh service over `db`. Tests may inject one with a controllable cache. */
+  readonly entitlements?: EntitlementService
 }
 
 export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> {
@@ -99,8 +102,9 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   const email = opts.emailProvider ?? createEmailProvider(env, app.log)
   const authService = new AuthService({ db, env, email, logger: app.log })
   const billingProviders = opts.billingProviders ?? createBillingProviders(env)
+  const entitlements = opts.entitlements ?? new EntitlementService(db)
 
-  registerRoutes(app, { authService, env, limiter, db, billingProviders })
+  registerRoutes(app, { authService, env, limiter, db, billingProviders, entitlements })
 
   // --- Uniform error + not-found envelopes.
   app.setNotFoundHandler((_req, reply) => {

@@ -29,6 +29,10 @@ export const ERROR_CODES = {
   NOT_IMPLEMENTED: 'NOT_IMPLEMENTED',
   /** A paid entitlement is required and the caller does not have it. */
   PAYMENT_REQUIRED: 'PAYMENT_REQUIRED',
+  /** A paid (cloud-sync) feature was used without entitlement; the client shows the upgrade flow. */
+  UPGRADE_REQUIRED: 'UPGRADE_REQUIRED',
+  /** A subscription state-machine transition that the §20.5 graph does not allow. */
+  ILLEGAL_STATE: 'ILLEGAL_STATE',
   /** Request body exceeds the allowed size limit. */
   PAYLOAD_TOO_LARGE: 'PAYLOAD_TOO_LARGE',
   /** A resource conflict — e.g. duplicate idempotency key. */

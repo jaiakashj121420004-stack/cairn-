@@ -4,6 +4,7 @@ import {
   cancelOutputSchema,
   checkoutOutputSchema,
 } from '@cairn/shared-zod'
+import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { subscriptions } from '../../src/db/schema'
 import {
@@ -107,6 +108,7 @@ describe('GET /billing/status', () => {
     await ctx.handle.db.insert(subscriptions).values({
       userId,
       entitlement: 'pro',
+      status: 'active',
       currentPeriodEnd: periodEnd,
       provider: 'stripe',
       providerCustomerId: 'cus_1',
@@ -151,7 +153,7 @@ describe('POST /billing/checkout', () => {
     const res = await postJson(
       ctx.app,
       '/billing/checkout',
-      { provider: 'stripe', plan: 'pro' },
+      { country: 'US', plan: 'pro' },
       bearer(accessToken),
     )
     expect(res.statusCode).toBe(200)
@@ -163,6 +165,17 @@ describe('POST /billing/checkout', () => {
     expect(stripe.checkouts[0]?.userId).toBe(userId)
     expect(stripe.checkouts[0]?.email).toBe(email)
     expect(stripe.checkouts[0]?.plan).toBe('pro')
+    // Interval defaults to monthly; country US routes to Stripe (non-IN).
+    expect(stripe.checkouts[0]?.interval).toBe('monthly')
+
+    // A trial subscription row is seeded before the redirect so Pro works immediately.
+    const seeded = await ctx.handle.db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.userId, userId))
+    expect(seeded[0]?.status).toBe('trial')
+    expect(seeded[0]?.entitlement).toBe('trial')
+    expect(seeded[0]?.billingRegion).toBe('US')
   })
 
   it('defaults the plan to pro when omitted', async () => {
@@ -170,31 +183,32 @@ describe('POST /billing/checkout', () => {
     const res = await postJson(
       ctx.app,
       '/billing/checkout',
-      { provider: 'stripe' },
+      { country: 'US' },
       bearer(accessToken),
     )
     expect(res.statusCode).toBe(200)
     expect(stripe.checkouts[0]?.plan).toBe('pro')
+    expect(stripe.checkouts[0]?.interval).toBe('monthly')
   })
 
-  it('returns 501 for a provider that is not configured', async () => {
+  it('routes IN to Razorpay and returns 501 when that gateway is not configured', async () => {
     const { accessToken } = await createVerifiedUser(ctx)
     const res = await postJson(
       ctx.app,
       '/billing/checkout',
-      { provider: 'razorpay' },
+      { country: 'IN' },
       bearer(accessToken),
     )
     expect(res.statusCode).toBe(501)
     expect(res.json().error.code).toBe('NOT_IMPLEMENTED')
   })
 
-  it('rejects an unknown provider with 400', async () => {
+  it('rejects an invalid country code with 400', async () => {
     const { accessToken } = await createVerifiedUser(ctx)
     const res = await postJson(
       ctx.app,
       '/billing/checkout',
-      { provider: 'paypal' },
+      { country: 'USA' },
       bearer(accessToken),
     )
     expect(res.statusCode).toBe(400)

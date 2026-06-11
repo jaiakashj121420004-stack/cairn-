@@ -143,6 +143,14 @@ export const ENTITLEMENTS = ['free', 'trial', 'pro'] as const
 export type EntitlementValue = (typeof ENTITLEMENTS)[number]
 
 /**
+ * Subscription lifecycle status — the §20.5 state machine's position. Distinct from
+ * `entitlement` (the feature-gating value): a `past_due` row still grants `pro`
+ * features until its grace window lapses. Absence of a row ⇒ free (no lifecycle).
+ */
+export const SUBSCRIPTION_STATUSES = ['trial', 'active', 'past_due', 'canceled'] as const
+export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number]
+
+/**
  * Canonical subscription state for a user (CLAUDE.md §2.14). The full billing
  * machinery lands in Stage 6; here it backs `resolveEntitlement` so the access
  * token can carry the right entitlement. Absence of a row ⇒ free.
@@ -155,6 +163,12 @@ export const subscriptions = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     entitlement: text('entitlement').notNull().$type<EntitlementValue>().default('free'),
+    /** Lifecycle position in the §20.5 state machine. Seeded `trial` at checkout. */
+    status: text('status').notNull().$type<SubscriptionStatus>().default('trial'),
+    /** When a free trial ends (set at checkout: now + 14 days). Null once converted. */
+    trialEndsAt: timestamp('trial_ends_at', { withTimezone: true }),
+    /** Region recorded at checkout that selected the gateway (`IN` ⇒ Razorpay). */
+    billingRegion: text('billing_region'),
     /** When the current entitlement lapses (trial end / paid period end). */
     currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
     /** Grace-period hard cutoff after a failed renewal (CLAUDE.md §20). */

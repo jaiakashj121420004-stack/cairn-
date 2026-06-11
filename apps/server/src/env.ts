@@ -96,6 +96,12 @@ const envSchema = z.object({
   BILLING_CANCEL_URL: z.string().url().optional(),
   /** Where the customer portal returns to. Defaults under APP_URL. */
   BILLING_PORTAL_RETURN_URL: z.string().url().optional(),
+  /** Where a 402 (cloud-sync gated) response sends the user. Defaults to APP_URL/pricing. */
+  BILLING_UPGRADE_URL: z.string().url().optional(),
+  /** Stripe annual recurring price id. Optional; checkout falls back to the monthly price. */
+  STRIPE_PRICE_ID_ANNUAL: z.string().optional(),
+  /** Razorpay annual plan id. Optional; checkout falls back to the monthly plan. */
+  RAZORPAY_PLAN_ID_ANNUAL: z.string().optional(),
 
   // ── Admin ─────────────────────────────────────────────────────────────────────────────
   /**

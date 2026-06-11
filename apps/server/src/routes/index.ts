@@ -8,6 +8,7 @@ import { registerVaultRoutes } from '../vault/routes'
 import { registerWebhookRoutes } from '../webhooks/routes'
 import type { AuthService } from '../auth/service'
 import type { BillingProviders } from '../billing/provider'
+import type { EntitlementService } from '../billing/entitlement-service'
 import type { Db } from '../db/client'
 import type { Env } from '../env'
 import type { RateLimiter } from '../lib/rate-limit'
@@ -23,6 +24,7 @@ export interface RouteDeps {
   readonly limiter: RateLimiter
   readonly db: Db
   readonly billingProviders: BillingProviders
+  readonly entitlements: EntitlementService
 }
 
 export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
@@ -36,12 +38,13 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
 
   registerAuthRoutes(app, { authService: deps.authService, env: deps.env, limiter: deps.limiter })
   registerDeviceRoutes(app, { db: deps.db, env: deps.env })
-  registerVaultRoutes(app, { db: deps.db, env: deps.env })
-  registerWebhookRoutes(app, { db: deps.db, env: deps.env })
+  registerVaultRoutes(app, { db: deps.db, env: deps.env, entitlements: deps.entitlements })
+  registerWebhookRoutes(app, { db: deps.db, env: deps.env, entitlements: deps.entitlements })
   registerBillingRoutes(app, {
     db: deps.db,
     env: deps.env,
     billingProviders: deps.billingProviders,
+    entitlements: deps.entitlements,
   })
   registerAdminRoutes(app, { db: deps.db, env: deps.env })
 }

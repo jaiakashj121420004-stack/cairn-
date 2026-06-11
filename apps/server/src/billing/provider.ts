@@ -1,4 +1,5 @@
 import type { PlanId } from './plans'
+import type { BillingInterval } from '@cairn/shared-zod'
 import type { IncomingHttpHeaders } from 'node:http'
 
 /**
@@ -24,6 +25,8 @@ export interface CheckoutInput {
   readonly userId: string
   readonly email: string
   readonly plan: PlanId
+  /** Monthly or annual — selects which provider price/plan id is charged. */
+  readonly interval: BillingInterval
   /** Where the provider redirects after a successful checkout. */
   readonly successUrl: string
   /** Where the provider redirects if the user abandons checkout. */

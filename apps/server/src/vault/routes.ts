@@ -14,6 +14,7 @@ import { authedUser, makeRequireAuth, requireVerifiedEmail } from '../auth/middl
 import { devices, vaultMeta, vaultOps } from '../db/schema'
 import { AppError } from '../lib/errors'
 import { parseBody, sendError, sendValidated, toAppError } from '../lib/http'
+import type { EntitlementService } from '../billing/entitlement-service'
 import type { Db } from '../db/client'
 import type { Env } from '../env'
 import type { KdfParamsWire, WrappedKeyWire } from '@cairn/shared-zod'
@@ -42,11 +43,27 @@ const PULL_PAGE_SIZE = 500
 export interface VaultRouteDeps {
   readonly db: Db
   readonly env: Env
+  readonly entitlements: EntitlementService
 }
 
 export function registerVaultRoutes(app: FastifyInstance, deps: VaultRouteDeps): void {
-  const { db, env } = deps
+  const { db, env, entitlements } = deps
   const requireAuth = makeRequireAuth(env)
+
+  /**
+   * Gate cloud sync behind the paid entitlement (CLAUDE.md §20, §2.14). Free users keep
+   * full local-first use forever; pushing/pulling ciphertext to the server is Pro-only.
+   * A blocked caller gets a 402 carrying `UPGRADE_REQUIRED` + the upgrade URL so the
+   * client can open the upgrade flow without hard-coding a price or provider.
+   */
+  async function requireCloudSync(userId: string): Promise<void> {
+    if (await entitlements.canUse(userId, 'cloud_sync')) return
+    const upgradeUrl = env.BILLING_UPGRADE_URL ?? `${env.APP_URL}/pricing`
+    throw new AppError(ERROR_CODES.UPGRADE_REQUIRED, 'cloud sync requires Cairn Pro', {
+      code: 'UPGRADE_REQUIRED',
+      upgrade_url: upgradeUrl,
+    })
+  }
 
   // GET /vault/manifest — per-table high-water marks and key/schema versions.
   app.get(
@@ -92,6 +109,7 @@ export function registerVaultRoutes(app: FastifyInstance, deps: VaultRouteDeps):
       try {
         const input = parseBody(vaultPushSchema, req.body)
         const userId = authedUser(req).userId
+        await requireCloudSync(userId)
 
         // Verify the device belongs to the calling user and is not revoked.
         const deviceRows = await db
@@ -154,6 +172,7 @@ export function registerVaultRoutes(app: FastifyInstance, deps: VaultRouteDeps):
       try {
         const input = parseBody(vaultPullSchema, req.body)
         const userId = authedUser(req).userId
+        await requireCloudSync(userId)
 
         const where = buildPullWhere(
           userId,
