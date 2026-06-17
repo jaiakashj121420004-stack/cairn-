@@ -13,6 +13,7 @@ import {
 import { AppError } from '../lib/errors'
 import { parseBody, sendError, sendOk, sendValidated, toAppError } from '../lib/http'
 import { HOUR, MINUTES_15 } from '../lib/rate-limit'
+import { signupTotal, signupVerifiedTotal } from '../telemetry/metrics'
 import { clearRefreshCookie, readRefreshCookie, setRefreshCookie } from './cookies'
 import type { AuthService, RequestContext } from './service'
 import type { Env } from '../env'
@@ -69,6 +70,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
       if (await blocked(reply, `signup:ip:${req.ip}`, SIGNUP_IP)) return
       if (await blocked(reply, `signup:email:${input.email}`, SIGNUP_EMAIL)) return
       const data = await authService.signup(input, contextOf(req))
+      signupTotal.add(1)
       sendOk(reply, data)
     } catch (err) {
       sendError(reply, toAppError(err))
@@ -80,6 +82,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
     try {
       const { token } = parseBody(verifyEmailSchema, req.body)
       const data = await authService.verifyEmail(token)
+      signupVerifiedTotal.add(1)
       sendOk(reply, data)
     } catch (err) {
       sendError(reply, toAppError(err))

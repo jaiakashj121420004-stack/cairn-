@@ -13,6 +13,8 @@ import { sendError } from './lib/http'
 import { MemoryRateLimitStore, RateLimiter } from './lib/rate-limit'
 import { buildLogger } from './logger'
 import { registerRoutes } from './routes/index'
+import { httpRequestDurationMs, httpRequestsTotal } from './telemetry/metrics'
+import { captureException } from './telemetry/sentry'
 import type { BillingProviders } from './billing/provider'
 import type { Db } from './db/client'
 import type { EmailProvider } from './email'
@@ -93,6 +95,15 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     errorResponseBuilder: () => new AppError(ERROR_CODES.RATE_LIMITED, 'too many requests'),
   })
 
+  // --- Request metrics (CLAUDE.md §18.9). Route pattern (not literal URL) keeps
+  // label cardinality bounded; falls back to the raw URL for unmatched (404) requests.
+  app.addHook('onResponse', (req, reply, done) => {
+    const route = req.routeOptions.url ?? req.url
+    httpRequestsTotal.add(1, { route, method: req.method, status_code: reply.statusCode })
+    httpRequestDurationMs.record(reply.elapsedTime, { route, method: req.method })
+    done()
+  })
+
   app.decorateRequest('user', null)
 
   const store = opts.rateLimitStore ?? new MemoryRateLimitStore()
@@ -128,6 +139,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       return
     }
     req.log.error({ err }, 'unhandled error')
+    captureException(err)
     sendError(reply, new AppError(ERROR_CODES.INTERNAL, 'internal server error'))
   })
 

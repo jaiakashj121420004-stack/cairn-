@@ -1,6 +1,6 @@
 import { and, eq, isNotNull, lte, or } from 'drizzle-orm'
-import { appendAudit } from '../lib/audit'
 import { subscriptions } from '../db/schema'
+import { appendAudit } from '../lib/audit'
 import { transition } from './state-machine'
 import type { BillingEventKind } from './state-machine'
 import type { Db } from '../db/client'
@@ -161,6 +161,11 @@ function effectFor(
         graceUntil: null,
         currentPeriodEnd: incomingPeriodEnd,
       }
+    default: {
+      // Exhaustive: SubscriptionStatus has no other members.
+      const exhaustive: never = next
+      return exhaustive
+    }
   }
 }
 

@@ -1,5 +1,7 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
+import { OtelDrizzleLogger } from '../telemetry/db-tracing'
+import { isOtelEnabled } from '../telemetry/otel'
 import * as schema from './schema'
 import type { ExtractTablesWithRelations } from 'drizzle-orm'
 import type { PgDatabase } from 'drizzle-orm/pg-core'
@@ -35,7 +37,10 @@ export function createDb(
   options?: postgres.Options<NonNullable<unknown>>,
 ): DbHandle {
   const client = postgres(connectionString, { max: 10, ...options })
-  const db = drizzle(client, { schema })
+  const db = drizzle(client, {
+    schema,
+    ...(isOtelEnabled() ? { logger: new OtelDrizzleLogger() } : {}),
+  })
   return {
     db,
     sql: client,

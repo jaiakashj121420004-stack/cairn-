@@ -14,6 +14,7 @@ import { authedUser, makeRequireAuth, requireVerifiedEmail } from '../auth/middl
 import { devices, vaultMeta, vaultOps } from '../db/schema'
 import { AppError } from '../lib/errors'
 import { parseBody, sendError, sendValidated, toAppError } from '../lib/http'
+import { syncPushOpsTotal } from '../telemetry/metrics'
 import type { EntitlementService } from '../billing/entitlement-service'
 import type { Db } from '../db/client'
 import type { Env } from '../env'
@@ -157,6 +158,7 @@ export function registerVaultRoutes(app: FastifyInstance, deps: VaultRouteDeps):
           return ids
         })
 
+        syncPushOpsTotal.add(op_ids.length)
         sendValidated(reply, vaultPushOutputSchema, { op_ids })
       } catch (err) {
         sendError(reply, toAppError(err))

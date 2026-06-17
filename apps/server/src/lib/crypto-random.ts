@@ -28,3 +28,16 @@ export function timingSafeEqualHex(a: string, b: string): boolean {
   if (bufA.length !== bufB.length) return false
   return timingSafeEqual(bufA, bufB)
 }
+
+/**
+ * Constant-time comparison of two arbitrary UTF-8 strings (e.g. a presented bearer
+ * token vs. a configured secret). Length is allowed to leak (it must, to size the
+ * buffers), but match position is not — a plain `===`/`!==` early-exits on the first
+ * differing byte and leaks how much of the secret was guessed.
+ */
+export function timingSafeEqualUtf8(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, 'utf8')
+  const bufB = Buffer.from(b, 'utf8')
+  if (bufA.length !== bufB.length) return false
+  return timingSafeEqual(bufA, bufB)
+}

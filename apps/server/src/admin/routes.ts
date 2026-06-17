@@ -2,6 +2,7 @@ import { ERROR_CODES } from '@cairn/shared-types'
 import { desc } from 'drizzle-orm'
 import { auditLog } from '../db/schema'
 import { auditLogOutputSchema } from '../lib/contracts'
+import { timingSafeEqualUtf8 } from '../lib/crypto-random'
 import { AppError } from '../lib/errors'
 import { sendError, sendValidated, toAppError } from '../lib/http'
 import type { Db } from '../db/client'
@@ -34,7 +35,8 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminRouteDeps):
       }
 
       const bearer = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '')
-      if (!bearer || bearer !== env.ADMIN_TOKEN) {
+      // Constant-time compare so a guesser can't learn the token byte-by-byte from timing.
+      if (!bearer || !timingSafeEqualUtf8(bearer, env.ADMIN_TOKEN)) {
         throw new AppError(ERROR_CODES.UNAUTHENTICATED, 'invalid admin token')
       }
 

@@ -107,5 +107,10 @@ export function deriveSubscription(row: SubscriptionRow | null, now: number): De
       }
       return { ...FREE, state: 'canceled', currentPeriodEnd: row.currentPeriodEnd }
     }
+    default: {
+      // Exhaustive: SubscriptionStatus has no other members.
+      const exhaustive: never = row.status
+      return exhaustive
+    }
   }
 }

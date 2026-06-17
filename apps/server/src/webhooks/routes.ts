@@ -9,6 +9,7 @@ import { webhookAckSchema } from '../lib/contracts'
 import { timingSafeEqualHex } from '../lib/crypto-random'
 import { AppError } from '../lib/errors'
 import { sendError, sendValidated, toAppError } from '../lib/http'
+import { webhookReceivedTotal } from '../telemetry/metrics'
 import type { LifecycleEvent } from '../billing/apply'
 import type { EntitlementService } from '../billing/entitlement-service'
 import type { Db } from '../db/client'
@@ -90,6 +91,7 @@ export function registerWebhookRoutes(app: FastifyInstance, deps: WebhookRouteDe
           .returning({ id: webhookEvents.id })
 
         if (inserted.length === 0) {
+          webhookReceivedTotal.add(1, { provider: 'stripe', outcome: 'duplicate' })
           sendValidated(reply, webhookAckSchema, { received: true, duplicate: true })
           return
         }
@@ -103,6 +105,7 @@ export function registerWebhookRoutes(app: FastifyInstance, deps: WebhookRouteDe
         const userId = await dispatchStripeEvent(db, event)
         if (userId) await entitlements.invalidate(userId)
 
+        webhookReceivedTotal.add(1, { provider: 'stripe', outcome: 'accepted' })
         sendValidated(reply, webhookAckSchema, { received: true, duplicate: false })
       } catch (err) {
         sendError(reply, toAppError(err))
@@ -151,6 +154,7 @@ export function registerWebhookRoutes(app: FastifyInstance, deps: WebhookRouteDe
           .returning({ id: webhookEvents.id })
 
         if (inserted.length === 0) {
+          webhookReceivedTotal.add(1, { provider: 'razorpay', outcome: 'duplicate' })
           sendValidated(reply, webhookAckSchema, { received: true, duplicate: true })
           return
         }
@@ -164,6 +168,7 @@ export function registerWebhookRoutes(app: FastifyInstance, deps: WebhookRouteDe
         const userId = await dispatchRazorpayEvent(db, parsed)
         if (userId) await entitlements.invalidate(userId)
 
+        webhookReceivedTotal.add(1, { provider: 'razorpay', outcome: 'accepted' })
         sendValidated(reply, webhookAckSchema, { received: true, duplicate: false })
       } catch (err) {
         sendError(reply, toAppError(err))

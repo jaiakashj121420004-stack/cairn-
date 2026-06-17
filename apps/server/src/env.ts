@@ -115,6 +115,25 @@ const envSchema = z.object({
     .enum(['true', 'false'])
     .transform((v) => v === 'true')
     .optional(),
+
+  // ── Observability (CLAUDE.md §18.9) ─────────────────────────────────────────────────────
+  /** Sentry DSN. Server-side error reporting is always-on (no opt-in) once set; unset = no-op. */
+  SENTRY_DSN: z.string().url().optional(),
+  /** Sentry `environment` tag. Defaults to NODE_ENV. */
+  SENTRY_ENVIRONMENT: z.string().optional(),
+  /** Sentry release identifier (e.g. git SHA), surfaced in error grouping. */
+  SENTRY_RELEASE: z.string().optional(),
+
+  /** OTLP collector base URL (e.g. Grafana Tempo Cloud / Honeycomb). Unset = tracing/metrics disabled. */
+  OTEL_EXPORTER_OTLP_ENDPOINT: z.string().url().optional(),
+  /** Comma-separated `key=value` headers sent with every OTLP export (auth tokens etc). */
+  OTEL_EXPORTER_OTLP_HEADERS: z.string().optional(),
+  /** Head-sample ratio for healthy (non-error, non-slow) traces. */
+  OTEL_TRACES_SAMPLE_RATIO: z.coerce.number().min(0).max(1).default(0.1),
+  /** Spans at or above this duration are always exported, regardless of sample ratio. */
+  OTEL_SLOW_SPAN_MS: z.coerce.number().int().positive().default(1000),
+  /** Metrics export interval, in milliseconds. */
+  OTEL_METRIC_EXPORT_INTERVAL_MS: z.coerce.number().int().positive().default(15_000),
 })
 
 /** The validated, immutable environment shape. */
