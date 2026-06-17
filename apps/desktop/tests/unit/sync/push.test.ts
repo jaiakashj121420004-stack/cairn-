@@ -309,6 +309,21 @@ describe('pushOnce — outcomes', () => {
     expect(queue.size()).toBe(1)
   })
 
+  it('402 → upgrade-required (rows retained, distinct from a generic 4xx)', async () => {
+    const queue = new FakeQueue([row()])
+    const outcome = await pushOnce({
+      queue,
+      api: new ScriptedApi([
+        { status: 402, body: { error: { code: 'UPGRADE_REQUIRED', message: 'pro required' } } },
+      ]),
+      ctx: ctxWith({ dataKey: generateDataKey() }),
+      encrypt: createEncryptOp(),
+      log: silentLog,
+    })
+    expect(outcome).toEqual<PushOutcome>({ kind: 'upgrade-required' })
+    expect(queue.size()).toBe(1) // unpushed ops are never dropped on a paywall
+  })
+
   it('5xx → server-error (rows retained)', async () => {
     const queue = new FakeQueue([row()])
     const outcome = await pushOnce({

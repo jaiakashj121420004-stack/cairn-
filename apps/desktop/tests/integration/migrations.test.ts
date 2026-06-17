@@ -82,6 +82,7 @@ describe('migration journal wiring', () => {
       '0012_sync_merge',
       '0013_sync_clocks',
       '0014_live_detection_outcome',
+      '0015_broker_account_map',
     ])
     // Every journaled tag must resolve to a non-empty .sql file.
     for (const tag of orderedTags()) {
@@ -469,6 +470,80 @@ describe('migration 0013: sync_clocks + sync-column conformance', () => {
     )
     expect(p[0]?.updated_at ?? null).toBeNull()
     expect(p[0]?.deleted_at ?? null).toBeNull()
+    sqlite.close()
+  })
+})
+
+describe('migration 0015: broker_account_map table (Wave 4)', () => {
+  function colsOf(sqlite: SqlJsDatabase, table: string): Map<string, string> {
+    const info = sqlite.exec(`PRAGMA table_info(\`${table}\`)`)
+    return new Map(
+      (info[0]?.values ?? []).map((r) => [r[1] as string, (r[2] as string).toLowerCase()]),
+    )
+  }
+
+  it('creates broker_account_map with the binding columns + soft-delete', () => {
+    const sqlite = new SQL.Database()
+    for (const tag of orderedTags()) applyMigration(sqlite, tag)
+
+    expect(tableNames(sqlite)).toContain('broker_account_map')
+    const cols = colsOf(sqlite, 'broker_account_map')
+    for (const c of [
+      'id',
+      'broker',
+      'broker_account_id',
+      'cairn_account_id',
+      'created_at',
+      'updated_at',
+      'deleted_at',
+    ]) {
+      expect(cols.has(c)).toBe(true)
+    }
+  })
+
+  it('the partial unique index allows re-binding after a soft-delete', () => {
+    const sqlite = new SQL.Database()
+    for (const tag of orderedTags()) applyMigration(sqlite, tag)
+
+    const insert = (id: string, deletedAt: number | null) =>
+      sqlite.run(
+        `INSERT INTO broker_account_map
+           (id, broker, broker_account_id, cairn_account_id, created_at, updated_at, deleted_at)
+         VALUES (?, 'mt5', 'LOGIN-1', 'acct-1', 1, 1, ?)`,
+        [id, deletedAt],
+      )
+
+    // First binding active, then soft-deleted → a fresh active binding is allowed.
+    insert('m1', null)
+    sqlite.run(`UPDATE broker_account_map SET deleted_at = 2 WHERE id = 'm1'`)
+    expect(() => insert('m2', null)).not.toThrow()
+
+    // But two ACTIVE rows for the same (broker, account) collide on the partial index.
+    expect(() => insert('m3', null)).toThrow()
+
+    const active = queryRows(
+      sqlite,
+      `SELECT id FROM broker_account_map WHERE deleted_at IS NULL`,
+    )
+    expect(active).toEqual([{ id: 'm2' }])
+    sqlite.close()
+  })
+
+  it('applying 0015 over a populated DB disturbs no existing row (additive)', () => {
+    const sqlite = new SQL.Database()
+    const tags = orderedTags()
+    for (const tag of tags.slice(0, tags.indexOf('0015_broker_account_map'))) {
+      applyMigration(sqlite, tag)
+    }
+    sqlite.run(
+      `INSERT INTO sessions (id, account_id, session_date, daily_bias, daily_bias_reason,
+        h4_bias, h4_bias_reason, h1_bias, h1_bias_reason, created_at, updated_at)
+       VALUES ('s1','a','2026-06-10','bullish','x','bullish','x','bullish','x',1,1)`,
+    )
+    applyMigration(sqlite, '0015_broker_account_map')
+
+    expect(queryRows(sqlite, "SELECT id FROM sessions WHERE id = 's1'")).toEqual([{ id: 's1' }])
+    expect(queryRows(sqlite, 'SELECT id FROM broker_account_map')).toEqual([])
     sqlite.close()
   })
 })

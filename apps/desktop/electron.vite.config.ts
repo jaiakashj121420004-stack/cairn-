@@ -12,6 +12,7 @@ const BUNDLED_MAIN_DEPS = [
   '@scure/bip39',
   '@scure/base',
   '@noble/hashes',
+  '@cairn/shared-crypto',
   '@cairn/shared-types',
   '@cairn/shared-zod',
   '@cairn/sync-protocol',

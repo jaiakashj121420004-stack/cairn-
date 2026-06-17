@@ -385,3 +385,43 @@ describe('SessionStore vault teardown', () => {
     expect(enroller.forgotten).toEqual(['u1'])
   })
 })
+
+describe('SessionStore.onSessionChange', () => {
+  it('fires with the email on login and with null on logout', async () => {
+    const changes: (string | null)[] = []
+    const store = new SessionStore({
+      client: makeClient(),
+      persistence,
+      enroller,
+      onSessionChange: (email) => changes.push(email),
+    })
+
+    await store.login({ email: 'a@b.com', password: 'password123' })
+    expect(changes).toEqual(['a@b.com'])
+
+    await store.logout()
+    expect(changes).toEqual(['a@b.com', null])
+  })
+
+  it('fires again on refresh (token rotation re-adopts the session)', async () => {
+    const changes: (string | null)[] = []
+    const store = new SessionStore({
+      client: makeClient(),
+      persistence,
+      enroller,
+      onSessionChange: (email) => changes.push(email),
+    })
+
+    await store.login({ email: 'a@b.com', password: 'password123' })
+    await store.refresh()
+    expect(changes).toEqual(['a@b.com', 'a@b.com'])
+  })
+
+  it('is a no-op by default', async () => {
+    const store = new SessionStore({ client: makeClient(), persistence, enroller })
+    await expect(
+      store.login({ email: 'a@b.com', password: 'password123' }),
+    ).resolves.toMatchObject({ ok: true })
+    await expect(store.logout()).resolves.toMatchObject({ ok: true })
+  })
+})

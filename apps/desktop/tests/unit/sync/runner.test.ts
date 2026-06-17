@@ -197,6 +197,20 @@ describe('SyncRunner — pause on unrecoverable outcomes', () => {
     expect(timers.scheduledMs).toBe(60_000)
   })
 
+  it('upgrade-required (402) pauses and toasts a Cairn Pro upgrade prompt', async () => {
+    const { runner, timers, notify } = makeRunner(() =>
+      Promise.resolve<PushOutcome>({ kind: 'upgrade-required' }),
+    )
+
+    await runner.now()
+    await flush()
+    expect(runner.isPaused()).toBe(true)
+    expect(timers.scheduledMs).toBeNull()
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({ code: 'SYNC_UPGRADE_REQUIRED', level: 'error' }),
+    )
+  })
+
   it('wrong-key pauses and toasts a re-authenticate message', async () => {
     const { runner, timers, notify } = makeRunner(() =>
       Promise.resolve<PushOutcome>({ kind: 'wrong-key', message: 'bad key' }),

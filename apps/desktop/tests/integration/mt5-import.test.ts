@@ -4,7 +4,7 @@
 // Follows the same sql.js + drizzle-orm/sql-js pattern as notebook.test.ts.
 // Covers: import, duplicate prevention, unresolved-symbol rejection.
 
-import { vi, describe, it, expect, beforeAll } from 'vitest'
+import { vi, describe, it, expect, beforeAll, afterEach } from 'vitest'
 import type { IpcResponse, Mt5ImportPreview, Mt5CommitResult } from '../../shared/types/index'
 import { readFileSync } from 'fs'
 import { join } from 'path'
@@ -29,6 +29,8 @@ let injectedDb: unknown
 vi.mock('../../electron/db/index', () => ({ getDb: () => injectedDb }))
 
 import { registerImportHandlers } from '../../electron/ipc/import'
+import { setSyncWriteContext, VectorClockCache } from '../../electron/services/sync'
+import type { CairnDb } from '../../electron/db/index'
 
 // All migrations including the new one
 const MIGRATIONS = [
@@ -516,5 +518,97 @@ describe('migration 0008 — schema', () => {
       "SELECT name FROM sqlite_master WHERE type='index' AND name='trades_external_ref_uq'",
     )
     expect(idx[0]?.values?.length).toBe(1)
+  })
+})
+
+// ─── Sync enqueue (spec §7) ─────────────────────────────────────────────────────
+//
+// The bulk statement-import path must converge to the web app exactly like a manually
+// logged trade or a streamed live fill: `commitCandidates` calls `enqueueSyncOp` for
+// every imported trade and partial AFTER the DB commit (committer.ts §"Sync enqueue").
+// Mirrors broker-ingest.test.ts §"sync enqueue (spec §7)" but for the bulk path, which
+// previously had no enqueue coverage. The server only ever receives ciphertext (CLAUDE.md
+// §2.4); here we assert at the enqueue boundary — the plaintext envelope is encrypted
+// later at push time (enqueue.ts), which is already covered by sync/enqueue.test.ts.
+
+const SYNC_DEVICE_ID = '99999999-9999-9999-9999-999999999999'
+
+/** Captured `sync_queue` row (the one carrying `payload`). */
+interface CapturedSyncRow {
+  tableName: string
+  recordId: string
+  opType: string
+  payload: string
+  createdAt: number
+}
+
+/**
+ * A minimal CairnDb stand-in that captures the `sync_queue` insert, identical in shape
+ * to the fake in sync/enqueue.test.ts: enqueue runs inside `db.transaction(tx => …)` and
+ * also upserts `sync_clocks`, so the fake implements `transaction` (passing itself as tx)
+ * and an `onConflictDoUpdate` chain, capturing only the queue row (the one with `payload`).
+ */
+function captureSyncDb(sink: CapturedSyncRow[]): CairnDb {
+  const db: Record<string, unknown> = {
+    insert: () => ({
+      values: (row: Record<string, unknown>) => {
+        if ('payload' in row) sink.push(row as unknown as CapturedSyncRow)
+        const chain = { run: () => undefined, onConflictDoUpdate: () => chain }
+        return chain
+      },
+    }),
+    transaction: (fn: (tx: unknown) => void) => fn(db),
+  }
+  return db as unknown as CairnDb
+}
+
+describe('import:commitMt5 — sync enqueue (spec §7)', () => {
+  afterEach(() => setSyncWriteContext(null))
+
+  it('enqueues every imported trade and partial for sync', () => {
+    makeDb()
+    const queued: CapturedSyncRow[] = []
+    const clock = new VectorClockCache(SYNC_DEVICE_ID)
+    clock.hydrate(() => [])
+    setSyncWriteContext({ db: captureSyncDb(queued), clock, now: () => 1000 })
+
+    const result = unwrap(
+      call<Mt5CommitResult>('import:commitMt5', {
+        html: FIXTURE_HTML,
+        accountId: ACCOUNT_ID,
+        symbolMap: { XYZABC: EURUSD_PAIR_ID },
+        defaultSetupId: SETUP_ID,
+      }),
+    )
+    expect(result.imported).toBe(4)
+    expect(result.partials).toBe(1)
+
+    const tradeOps = queued.filter((q) => q.tableName === 'trades')
+    const partialOps = queued.filter((q) => q.tableName === 'trade_partials')
+
+    // One upsert op per imported trade and per imported partial — bulk import is not
+    // silently skipped by the sync layer.
+    expect(tradeOps).toHaveLength(4)
+    expect(tradeOps.every((o) => o.opType === 'upsert')).toBe(true)
+    expect(partialOps).toHaveLength(1)
+    expect(partialOps[0]?.opType).toBe('upsert')
+  })
+
+  it('is a no-op when sync is not enrolled (offline-first install)', () => {
+    makeDb()
+    setSyncWriteContext(null)
+
+    const result = unwrap(
+      call<Mt5CommitResult>('import:commitMt5', {
+        html: FIXTURE_HTML,
+        accountId: ACCOUNT_ID,
+        symbolMap: { XYZABC: EURUSD_PAIR_ID },
+        defaultSetupId: SETUP_ID,
+      }),
+    )
+
+    // The import still succeeds with no sync context registered; nothing is enqueued and
+    // the offline-first app keeps working (CLAUDE.md §2.4).
+    expect(result.imported).toBe(4)
   })
 })

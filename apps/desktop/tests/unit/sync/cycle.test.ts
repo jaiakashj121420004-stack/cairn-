@@ -51,6 +51,14 @@ describe('runSyncCycle — push then pull', () => {
     expect(out).toEqual<PushOutcome>({ kind: 'pushed', opCount: 0 })
   })
 
+  it('propagates a pull upgrade-required (402) as the cycle outcome', async () => {
+    const out = await runSyncCycle(
+      async () => ({ kind: 'pushed', opCount: 1 }),
+      async () => ({ kind: 'upgrade-required' }),
+    )
+    expect(out).toEqual<PushOutcome>({ kind: 'upgrade-required' })
+  })
+
   it('propagates a pull wrong-key as the cycle outcome', async () => {
     const out = await runSyncCycle(
       async () => ({ kind: 'pushed', opCount: 1 }),
