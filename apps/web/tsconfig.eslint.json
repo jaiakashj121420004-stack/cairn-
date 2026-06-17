@@ -1,0 +1,11 @@
+{
+  // Type-aware ESLint program for the web client (CLAUDE.md §19.3 — no-floating-promises
+  // needs type info). Extends the app tsconfig (which already maps @/* to the reused
+  // desktop sources for resolution); the lint command only *reports* on apps/web files,
+  // so desktop sources are type-resolved but linted by apps/desktop, not here.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["vite/client", "node", "@cloudflare/workers-types"]
+  },
+  "include": ["src", "functions", "tests", "*.config.ts"]
+}

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Strict CSP, belt-and-braces. The authoritative policy is the response header set
+      by functions/_middleware.ts (prod) / the dev server (dev); this <meta> is a
+      defence-in-depth fallback with the same nonce. %CSP_NONCE% is replaced per
+      response at render time — never a static value in a shipped artifact.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'nonce-%CSP_NONCE%'; style-src 'self' 'nonce-%CSP_NONCE%'; img-src 'self' data:; font-src 'self'; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+    />
+    <title>Cairn</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- The only script. nonce-gated, no inline code anywhere. -->
+    <script type="module" nonce="%CSP_NONCE%" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,10 @@
+# Static security headers (Cloudflare Pages). The per-response CSP with its nonce is set
+# by functions/_middleware.ts; these are the static defence-in-depth headers that apply
+# even to asset responses the function passes through. See CLAUDE.md §2.13, task §6.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Cross-Origin-Opener-Policy: same-origin
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  Permissions-Policy: camera=(), microphone=(), geolocation=()

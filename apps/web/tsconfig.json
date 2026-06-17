@@ -1,0 +1,47 @@
+{
+  // Web client tsconfig. Mirrors apps/desktop/tsconfig.json's strictness exactly
+  // (CLAUDE.md §2.12, §19.1) so the shared `features/**` typecheck identically on both
+  // surfaces. The only differences are the `paths`, which redirect the transport seam
+  // and `@/` to the desktop sources the web app reuses.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
+    "types": ["vite/client"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    "skipLibCheck": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+
+    "baseUrl": ".",
+    "paths": {
+      // Redirect the transport seam (apps/desktop/src/lib/transport.ts) to the web's
+      // HttpTransport. This is the ONE substitution that turns the desktop renderer into
+      // the web client; every feature keeps importing `@/lib/ipc` unchanged. Must precede
+      // the broad `@/*` rule — TS uses the most-specific matching pattern.
+      "@/lib/transport": ["./src/lib/transport-http.ts"],
+      // Everything else under `@/` resolves to the desktop's renderer sources, which the
+      // web app reuses verbatim (CLAUDE.md §3.4 — same renderer, different transport).
+      "@/*": ["../desktop/src/*"],
+      "@shared/*": ["../desktop/shared/*"],
+      // Web-local modules (crypto bridge, vault cache) live under `@web/`.
+      "@web/*": ["./src/*"],
+      // Narrow libsodium shim — same rationale as desktop (avoids the OOM on the
+      // package's ~120 KB generated declaration).
+      "libsodium-wrappers-sumo": ["../../packages/shared-crypto/types/libsodium-wrappers-sumo.d.ts"]
+    }
+  },
+  "include": ["src", "../desktop/src", "../desktop/shared"]
+}

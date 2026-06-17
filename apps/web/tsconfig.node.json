@@ -1,0 +1,18 @@
+{
+  // Build-tooling tsconfig (vite.config.ts, playwright.config.ts). Node context, so it
+  // does not include the DOM-targeted app sources.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "skipLibCheck": true
+  },
+  "include": ["vite.config.ts", "playwright.config.ts", "vitest.config.ts"]
+}
