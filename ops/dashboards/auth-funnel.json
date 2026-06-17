@@ -1,0 +1,113 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Metrics datasource receiving the cairn-api OTLP export.",
+      "type": "datasource",
+      "pluginId": "prometheus"
+    }
+  ],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.4.0" },
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" },
+    { "type": "panel", "id": "timeseries", "name": "Time series", "version": "" },
+    { "type": "panel", "id": "stat", "name": "Stat", "version": "" }
+  ],
+  "title": "Cairn Auth Funnel",
+  "uid": "cairn-auth-funnel",
+  "description": "Signup-to-verification funnel. Source instruments: signup_total, signup_verified_total (apps/server/src/telemetry/metrics.ts).",
+  "tags": ["cairn", "auth"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "time": { "from": "now-7d", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Signups started (per hour)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 30 } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "increase(signup_total[1h])",
+          "legendFormat": "signups"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Email verifications completed (per hour)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 30 } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "increase(signup_verified_total[1h])",
+          "legendFormat": "verified"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Signups vs. verifications (24h totals)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(signup_total[24h]))",
+          "legendFormat": "signups (24h)"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(increase(signup_verified_total[24h]))",
+          "legendFormat": "verified (24h)"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Verification rate (24h)",
+      "type": "stat",
+      "description": "signup_verified_total / signup_total over the trailing 24h. Note: a verification can land in a later 24h window than its signup, so this is an approximation, not an exact cohort conversion rate.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.4 },
+              { "color": "green", "value": 0.7 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(signup_verified_total[24h])) / sum(increase(signup_total[24h]))",
+          "legendFormat": "verification rate"
+        }
+      ]
+    }
+  ]
+}

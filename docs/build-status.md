@@ -128,7 +128,19 @@ Closes the one outstanding Stage 18.5 (Stage 3) scope item: "OpenAPI / Scalar do
 - **Self-hosted, offline** — Scalar's browser bundle (`@scalar/api-reference` 1.32.0, MIT) is **vendored** at `apps/server/src/docs/scalar-standalone.js` and served same-origin. No CDN, so no Subresource-Integrity gap and no external runtime dependency. (pnpm could not add a runtime dep from the Linux build sandbox — EPERM on the Windows-mounted store — so vendoring is also the only verifiable path here.)
 - **CSP** — the global helmet policy is `default-src 'none'`; the three doc routes relax CSP to *same-origin* sources only (the narrowest policy that lets Scalar render), since they serve no secrets and no user content.
 - **Tests** — `apps/server/tests/integration/docs.test.ts` (6 cases, **DB-free**): valid OpenAPI 3.1 doc; documented-paths == registered-paths drift guard; bearer security on authed endpoints; `/docs` HTML + relaxed-CSP override; vendored bundle served; all doc routes 404 when disabled.
-- **Verification** — the 6 docs tests pass and the new files typecheck clean under the repo's exact strict flags, run in a throwaway pinned-version project in the build sandbox (the repo's own `node_modules` are Windows symlinks the Linux sandbox can't resolve — same limitation noted in the 2026-05-30/31 review). **The five repo gates (typecheck · lint · full vitest · build · smoke E2E) still need a run on the Windows host** — the full server suite needs the Docker Compose Postgres, and the desktop build/E2E can't run in the sandbox.
+- **Verification — RUN ON THE WINDOWS HOST 2026-06-11, ALL GREEN.** Both the five desktop/shared repo gates and the full server suite were run on the real Windows host (transcript: `gate-logs/gates-20260611-070632.log`, driven by `run-host-gates.ps1` at the repo root):
+
+  | Gate | Result (2026-06-11) |
+  |---|---|
+  | `pnpm typecheck` | clean |
+  | `pnpm lint` (`--max-warnings 0`) | clean |
+  | `pnpm test:unit` | 102 files passed |
+  | `pnpm build` | success |
+  | `pnpm test:e2e` (smoke) | passed |
+  | Server suite (`pnpm --filter @cairn/server run test`, real Docker-Compose Postgres) | 7 files / **96 tests passed** — auth · vault · billing · webhook integration + the 6 DB-free docs tests |
+  | Docs routes smoke | `GET /openapi.json` 200 (OpenAPI **3.1.0**); `GET /docs` 200 (Scalar, relaxed CSP); `GET /docs/standalone.js` 200; strict CSP confirmed on `/health`; all three doc routes **404** when `ENABLE_API_DOCS=false` |
+
+  Two real defects were found and fixed during this host run (not test-harness papering-over): (1) the pure-ESM workspace packages `@cairn/{shared-types,shared-zod,billing-types,sync-protocol}` were missing `"type": "module"`, so `tsx` loaded them as CommonJS and the server's runtime `import { ERROR_CODES } from '@cairn/shared-types'` failed (`export *` re-exports are invisible to Node's CJS named-export lexer) — `pnpm --filter @cairn/server start` was broken on the host independent of any harness; adding `"type": "module"` to all four fixes it (verified by reproduction). (2) Host-side test DB connectivity: a local PostgreSQL owns `127.0.0.1:5432` and shadows the published container for loopback connections, so the runbook now discovers and proves a working host port at runtime (5433 this run). The earlier sandbox-only note (repo `node_modules` are Windows symlinks the Linux sandbox can't resolve) is superseded by this host run.
 
 ### Stage 18.6 (client sync half) — push / pull / merge slice — committed `363f8c8`
 
@@ -187,3 +199,57 @@ The Wave 4 surfaces (MT5 loopback EA->socket bridge, cTrader Open API adapter, l
 - **cTrader protobuf codec.** `services/broker/ctrader/connection.ts` `loadProtobufCodec()` returns `null`, so cTrader links via OAuth but does not stream until the codec is vendored.
 
 Until those two land, the **manual MT5/cTrader end-to-end QA** in `docs/broker-integration.md` 10 cannot be exercised on a live terminal; the automated round-trip test above covers the import-after-live no-duplicate path in its place.
+
+---
+
+## v0.1.1 packaged-migrations hotfix — verified 2026-06-11
+
+**Hotfix commit:** `d53be8d` (2026-06-03) — two fix sites:
+1. `apps/desktop/electron/db/index.ts`: packaged branch of `migrationsFolder` now points at `join(process.resourcesPath, 'app.asar', 'electron', 'db', 'migrations')`.
+2. `apps/desktop/electron-builder.yml`: `files` array includes `electron/db/**/*` so migrations are packed into the asar.
+
+**Repackage:** `apps/desktop/dist/Cairn Setup 0.1.0.exe` (100.6 MB) built **2026-06-07** — confirmed post-hotfix by `builder-debug.yml` timestamp (Jun 7 16:04 UTC > hotfix commit Jun 3 07:31 UTC).
+
+**Asar verification (2026-06-07 build):** `npx asar list dist/win-unpacked/resources/app.asar` confirmed all 14 SQL files (`0001_initial.sql` → `0014_live_detection_outcome.sql`) and `meta/_journal.json` present at `/electron/db/migrations/` inside the asar.
+
+**Clean-install verification (2026-06-11):** NSIS installer launched on the development machine. App opened to the onboarding screen ("Trade the plan, not the emotion.") with no crash and no `Can't find meta/_journal.json` error. The packaged migration path is operative.
+
+**Current installed version:** 0.1.0
+
+---
+
+## Stage 7 — release pipeline & launch checklist (in progress, uncommitted)
+
+**Prompt:** CLAUDE.md §18.9 Prompt C / `prompts.md` §1915-1922 (release pipeline).
+
+**Built this cycle:**
+- `apps/desktop/electron-builder.yml` — Windows `signtoolOptions` (publisher name +
+  RFC 3161 timestamp server), macOS `hardenedRuntime` + `gatekeeperAssess: false` +
+  entitlements, Linux AppImage metadata, and a `publish: { provider: github,
+  releaseType: draft }` block. Signing is wired but inert until certificates exist
+  (no `.pfx`/Apple secrets configured yet) — unsigned builds still produce normally.
+- `apps/desktop/build/entitlements.mac.plist` — hardened-runtime entitlements for
+  Electron's JIT plus `disable-library-validation` (required for the prebuilt
+  `better-sqlite3`/`keytar` native modules) and `network.client` (sync/billing/cTrader
+  HTTPS).
+- `apps/desktop/electron/main.ts` — Linux sandbox is disabled only when
+  `process.env.APPIMAGE` is set, fixing the AppImage sandbox warning without weakening
+  Windows/macOS or non-AppImage Linux packages.
+- `.github/workflows/release.yml` — new tag-triggered (`v*.*.*`) workflow: builds
+  win/mac/linux via `electron-builder --publish always` to a draft GitHub Release,
+  then generates and uploads a per-platform `checksums-<platform>.txt` (SHA-256).
+  Windows EV-cert install step is a documented, commented placeholder for SSL.com
+  eSignerCKA or Azure Trusted Signing (procurement is Akash's offline task).
+- `docs/runbook.md` §7 — new section: Windows EV cert procurement (cloud-HSM signing,
+  since file-based EV certs were discontinued June 2023), macOS notarization secrets,
+  the required GitHub secrets table, and the cut-a-release procedure (manual draft
+  review/publish — the workflow never auto-publishes).
+- `docs/launch-checklist.md` — new doc: 30-item legal/product/tech/comms launch gate
+  plus the soft-launch plan (≈50-trader invite list, 14-day stability window, daily
+  standup-with-myself log template, and the public-launch trigger condition: <0.1%
+  5xx rate and zero open P1s over the window, per `docs/runbook.md` §1 severity scale).
+
+**Not yet done:** no signing/notarization secrets exist yet, so `release.yml` has not
+been exercised on a real tag (would currently produce unsigned artifacts). Five gates
+not re-run for this change (no application code paths touched — config/docs/workflow
+only).

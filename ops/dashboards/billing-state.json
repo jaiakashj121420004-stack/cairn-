@@ -1,0 +1,152 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_POSTGRES",
+      "label": "Postgres",
+      "description": "The cairn-api Postgres database (read replica recommended). Queries the subscription table — CLAUDE.md §2.14 / §20: it is the single canonical source of subscription state.",
+      "type": "datasource",
+      "pluginId": "postgres"
+    }
+  ],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.4.0" },
+    { "type": "datasource", "id": "postgres", "name": "PostgreSQL", "version": "1.0.0" },
+    { "type": "panel", "id": "piechart", "name": "Pie chart", "version": "" },
+    { "type": "panel", "id": "stat", "name": "Stat", "version": "" },
+    { "type": "panel", "id": "table", "name": "Table", "version": "" }
+  ],
+  "title": "Cairn Billing State Distribution",
+  "uid": "cairn-billing-state",
+  "description": "Snapshot of subscription lifecycle status and entitlement distribution from the canonical `subscription` table (apps/server/src/db/schema.ts). Read-only reporting queries; never used as a hot-path entitlement check (that's EntitlementService).",
+  "tags": ["cairn", "billing"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15m",
+  "time": { "from": "now-30d", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Subscriptions by lifecycle status",
+      "type": "piechart",
+      "datasource": { "type": "postgres", "uid": "${DS_POSTGRES}" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT status, count(*) AS value FROM subscription GROUP BY status ORDER BY status",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Subscriptions by entitlement",
+      "type": "piechart",
+      "datasource": { "type": "postgres", "uid": "${DS_POSTGRES}" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT entitlement, count(*) AS value FROM subscription GROUP BY entitlement ORDER BY entitlement",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "In grace period (past_due, within grace window)",
+      "type": "stat",
+      "description": "A past_due subscription still grants its entitlement until grace_until lapses (CLAUDE.md §20). Watch this for dunning health.",
+      "datasource": { "type": "postgres", "uid": "${DS_POSTGRES}" },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 9 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 10 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT count(*) AS value FROM subscription WHERE status = 'past_due' AND grace_until > now()",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Past grace (should be canceled)",
+      "type": "stat",
+      "description": "past_due rows whose grace window has lapsed. Should trend to zero — the dunning job downgrades these to canceled.",
+      "datasource": { "type": "postgres", "uid": "${DS_POSTGRES}" },
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 9 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT count(*) AS value FROM subscription WHERE status = 'past_due' AND grace_until <= now()",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Trials ending in next 7 days",
+      "type": "stat",
+      "datasource": { "type": "postgres", "uid": "${DS_POSTGRES}" },
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 9 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT count(*) AS value FROM subscription WHERE status = 'trial' AND trial_ends_at BETWEEN now() AND now() + interval '7 days'",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Subscriptions by provider",
+      "type": "table",
+      "datasource": { "type": "postgres", "uid": "${DS_POSTGRES}" },
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 9 },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT coalesce(provider, 'none') AS provider, count(*) AS subscriptions FROM subscription GROUP BY provider ORDER BY subscriptions DESC",
+          "rawQuery": true
+        }
+      ]
+    }
+  ]
+}
