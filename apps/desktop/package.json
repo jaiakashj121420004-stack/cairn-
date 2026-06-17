@@ -1,6 +1,6 @@
 {
   "name": "@cairn/desktop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Cairn — A Discipline-First Trading Journal (Electron desktop app)",
   "private": true,
   "main": "out/main/main.js",
@@ -22,6 +22,7 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
+    "@cairn/shared-crypto": "workspace:*",
     "@cairn/shared-types": "workspace:*",
     "@cairn/shared-zod": "workspace:*",
     "@cairn/sync-protocol": "workspace:*",
@@ -43,6 +44,7 @@
     "libsodium-wrappers-sumo": "0.8.4",
     "lucide-react": "^0.469.0",
     "papaparse": "^5.5.3",
+    "protobufjs": "7.5.8",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.54.2",

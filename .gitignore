@@ -48,3 +48,12 @@ Thumbs.db
 coverage/
 test-results/
 playwright-report/
+
+# Local CI-gate run logs (transient, not source)
+gate-logs/
+
+# Claude Code transient state
+.claude/scheduled_tasks.lock
+
+# Stray temp files
+_tmp_*

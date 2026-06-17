@@ -1,6 +1,6 @@
 {
   "name": "cairn",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Cairn — A Discipline-First Trading Journal (workspace root)",
   "private": true,
   "author": "Jai Akash",
@@ -33,7 +33,10 @@
   },
   "pnpm": {
     "overrides": {
-      "zod": "3.24.1"
+      "zod": "3.24.1",
+      "shell-quote@<1.8.4": ">=1.8.4",
+      "protobufjs@<7.5.8": ">=7.5.8",
+      "brace-expansion@>=5.0.0 <5.0.6": ">=5.0.6"
     },
     "onlyBuiltDependencies": [
       "electron",
