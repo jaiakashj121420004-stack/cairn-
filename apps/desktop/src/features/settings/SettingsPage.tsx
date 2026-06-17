@@ -4,6 +4,7 @@ import { useUiStore } from '../../stores/ui-store'
 import { AccountTab } from './tabs/AccountTab'
 import { AlertsTab } from './tabs/AlertsTab'
 import { BackupsTab } from './tabs/BackupsTab'
+import { BillingTab } from './tabs/BillingTab'
 import { DataTab } from './tabs/DataTab'
 import { GeneralTab } from './tabs/GeneralTab'
 import { ImportTab } from './tabs/ImportTab'
@@ -32,6 +33,7 @@ const TABS: TabItem[] = [
   { id: 'data', label: 'Data' },
   { id: 'backups', label: 'Backups' },
   { id: 'account', label: 'Account & Sync' },
+  { id: 'billing', label: 'Billing' },
 ]
 
 export function SettingsPage() {
@@ -66,6 +68,7 @@ export function SettingsPage() {
         {activeTab === 'data' && <DataTab />}
         {activeTab === 'backups' && <BackupsTab />}
         {activeTab === 'account' && <AccountTab />}
+        {activeTab === 'billing' && <BillingTab />}
       </div>
     </div>
   )

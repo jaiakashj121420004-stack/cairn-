@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { ipc } from '../lib/ipc'
+import { setTelemetryUser } from '../lib/telemetry'
 import type { PublicSession } from '@cairn/shared-types'
 import type { LoginInput, SignupInput } from '@cairn/shared-zod'
 
@@ -69,12 +70,14 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     const restored = await ipc.auth.restore()
     if (restored.ok && restored.data) {
       set({ status: 'signed-in', session: restored.data })
+      void setTelemetryUser(restored.data.email)
       await get().refreshVaultStatus()
       return
     }
     const current = await ipc.auth.getSession()
     if (current.ok && current.data) {
       set({ status: 'signed-in', session: current.data })
+      void setTelemetryUser(current.data.email)
       await get().refreshVaultStatus()
     } else {
       set({ status: 'signed-out', session: null })
@@ -86,6 +89,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     const res = await ipc.auth.login(input)
     if (res.ok) {
       set({ status: 'signed-in', session: res.data, busy: false })
+      void setTelemetryUser(res.data.email)
       await get().refreshVaultStatus()
       return true
     }
@@ -103,6 +107,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   logout: async () => {
     set({ busy: true })
     await ipc.auth.logout()
+    void setTelemetryUser(null)
     set({
       status: 'signed-out',
       session: null,

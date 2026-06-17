@@ -77,23 +77,29 @@ import type {
   CTraderCommitInput,
   TvPreviewInput,
   TvCommitInput,
-  Procedures,
 } from '@shared/types/index'
-import { electronTransport } from './transport-electron'
+import { transport } from './transport'
 import type {
   PublicSession,
   SignupResult,
+  BrokerAccountMapEntry,
+  BrokerKind,
   BrokerStatus,
   Mt5BridgeConfig,
   CtraderEnvironment,
   CtraderRuntimeConfig,
-  Transport,
+  UnmappedBrokerAccount,
 } from '@cairn/shared-types'
 import type {
   SignupInput,
   LoginInput,
   ForgotPasswordInput,
   ResetPasswordInput,
+  CheckoutInputBody,
+  CancelInputBody,
+  BillingStatusOutput,
+  CheckoutOutput,
+  CancelOutput,
 } from '@cairn/shared-zod'
 
 declare global {
@@ -290,6 +296,23 @@ declare global {
         ctraderConnect: () => Promise<IpcResponse<void>>
         ctraderDisconnect: () => Promise<IpcResponse<void>>
         ctraderSetEnvironment: (env: CtraderEnvironment) => Promise<IpcResponse<void>>
+        listAccountMap: () => Promise<IpcResponse<BrokerAccountMapEntry[]>>
+        listUnmappedAccounts: () => Promise<IpcResponse<UnmappedBrokerAccount[]>>
+        setAccountMap: (input: {
+          broker: BrokerKind
+          brokerAccountId: string
+          cairnAccountId: string
+        }) => Promise<IpcResponse<BrokerAccountMapEntry>>
+        deleteAccountMap: (input: {
+          broker: BrokerKind
+          brokerAccountId: string
+        }) => Promise<IpcResponse<void>>
+      }
+      billing: {
+        status: () => Promise<IpcResponse<BillingStatusOutput>>
+        checkout: (input: CheckoutInputBody) => Promise<IpcResponse<CheckoutOutput>>
+        portal: () => Promise<IpcResponse<CheckoutOutput>>
+        cancel: (input: CancelInputBody) => Promise<IpcResponse<CancelOutput>>
       }
       events: {
         on: (name: string, cb: (payload: unknown) => void) => () => void
@@ -298,8 +321,6 @@ declare global {
     }
   }
 }
-
-const transport: Transport<Procedures> = electronTransport
 
 export const ipc = {
   ping: (): Promise<IpcResponse<string>> => transport.call('ping', undefined),
@@ -570,6 +591,16 @@ export const ipc = {
     lock: (): Promise<IpcResponse<void>> => transport.call('vault:lock', undefined),
   },
 
+  billing: {
+    status: (): Promise<IpcResponse<BillingStatusOutput>> =>
+      transport.call('billing:status', undefined),
+    checkout: (input: CheckoutInputBody): Promise<IpcResponse<CheckoutOutput>> =>
+      transport.call('billing:checkout', input),
+    portal: (): Promise<IpcResponse<CheckoutOutput>> => transport.call('billing:portal', undefined),
+    cancel: (input: CancelInputBody): Promise<IpcResponse<CancelOutput>> =>
+      transport.call('billing:cancel', input),
+  },
+
   sync: {
     now: (): Promise<IpcResponse<SyncNowResult>> => transport.call('sync:now', undefined),
     status: (): Promise<IpcResponse<SyncStatusResult>> => transport.call('sync:status', undefined),
@@ -595,6 +626,20 @@ export const ipc = {
       transport.call('broker:ctraderDisconnect', undefined),
     ctraderSetEnvironment: (env: CtraderEnvironment): Promise<IpcResponse<void>> =>
       transport.call('broker:ctraderSetEnvironment', env),
+    listAccountMap: (): Promise<IpcResponse<BrokerAccountMapEntry[]>> =>
+      transport.call('broker:listAccountMap', undefined),
+    listUnmappedAccounts: (): Promise<IpcResponse<UnmappedBrokerAccount[]>> =>
+      transport.call('broker:listUnmappedAccounts', undefined),
+    setAccountMap: (input: {
+      broker: BrokerKind
+      brokerAccountId: string
+      cairnAccountId: string
+    }): Promise<IpcResponse<BrokerAccountMapEntry>> =>
+      transport.call('broker:setAccountMap', input),
+    deleteAccountMap: (input: {
+      broker: BrokerKind
+      brokerAccountId: string
+    }): Promise<IpcResponse<void>> => transport.call('broker:deleteAccountMap', input),
   },
 
   backup: {

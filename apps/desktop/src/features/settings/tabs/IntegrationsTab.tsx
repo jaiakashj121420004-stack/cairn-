@@ -1,14 +1,18 @@
 import {
   BROKER_AUTO_LOG_MODE_SETTING_KEY,
   DEFAULT_BROKER_AUTO_LOG_MODE,
+  type BrokerAccountMapEntry,
   type BrokerAutoLogMode,
+  type BrokerKind,
   type BrokerStatus,
   type CtraderEnvironment,
   type CtraderRuntimeConfig,
   type Mt5BridgeConfig,
+  type UnmappedBrokerAccount,
 } from '@cairn/shared-types'
 import { Check, Copy } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import type { Account } from '@shared/types/index'
 import { Button, Select } from '../../../components/ui'
 import { useToast } from '../../../components/ui'
 import { ipc } from '../../../lib/ipc'
@@ -105,6 +109,8 @@ export function IntegrationsTab() {
       <Mt5BridgePanel />
 
       <CtraderPanel />
+
+      <AccountMappingPanel />
     </div>
   )
 }
@@ -396,5 +402,166 @@ function CtraderPanel() {
         )}
       </div>
     </section>
+  )
+}
+
+const BROKER_LABEL: Record<BrokerKind, string> = {
+  mt5: 'MetaTrader 5',
+  ctrader: 'cTrader',
+}
+
+/**
+ * Settings → Integrations → Account mapping (docs/broker-integration.md §6). A live
+ * fill names a broker-side account; Cairn cannot attribute it until the trader binds
+ * that account to one of their Cairn accounts. This panel lists the broker accounts
+ * seen on the live stream but not yet bound (each bindable via a dropdown), and the
+ * existing bindings (each editable / removable). Cairn never guesses an account.
+ */
+function AccountMappingPanel() {
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [unmapped, setUnmapped] = useState<UnmappedBrokerAccount[]>([])
+  const [bindings, setBindings] = useState<BrokerAccountMapEntry[]>([])
+  const toast = useToast()
+
+  const refresh = useCallback(async () => {
+    const [u, b] = await Promise.all([
+      ipc.broker.listUnmappedAccounts(),
+      ipc.broker.listAccountMap(),
+    ])
+    if (u.ok) setUnmapped(u.data)
+    if (b.ok) setBindings(b.data)
+  }, [])
+
+  useEffect(() => {
+    void (async () => {
+      const a = await ipc.accounts.list()
+      if (a.ok) setAccounts(a.data)
+    })()
+  }, [])
+
+  useEffect(() => {
+    void refresh()
+    const id = setInterval(() => void refresh(), STATUS_POLL_MS)
+    return () => clearInterval(id)
+  }, [refresh])
+
+  async function bind(broker: BrokerKind, brokerAccountId: string, cairnAccountId: string) {
+    const res = await ipc.broker.setAccountMap({ broker, brokerAccountId, cairnAccountId })
+    if (res.ok) toast('Account bound', 'success')
+    else toast('Could not save binding', 'error')
+    await refresh()
+  }
+
+  async function remove(broker: BrokerKind, brokerAccountId: string) {
+    const res = await ipc.broker.deleteAccountMap({ broker, brokerAccountId })
+    if (res.ok) toast('Binding removed', 'success')
+    else toast('Could not remove binding', 'error')
+    await refresh()
+  }
+
+  const accountName = (id: string) =>
+    accounts.find((a) => a.id === id)?.displayName ?? 'Unknown account'
+
+  return (
+    <section className="space-y-5">
+      <div>
+        <h2 className="text-h3 font-semibold text-text-primary">Account mapping</h2>
+        <p className="mt-1 text-caption text-text-muted leading-relaxed">
+          A broker fill arrives tagged with a broker-side account. Cairn files it under one of
+          your accounts only once you bind them here — it never guesses. Until an account is
+          bound, its fills are held and create no trade.
+        </p>
+      </div>
+
+      {/* Unmapped — seen on the stream, not yet bound */}
+      <div className="space-y-2">
+        <h3 className="text-caption font-medium text-text-secondary">Waiting to be mapped</h3>
+        {unmapped.length === 0 ? (
+          <p className="text-caption text-text-muted leading-relaxed">
+            No unmapped accounts. New broker accounts appear here the first time a fill arrives
+            from them.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {unmapped.map((u) => (
+              <UnmappedRow
+                key={`${u.broker}:${u.brokerAccountId}`}
+                entry={u}
+                accounts={accounts}
+                onBind={(cairnAccountId) => void bind(u.broker, u.brokerAccountId, cairnAccountId)}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Existing bindings — editable / removable */}
+      {bindings.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-caption font-medium text-text-secondary">Mapped accounts</h3>
+          <ul className="space-y-2">
+            {bindings.map((b) => (
+              <li
+                key={b.id}
+                className="flex flex-wrap items-center gap-3 rounded-[10px] border border-border bg-surface-elevated px-4 py-3"
+              >
+                <span className="font-mono text-caption text-text-primary">
+                  {BROKER_LABEL[b.broker]} · {b.brokerAccountId}
+                </span>
+                <span className="text-text-muted">→</span>
+                <div className="min-w-[180px] flex-1">
+                  <Select
+                    options={accounts.map((a) => ({ value: a.id, label: a.displayName }))}
+                    value={b.cairnAccountId}
+                    onChange={(v) => void bind(b.broker, b.brokerAccountId, v)}
+                  />
+                </div>
+                <Button variant="secondary" onClick={() => void remove(b.broker, b.brokerAccountId)}>
+                  Remove
+                </Button>
+                <span className="sr-only">currently {accountName(b.cairnAccountId)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  )
+}
+
+/** One unmapped broker account with an account dropdown + a Bind action. */
+function UnmappedRow({
+  entry,
+  accounts,
+  onBind,
+}: {
+  entry: UnmappedBrokerAccount
+  accounts: Account[]
+  onBind: (cairnAccountId: string) => void
+}) {
+  const [selected, setSelected] = useState<string>('')
+
+  return (
+    <li className="flex flex-wrap items-center gap-3 rounded-[10px] border border-border bg-surface-elevated px-4 py-3">
+      <div className="flex flex-col">
+        <span className="font-mono text-caption text-text-primary">
+          {BROKER_LABEL[entry.broker]} · {entry.brokerAccountId}
+        </span>
+        <span className="text-caption text-text-muted">
+          {entry.eventCount} held event{entry.eventCount === 1 ? '' : 's'}
+        </span>
+      </div>
+      <div className="min-w-[180px] flex-1">
+        <Select
+          options={accounts.map((a) => ({ value: a.id, label: a.displayName }))}
+          value={selected}
+          placeholder="Choose a Cairn account…"
+          onChange={(v) => setSelected(v)}
+        />
+      </div>
+      <Button variant="primary" disabled={!selected} onClick={() => onBind(selected)}>
+        Bind
+      </Button>
+    </li>
   )
 }

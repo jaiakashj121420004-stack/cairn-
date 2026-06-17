@@ -157,6 +157,10 @@ const dispatch: Dispatch = {
   'broker:ctraderConnect': () => window.api.broker.ctraderConnect(),
   'broker:ctraderDisconnect': () => window.api.broker.ctraderDisconnect(),
   'broker:ctraderSetEnvironment': (input) => window.api.broker.ctraderSetEnvironment(input),
+  'broker:listAccountMap': () => window.api.broker.listAccountMap(),
+  'broker:listUnmappedAccounts': () => window.api.broker.listUnmappedAccounts(),
+  'broker:setAccountMap': (input) => window.api.broker.setAccountMap(input),
+  'broker:deleteAccountMap': (input) => window.api.broker.deleteAccountMap(input),
 
   'auth:signup': (input) => window.api.auth.signup(input),
   'auth:login': (input) => window.api.auth.login(input),
@@ -166,6 +170,11 @@ const dispatch: Dispatch = {
   'auth:verifyEmail': (input) => window.api.auth.verifyEmail(input.token),
   'auth:forgotPassword': (input) => window.api.auth.forgotPassword(input),
   'auth:resetPassword': (input) => window.api.auth.resetPassword(input),
+
+  'billing:status': () => window.api.billing.status(),
+  'billing:checkout': (input) => window.api.billing.checkout(input),
+  'billing:portal': () => window.api.billing.portal(),
+  'billing:cancel': (input) => window.api.billing.cancel(input),
 }
 
 export const electronTransport: Transport<Procedures> = {
