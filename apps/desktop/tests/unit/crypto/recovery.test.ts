@@ -7,11 +7,11 @@ import {
   CryptoError,
   deriveKEK,
   generateRecoveryPhrase,
+  getSodium,
   initCrypto,
   keyFromRecoveryPhrase,
+  RECOVERY_KDF_SALT,
 } from '../../../electron/services/crypto'
-import { RECOVERY_KDF_SALT } from '../../../electron/services/crypto/params'
-import { getSodium } from '../../../electron/services/crypto/sodium'
 
 beforeAll(async () => {
   await initCrypto()

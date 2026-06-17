@@ -8,10 +8,11 @@ import {
   deriveKEK,
   DEFAULT_KDF_PARAMS,
   generateSalt,
+  getSodium,
   initCrypto,
+  MEMLIMIT_INTERACTIVE_BYTES,
+  SALT_BYTES,
 } from '../../../electron/services/crypto'
-import { MEMLIMIT_INTERACTIVE_BYTES, SALT_BYTES } from '../../../electron/services/crypto/params'
-import { getSodium } from '../../../electron/services/crypto/sodium'
 
 beforeAll(async () => {
   await initCrypto()

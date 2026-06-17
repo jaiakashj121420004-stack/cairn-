@@ -13,7 +13,8 @@
  * Node built-ins, no DOM — so the web bundle imports it unchanged.
  */
 export { CryptoError } from './errors'
-export { initCrypto, isCryptoReady } from './sodium'
+export { initCrypto, isCryptoReady, getSodium } from './sodium'
+export type { SodiumApi } from './sodium'
 export {
   DEFAULT_KDF_PARAMS,
   RECOVERY_KDF_PARAMS,

@@ -8,11 +8,11 @@ import {
   decryptRecord,
   encryptRecord,
   generateDataKey,
+  getSodium,
   initCrypto,
   unwrapDataKey,
   wrapDataKey,
 } from '../../../electron/services/crypto'
-import { getSodium } from '../../../electron/services/crypto/sodium'
 
 beforeAll(async () => {
   await initCrypto()
