@@ -1,0 +1,18 @@
+# OWASP ZAP baseline rule overrides (referenced by .github/workflows/security.yml).
+#
+# Format (tab-separated):  <pluginId>	<action>	<url-regex (optional)>
+#   action ∈ IGNORE | WARN | FAIL
+#
+# Policy (CLAUDE.md §18.9 task §6): do NOT relax the scan to make it pass. Every entry
+# here must be a *justified* false-positive for a JSON-only API, with a reason. New
+# findings are fixed at the source, never silenced by adding an IGNORE row.
+#
+# The API serves application/json only and ships no HTML, so the passive HTML/CSP
+# alerts ZAP raises against the JSON error pages are not applicable. The browser CSP is
+# enforced and verified separately on apps/web (threat-model §8 O3), not here.
+
+10020	IGNORE	# Anti-clickjacking (X-Frame-Options) — JSON API serves no framable HTML; web app sets frame-ancestors 'none'.
+10038	IGNORE	# CSP header on API responses — JSON-only API; CSP is enforced on the web origin, not the API.
+10021	IGNORE	# X-Content-Type-Options on JSON 4xx pages — Fastify sets nosniff via helmet on real routes; error envelope is application/json.
+
+# Everything else stays at FAIL. Do not add rows without a documented justification above.

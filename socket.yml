@@ -1,0 +1,47 @@
+# Socket.dev supply-chain security configuration (CLAUDE.md §2.13, §18.9 task §4;
+# threat-model §6 M21 / §8 O2).
+#
+# Socket.dev is a GitHub App that reviews every PR for risky dependency behaviour that a
+# CVE database misses — install scripts, network/filesystem/shell access, obfuscated code,
+# typosquats, protestware, and maintainer/ownership changes. It complements `pnpm audit`
+# (known CVEs) and Trivy (image/fs CVEs) by catching *malicious* packages before a CVE
+# is ever filed.
+#
+# ── INSTALL (manual, one-time — tracked as threat-model §8 O2) ────────────────────────
+# This file only configures the app; it does not install it. The repo owner must add the
+# Socket.dev GitHub App to the repository:
+#     https://github.com/apps/socket-security  →  Configure  →  select this repo
+# Free tier covers public + small private repos. Once installed, Socket comments on PRs
+# and (with the settings below) blocks merges that introduce flagged supply-chain risk.
+
+version: 2
+
+# Gate pull requests on new supply-chain risk. A blocked PR must be explicitly resolved
+# (fix the dep, or justify + ignore the specific alert) before merge.
+issueRules:
+  # Code that runs on install is the highest-value supply-chain foothold.
+  installScripts: true
+  # New or shell/network/filesystem-capable behaviour in an added/updated package.
+  shellAccess: true
+  networkAccess: true
+  filesystemAccess: true
+  # Obfuscation, minified-only source, and known-malware signatures.
+  obfuscatedCode: true
+  malware: true
+  # Typosquatting against popular package names.
+  didYouMean: true
+  # Risky maintainer/ownership/repo changes.
+  newMaintainer: true
+  # Deprecated / unmaintained / missing-license packages (aligns with the license gate).
+  deprecated: true
+  missingLicense: true
+  # GPL/AGPL copyleft transitives are banned (CLAUDE.md §19.7) — flag for review.
+  licenseChange: true
+
+# Project-level behaviour.
+projectIgnorePaths:
+  # Never analyse vendored/build output or tests' fixtures as production supply chain.
+  - 'node_modules'
+  - '**/node_modules'
+  - 'out'
+  - 'dist'

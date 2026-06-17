@@ -1,0 +1,122 @@
+name: backup-verify
+
+# Daily backup-restore drill (CLAUDE.md §16.b #47, §18.9, docs/runbook.md).
+#
+# Pulls the most recent point-in-time-recovery (PITR) snapshot of the production
+# database into a scratch Postgres instance, applies the repo's migrations forward,
+# and asserts that a known table is non-empty — proving the backup is restorable and
+# schema-compatible, not just "exists".
+#
+# Requires the repo secret `BACKUP_VERIFY_DATABASE_URL`: a connection string to a
+# PITR-restored snapshot (e.g. a Neon point-in-time branch or a Supabase PITR restore)
+# refreshed daily by the provider/ops process described in docs/runbook.md. Until that
+# secret is configured the job is skipped — loudly, not silently green — so this
+# workflow can ship ahead of the production database and be turned on by setting one
+# secret.
+#
+# §16.b #47 is met once this workflow has run green for three consecutive days.
+
+on:
+  schedule:
+    # 06:00 UTC daily.
+    - cron: '0 6 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  restore-and-verify:
+    name: Restore PITR snapshot + verify
+    runs-on: ubuntu-latest
+    services:
+      scratch-db:
+        image: postgres:16
+        env:
+          POSTGRES_USER: cairn
+          POSTGRES_PASSWORD: cairn
+          POSTGRES_DB: cairn_backup_verify
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      SCRATCH_DATABASE_URL: postgres://cairn:cairn@localhost:5432/cairn_backup_verify
+      # The table that must be non-empty in a real production snapshot. Override via
+      # repo variable if a different table is more representative (e.g. `subscription`).
+      BACKUP_VERIFY_TABLE: ${{ vars.BACKUP_VERIFY_TABLE || 'users' }}
+    steps:
+      - name: Check backup snapshot is configured
+        id: configured
+        run: |
+          if [ -z "${{ secrets.BACKUP_VERIFY_DATABASE_URL }}" ]; then
+            echo "::warning::BACKUP_VERIFY_DATABASE_URL is not set — skipping the backup-restore drill. \
+          Configure this secret once a production database with PITR exists (see docs/runbook.md). \
+          §16.b #47 cannot be declared met until this workflow runs green for 3 consecutive days."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.configured.outputs.skip == 'false'
+
+      - uses: pnpm/action-setup@v4
+        if: steps.configured.outputs.skip == 'false'
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        if: steps.configured.outputs.skip == 'false'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        if: steps.configured.outputs.skip == 'false'
+        run: pnpm install --frozen-lockfile
+
+      - name: Wait for scratch database
+        if: steps.configured.outputs.skip == 'false'
+        run: pg_isready -h localhost -p 5432 -U cairn -t 30
+
+      # Dump the PITR snapshot and restore it into the scratch database. `--no-owner
+      # --no-privileges` avoids failures from roles that exist in the snapshot's
+      # source project but not in the scratch container.
+      - name: Dump PITR snapshot
+        if: steps.configured.outputs.skip == 'false'
+        run: |
+          pg_dump --no-owner --no-privileges --format=custom \
+            --dbname="${{ secrets.BACKUP_VERIFY_DATABASE_URL }}" \
+            --file=snapshot.dump
+
+      - name: Restore snapshot into scratch database
+        if: steps.configured.outputs.skip == 'false'
+        run: |
+          pg_restore --no-owner --no-privileges --clean --if-exists \
+            --dbname="$SCRATCH_DATABASE_URL" snapshot.dump
+
+      # Run the repo's forward migrations against the restored snapshot — proves the
+      # backup is compatible with the migrations the app actually ships.
+      - name: Run migrations forward against the restored snapshot
+        if: steps.configured.outputs.skip == 'false'
+        working-directory: apps/server
+        env:
+          DATABASE_URL: ${{ env.SCRATCH_DATABASE_URL }}
+        run: pnpm run migrate
+
+      # Fail loudly if the restored snapshot is missing real data — a "successful"
+      # restore of an empty database is not a successful drill.
+      - name: Assert known table is non-empty
+        if: steps.configured.outputs.skip == 'false'
+        run: |
+          COUNT=$(psql "$SCRATCH_DATABASE_URL" -At -c "SELECT count(*) FROM \"$BACKUP_VERIFY_TABLE\"")
+          echo "Row count for \"$BACKUP_VERIFY_TABLE\": $COUNT"
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::error::Backup-restore drill FAILED: table \"$BACKUP_VERIFY_TABLE\" is empty after restoring the PITR snapshot and running migrations. The backup is not usable for disaster recovery."
+            exit 1
+          fi
+          echo "Backup-restore drill passed: \"$BACKUP_VERIFY_TABLE\" has $COUNT row(s)."

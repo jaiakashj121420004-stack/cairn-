@@ -15,6 +15,14 @@ files:
 
 asar: true
 
+# Vendored cTrader Open API protobuf schema (docs/broker-integration.md §2.2).
+# Copied beside the asar as plain files so the runtime codec can loadSync them via
+# the filesystem; resolveProtoDir() in ctrader/connection.ts reads from here when
+# packaged. Provenance: resources/ctrader-proto/SOURCE.md.
+extraResources:
+  - from: resources/ctrader-proto
+    to: ctrader-proto
+
 mac:
   target:
     - target: dmg
@@ -23,22 +31,50 @@ mac:
         - arm64
   category: public.app-category.finance
   darkModeSupport: true
+  # Required for notarization (docs/runbook.md §7). electron-builder notarizes
+  # automatically via @electron/notarize when APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD
+  # and APPLE_TEAM_ID are set in the environment — no extra config needed here.
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
 
 win:
   target:
     - target: nsis
       arch:
         - x64
+  # Signing is wired but inert until a certificate is supplied (docs/runbook.md §7):
+  #   - OV/IV cert (.pfx): set CSC_LINK + CSC_KEY_PASSWORD and electron-builder signs
+  #     automatically — no further config needed.
+  #   - EV cert (HSM/cloud-signing, e.g. SSL.com eSignerCKA): the cert is installed
+  #     into the Windows certificate store by the release workflow, which then passes
+  #     certificateSubjectName/certificateSha1 via --config overrides.
+  # With no certificate configured, electron-builder skips signing and emits an
+  # unsigned build (a warning, not a failure) — local/dev builds are unaffected.
+  signtoolOptions:
+    publisherName: Jai Akash
+    rfc3161TimeStampServer: http://timestamp.digicert.com
 
 linux:
   target:
     - target: AppImage
       arch:
         - x64
+  category: Office
+  maintainer: Jai Akash <jaiakashj121420004@gmail.com>
+  synopsis: A discipline-first trading journal
+  description: Cairn enforces your own pre-committed trading rules in real time.
+  # The Electron sandbox warning/failure inside AppImage's read-only mount is handled
+  # in electron/main.ts (no-sandbox only when launched as an AppImage).
 
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
 
-dmg: wr
+# Draft GitHub Release per tag push (.github/workflows/release.yml). Artifacts are
+# uploaded unpublished so Akash can review before making the release public.
+publish:
+  provider: github
+  releaseType: draft
