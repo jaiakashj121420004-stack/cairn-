@@ -2,6 +2,10 @@
   "name": "@cairn/desktop",
   "version": "0.2.0",
   "description": "Cairn — A Discipline-First Trading Journal (Electron desktop app)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jaiakashj121420004-stack/cairn-.git"
+  },
   "private": true,
   "main": "out/main/main.js",
   "author": "Jai Akash",
