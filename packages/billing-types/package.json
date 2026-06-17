@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "description": "Plan, feature, and entitlement matrix types for the subscription layer (v2.0 Stage 6)",
+  "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "devDependencies": {

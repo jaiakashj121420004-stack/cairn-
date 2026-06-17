@@ -230,6 +230,44 @@ export interface BrokerWarning {
   readonly detail: string
 }
 
+// ── Account mapping (docs/broker-integration.md §4/§6) ──────────────────────────
+//
+// A broker fill names a broker-side account id (e.g. an MT5 login or a cTrader
+// ctidTraderAccountId). Cairn cannot attribute that fill to one of the trader's
+// accounts until the trader binds the pair `(broker, brokerAccountId)` to a Cairn
+// account — Cairn NEVER guesses (CLAUDE.md §14 #39, spec §6 boundary). The binding
+// is per-device configuration, so it lives only on the local machine and is
+// deliberately NOT synced.
+
+/** A saved `(broker, brokerAccountId) → cairnAccountId` binding. */
+export interface BrokerAccountMapEntry {
+  readonly id: string
+  readonly broker: BrokerKind
+  /** Broker-side account id (MT5 login / cTrader ctidTraderAccountId as string). */
+  readonly brokerAccountId: string
+  /** The Cairn account every fill on that broker account is attributed to. */
+  readonly cairnAccountId: string
+  readonly createdAt: number
+  readonly updatedAt: number
+}
+
+/**
+ * A broker account Cairn has *observed* on the live stream but that is not yet
+ * bound to a Cairn account. Surfaced in Settings → Integrations → Account mapping
+ * so the trader can bind it; until they do, every fill on it stays unmapped and
+ * creates no trade (Cairn never fabricates an account).
+ */
+export interface UnmappedBrokerAccount {
+  readonly broker: BrokerKind
+  readonly brokerAccountId: string
+  /** Wall-clock ms the account was first seen unmapped. */
+  readonly firstSeenMs: number
+  /** Wall-clock ms of the most recent unmapped fill. */
+  readonly lastSeenMs: number
+  /** How many unmapped events have been observed (and buffered) for it. */
+  readonly eventCount: number
+}
+
 /** Status surfaced over the `broker:status` IPC (renderer connection indicator). */
 export interface BrokerStatus {
   readonly connection: BrokerConnectionStatus
