@@ -15,6 +15,12 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
  * reuse-detection, etc. Those are the real server's job and have their own server tests.
  */
 
+/* eslint-disable consistent-return -- handle() is a void async router using the
+   `return send(res, …)` early-exit idiom; ok/fail/issueSession all return void, so these
+   are void-returns. consistent-return fires only on the syntactic mix of `return expr` (the
+   route handlers) and bare `return` (the OPTIONS/logout/404 paths). Rewriting ~19 early-exits
+   into block statements in this throwaway test mock adds noise without value. */
+
 interface Account {
   userId: string
   email: string

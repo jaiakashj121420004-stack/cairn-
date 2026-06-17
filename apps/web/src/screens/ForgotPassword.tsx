@@ -26,7 +26,7 @@ export function ForgotPassword(): JSX.Element {
         {sent ? (
           <p className="text-sm text-white/60" data-testid="forgot-sent">
             If that email is registered, a reset link is on its way. Note: a password reset cannot
-            decrypt your vault — you'll re-unlock with your recovery phrase.
+            decrypt your vault — you&apos;ll re-unlock with your recovery phrase.
           </p>
         ) : (
           <form onSubmit={(e) => void onSubmit(e)} data-testid="forgot-form">

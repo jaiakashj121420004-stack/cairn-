@@ -18,7 +18,7 @@ export function ResetPassword(): JSX.Element {
     setError('')
     const res = await resetPassword(token, password)
     setBusy(false)
-    if (res.ok) navigate('/login')
+    if (res.ok) void navigate('/login')
     else setError(res.error.message)
   }
 

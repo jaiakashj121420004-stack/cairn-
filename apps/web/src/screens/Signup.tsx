@@ -17,7 +17,7 @@ export function Signup(): JSX.Element {
     setError('')
     const res = await signup(email, password)
     setBusy(false)
-    if (res.ok) navigate(`/verify?email=${encodeURIComponent(email)}`)
+    if (res.ok) void navigate(`/verify?email=${encodeURIComponent(email)}`)
     else setError(res.error.message)
   }
 

@@ -11,7 +11,7 @@ export function OAuthCallback(): JSX.Element {
       <Card>
         <Heading sub="501 — Not implemented yet">Social sign-in is coming</Heading>
         <p className="text-sm text-white/60" data-testid="oauth-501">
-          Sign in with Apple and Google aren't available yet. Use your email and password, or an
+          Sign in with Apple and Google aren&apos;t available yet. Use your email and password, or an
           email sign-in link, for now.
         </p>
         <div className="mt-6">

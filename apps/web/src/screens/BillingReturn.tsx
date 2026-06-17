@@ -34,7 +34,7 @@ export function BillingReturn({ outcome }: { outcome: 'success' | 'cancel' }): J
         <Card>
           <Heading sub="No charge was made.">Checkout canceled</Heading>
           <p className="mb-6 text-sm text-white/60">
-            You can pick a plan whenever you're ready. The desktop app stays free, forever.
+            You can pick a plan whenever you&apos;re ready. The desktop app stays free, forever.
           </p>
           <Button onClick={() => navigate('/pricing')}>Back to plans</Button>
         </Card>

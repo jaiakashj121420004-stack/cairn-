@@ -55,7 +55,7 @@ export function RecoveryPhrasePrompt(): JSX.Element {
               onChange={(e) => setConfirmed(e.target.checked)}
               data-testid="recovery-confirm"
             />
-            I've saved my recovery phrase somewhere safe.
+            I&apos;ve saved my recovery phrase somewhere safe.
           </label>
           <Button disabled={!confirmed} onClick={() => navigate('/')} data-testid="recovery-continue">
             Continue

@@ -28,7 +28,7 @@ export function VaultUnlock(): JSX.Element {
         ? await unlockVault(password)
         : await recoverVault(phrase.trim().split(/\s+/))
     setBusy(false)
-    if (res.ok) navigate('/')
+    if (res.ok) void navigate('/')
     else setError(mode === 'password' ? 'Wrong vault password.' : 'That recovery phrase is invalid.')
   }
 
