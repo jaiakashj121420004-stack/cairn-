@@ -124,3 +124,37 @@ If either condition fails at the 14-day mark, the window extends in 7-day increm
 (re-measuring the trailing 14 days) until both hold simultaneously. There is no
 override — "ship anyway" is explicitly out of scope per CLAUDE.md §2.12 (no slop,
 ever) and §19's "if a change cannot meet this bar, it does not ship."
+
+---
+
+## 3. PRODUCTION GO-LIVE PLAN (deferred — do at the very END, when the app is 100% done)
+
+Decided 2026-06-17 with Akash. Cloud deployment, real email, and the public-URL app
+rebuild are intentionally deferred until the app is feature-complete. Until then:
+- the backend runs **locally** via `docker compose --profile api up` (in `apps/server/`);
+- the desktop app talks to its default `CAIRN_API_URL` = `http://localhost:3000`;
+- the desktop app is fully usable **offline** regardless of any server.
+
+**Constraint (Akash): no free _trials_.** Permanent free tiers and real paid plans only.
+
+Cheapest simple real stack — order matters, the domain gates the rest:
+
+1. **Domain (~$10–12 / year).** Cloudflare Registrar (~$9.77, at-cost), Porkbun, or
+   Namecheap. Needed for both the API URL and the verified email sender.
+2. **Server host — Railway (~$10–15 / month all-in).** Hobby plan is a real $5/mo (not a
+   trial). Connect the GitHub repo, add the PostgreSQL plugin, set secrets
+   (`JWT_SECRET`, `PASSWORD_PEPPER`, `DATABASE_URL`, `EMAIL_PROVIDER=resend`,
+   `RESEND_API_KEY`); it builds from `apps/server/Dockerfile`. Point `api.<domain>` at it.
+   (Fly.io ~$8–15/mo is a bit cheaper but more CLI work.)
+3. **Email — Resend.** Free tier = 3,000 emails/month, **permanent (not a trial)** → $0 at
+   small scale; Pro is $20/mo for 50k. Verify the domain, set `EMAIL_PROVIDER=resend` +
+   `RESEND_API_KEY` on the server. NOTE: the server has **no SMTP provider** today — only
+   `console` / `resend` / `memory` (`apps/server/src/email/`); resend is the production path.
+   (Mailpit can't receive real mail without adding an SMTP provider.)
+4. **Rebuild + re-release the desktop app (free).** Bake `CAIRN_API_URL=https://api.<domain>`
+   into the build, run `pnpm --filter @cairn/desktop run dist:local`, upload the new
+   `Cairn Setup x.y.z.exe` to a GitHub release. Without this, a downloaded app points at the
+   *user's own* localhost and the cloud features silently do nothing.
+
+**Rough starting cost: ~$11–16 / month + ~$11 / year. No trials.**
+When ready: ~30–60 min job once the domain exists (Railway deploy + app rebuild).
