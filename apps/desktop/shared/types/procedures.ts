@@ -82,16 +82,24 @@ import type {
 import type {
   PublicSession,
   SignupResult,
+  BrokerAccountMapEntry,
+  BrokerKind,
   BrokerStatus,
   Mt5BridgeConfig,
   CtraderEnvironment,
   CtraderRuntimeConfig,
+  UnmappedBrokerAccount,
 } from '@cairn/shared-types'
 import type {
   SignupInput,
   LoginInput,
   ForgotPasswordInput,
   ResetPasswordInput,
+  CheckoutInputBody,
+  CancelInputBody,
+  BillingStatusOutput,
+  CheckoutOutput,
+  CancelOutput,
 } from '@cairn/shared-zod'
 
 // ─── Renderer-mirror DTOs (relocated from `src/lib/ipc.ts` — pure move, same shape) ──
@@ -312,6 +320,16 @@ export interface Procedures {
   'broker:ctraderConnect': { input: void; output: void }
   'broker:ctraderDisconnect': { input: void; output: void }
   'broker:ctraderSetEnvironment': { input: CtraderEnvironment; output: void }
+  'broker:listAccountMap': { input: void; output: BrokerAccountMapEntry[] }
+  'broker:listUnmappedAccounts': { input: void; output: UnmappedBrokerAccount[] }
+  'broker:setAccountMap': {
+    input: { broker: BrokerKind; brokerAccountId: string; cairnAccountId: string }
+    output: BrokerAccountMapEntry
+  }
+  'broker:deleteAccountMap': {
+    input: { broker: BrokerKind; brokerAccountId: string }
+    output: void
+  }
 
   'auth:signup': { input: SignupInput; output: SignupResult }
   'auth:login': { input: LoginInput; output: PublicSession }
@@ -321,6 +339,11 @@ export interface Procedures {
   'auth:verifyEmail': { input: { token: string }; output: { verified: boolean } }
   'auth:forgotPassword': { input: ForgotPasswordInput; output: { sent: true } }
   'auth:resetPassword': { input: ResetPasswordInput; output: { reset: true } }
+
+  'billing:status': { input: void; output: BillingStatusOutput }
+  'billing:checkout': { input: CheckoutInputBody; output: CheckoutOutput }
+  'billing:portal': { input: void; output: CheckoutOutput }
+  'billing:cancel': { input: CancelInputBody; output: CancelOutput }
 }
 
 /** Runtime mirror of `Procedures`'s keys — used by the transport contract test. */
@@ -437,6 +460,10 @@ export const PROCEDURE_NAMES = [
   'broker:ctraderConnect',
   'broker:ctraderDisconnect',
   'broker:ctraderSetEnvironment',
+  'broker:listAccountMap',
+  'broker:listUnmappedAccounts',
+  'broker:setAccountMap',
+  'broker:deleteAccountMap',
   'auth:signup',
   'auth:login',
   'auth:logout',
@@ -445,6 +472,10 @@ export const PROCEDURE_NAMES = [
   'auth:verifyEmail',
   'auth:forgotPassword',
   'auth:resetPassword',
+  'billing:status',
+  'billing:checkout',
+  'billing:portal',
+  'billing:cancel',
 ] as const satisfies readonly (keyof Procedures)[]
 
 // Compile-time exhaustiveness check: every key of `Procedures` must appear in
