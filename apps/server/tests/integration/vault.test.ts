@@ -11,6 +11,7 @@ import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { devices, vaultOps } from '../../src/db/schema'
 import {
+  createEntitledUser,
   createTestContext,
   createVerifiedUser,
   deleteWithAuth,
@@ -186,7 +187,7 @@ describe('DELETE /devices/:id', () => {
 
 describe('GET /vault/manifest', () => {
   it('returns key_version=0 and empty table map for a fresh vault', async () => {
-    const { accessToken } = await createVerifiedUser(ctx)
+    const { accessToken } = await createEntitledUser(ctx)
     const res = await getWithAuth(ctx.app, '/vault/manifest', accessToken)
     expect(res.statusCode).toBe(200)
     const data = res.json().data as Record<string, unknown>
@@ -196,7 +197,7 @@ describe('GET /vault/manifest', () => {
   })
 
   it('returns per-table high-water marks after a push', async () => {
-    const { accessToken } = await createVerifiedUser(ctx)
+    const { accessToken } = await createEntitledUser(ctx)
     const deviceId = await registerDevice(accessToken)
 
     await postJson(
@@ -219,7 +220,7 @@ describe('GET /vault/manifest', () => {
 
 describe('POST /vault/push', () => {
   it('appends ops and returns their assigned ids', async () => {
-    const { accessToken } = await createVerifiedUser(ctx)
+    const { accessToken } = await createEntitledUser(ctx)
     const deviceId = await registerDevice(accessToken)
     const ops = [makeOp('trade'), makeOp('account')]
 
@@ -238,7 +239,7 @@ describe('POST /vault/push', () => {
   })
 
   it('is atomic: all ops succeed or none are committed', async () => {
-    const { accessToken } = await createVerifiedUser(ctx)
+    const { accessToken } = await createEntitledUser(ctx)
     const deviceId = await registerDevice(accessToken)
 
     // Count rows before.
@@ -265,8 +266,8 @@ describe('POST /vault/push', () => {
   })
 
   it('rejects a device_id that belongs to another user (403)', async () => {
-    const { accessToken: token1 } = await createVerifiedUser(ctx)
-    const { accessToken: token2 } = await createVerifiedUser(ctx)
+    const { accessToken: token1 } = await createEntitledUser(ctx)
+    const { accessToken: token2 } = await createEntitledUser(ctx)
     const deviceId = await registerDevice(token1) // belongs to user 1
 
     const res = await postJson(
@@ -279,7 +280,7 @@ describe('POST /vault/push', () => {
   })
 
   it('rejects a revoked device (403)', async () => {
-    const { accessToken } = await createVerifiedUser(ctx)
+    const { accessToken } = await createEntitledUser(ctx)
     const deviceId = await registerDevice(accessToken)
     await deleteWithAuth(ctx.app, `/devices/${deviceId}`, accessToken)
 
@@ -293,7 +294,7 @@ describe('POST /vault/push', () => {
   })
 
   it('rejects a body larger than 5 MB (413)', async () => {
-    const { accessToken } = await createVerifiedUser(ctx)
+    const { accessToken } = await createEntitledUser(ctx)
     const deviceId = await registerDevice(accessToken)
 
     // Build a single op with a 5.1 MB ciphertext to exceed the limit.
@@ -322,7 +323,7 @@ describe('POST /vault/push', () => {
   })
 
   it('updates device last_seen_at on each push', async () => {
-    const { accessToken } = await createVerifiedUser(ctx)
+    const { accessToken } = await createEntitledUser(ctx)
     const deviceId = await registerDevice(accessToken)
 
     const before = await ctx.handle.db
@@ -350,7 +351,7 @@ describe('POST /vault/push', () => {
 
 describe('POST /vault/pull', () => {
   it('returns an empty list for a fresh vault', async () => {
-    const { accessToken } = await createVerifiedUser(ctx)
+    const { accessToken } = await createEntitledUser(ctx)
     const res = await postJson(ctx.app, '/vault/pull', {}, bearerHeader(accessToken))
     expect(res.statusCode).toBe(200)
     const data = res.json().data as { ops: unknown[]; next_cursor: null }
@@ -359,7 +360,7 @@ describe('POST /vault/pull', () => {
   })
 
   it('returns all ops when no cursor is provided', async () => {
-    const { accessToken } = await createVerifiedUser(ctx)
+    const { accessToken } = await createEntitledUser(ctx)
     const deviceId = await registerDevice(accessToken)
     await postJson(
       ctx.app,
@@ -375,7 +376,7 @@ describe('POST /vault/pull', () => {
   })
 
   it('respects since_op_id_per_table cursors', async () => {
-    const { accessToken } = await createVerifiedUser(ctx)
+    const { accessToken } = await createEntitledUser(ctx)
     const deviceId = await registerDevice(accessToken)
 
     // Push 3 trade ops.
@@ -401,7 +402,7 @@ describe('POST /vault/pull', () => {
   })
 
   it('paginates: returns next_cursor when more ops exist than the page size', async () => {
-    const { accessToken } = await createVerifiedUser(ctx)
+    const { accessToken } = await createEntitledUser(ctx)
     const deviceId = await registerDevice(accessToken)
 
     // Push 502 ops (> 500 page size) in two batches of 251.
@@ -438,8 +439,8 @@ describe('POST /vault/pull', () => {
   })
 
   it('does not return ops belonging to another user', async () => {
-    const { accessToken: token1 } = await createVerifiedUser(ctx)
-    const { accessToken: token2 } = await createVerifiedUser(ctx)
+    const { accessToken: token1 } = await createEntitledUser(ctx)
+    const { accessToken: token2 } = await createEntitledUser(ctx)
     const deviceId = await registerDevice(token1)
 
     await postJson(
@@ -455,7 +456,7 @@ describe('POST /vault/pull', () => {
   })
 
   it('since_id global cursor skips already-seen ops', async () => {
-    const { accessToken } = await createVerifiedUser(ctx)
+    const { accessToken } = await createEntitledUser(ctx)
     const deviceId = await registerDevice(accessToken)
 
     const push = await postJson(
@@ -491,7 +492,7 @@ describe('POST /vault/pull', () => {
  */
 describe('output-schema contract', () => {
   it('every device + vault response conforms to its shared output schema', async () => {
-    const { accessToken } = await createVerifiedUser(ctx)
+    const { accessToken } = await createEntitledUser(ctx)
 
     const register = await postJson(
       ctx.app,

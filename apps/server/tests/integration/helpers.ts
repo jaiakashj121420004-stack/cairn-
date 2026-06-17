@@ -6,6 +6,7 @@ import { runMigrations } from '../../src/db/migrate'
 import { loadEnv, resetEnvCache } from '../../src/env'
 import { MemoryEmailProvider } from '../../src/email'
 import { MemoryRateLimitStore } from '../../src/lib/rate-limit'
+import { subscriptions } from '../../src/db/schema'
 import type { BillingProviders } from '../../src/billing/provider'
 import type { DbHandle } from '../../src/db/client'
 import type { Env } from '../../src/env'
@@ -310,4 +311,29 @@ export function makeRazorpaySubscriptionEvent(
       },
     },
   }
+}
+
+/**
+ * Insert an active Pro subscription for a user so they pass paid-feature gates
+ * (e.g. the `cloud_sync` gate on the vault routes, CLAUDE.md §20). `active` never
+ * lapses on the clock, so this stays entitled for the life of the test.
+ */
+export async function entitleUser(ctx: TestContext, userId: string): Promise<void> {
+  await ctx.handle.db.insert(subscriptions).values({
+    userId,
+    entitlement: 'pro',
+    status: 'active',
+    currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+  })
+}
+
+/** A verified user that also holds an active Pro entitlement (cloud sync enabled). */
+export async function createEntitledUser(
+  ctx: TestContext,
+  email?: string,
+  password = 'correct horse battery staple',
+): Promise<{ email: string; password: string; accessToken: string; userId: string }> {
+  const user = await createVerifiedUser(ctx, email, password)
+  await entitleUser(ctx, user.userId)
+  return user
 }
