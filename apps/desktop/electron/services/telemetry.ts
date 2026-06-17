@@ -1,6 +1,8 @@
+import { createHmac } from 'crypto'
 import * as Sentry from '@sentry/electron/main'
 import { eq } from 'drizzle-orm'
 import log from 'electron-log'
+import { SENTRY_USER_ID_SALT } from '@shared/telemetry'
 import { getDb } from '../db/index'
 import * as schema from '../db/schema'
 
@@ -50,4 +52,23 @@ export function initMainTelemetry(): void {
   })
   initialized = true
   log.info('[telemetry] Crash reporting enabled (user opted in).')
+}
+
+/**
+ * Salted HMAC-SHA256 of `email`, lowercased + trimmed first so the same address
+ * always hashes the same way. The salt is non-secret (see `@shared/telemetry`) — this
+ * is pseudonymization for support correlation, not a security boundary.
+ */
+export function hashUserId(email: string): string {
+  return createHmac('sha256', SENTRY_USER_ID_SALT).update(email.trim().toLowerCase()).digest('hex')
+}
+
+/**
+ * Attach (or clear) the Sentry `user.id` for the active session, so support can
+ * correlate crash reports from the same user without ever seeing their email. No-op
+ * when telemetry is disabled (matches `initMainTelemetry`'s opt-in gate).
+ */
+export function setTelemetryUser(email: string | null): void {
+  if (!initialized) return
+  Sentry.setUser(email === null ? null : { id: hashUserId(email) })
 }
