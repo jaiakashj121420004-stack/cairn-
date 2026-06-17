@@ -41,7 +41,7 @@ code{background:#0b0e13;border:1px solid var(--line);border-radius:4px;padding:0
   <h1>Cairn — Build Prompts Checklist</h1>
   <div class="bar"><i id="pf"></i></div>
   <div class="sub">
-    <span><b id="dcount">37</b> / <b>51</b> prompts done</span>
+    <span><b id="dcount">37</b> / <b>56</b> prompts done</span>
     <span class="next" id="next"></span>
     <span class="controls">
       <button id="toggleHide">Hide done</button>
@@ -398,7 +398,7 @@ code{background:#0b0e13;border:1px solid var(--line);border-radius:4px;padding:0
   </div>
 </article>
 </section>
-<section class="stage"><h2 class="stage-h ">8.7 v1.x — WAVE 4: LIVE BROKER INTEGRATION (MT5 + cTrader) <span class="stage-count">0/6</span></h2>
+<section class="stage"><h2 class="stage-h ">8.7 v1.x — WAVE 4: LIVE BROKER INTEGRATION (MT5 + cTrader) <span class="stage-count">0/9</span></h2>
 <article class="card" data-id="30a7fe9c72" data-default="0">
   <label class="top">
     <input type="checkbox" class="chk">
@@ -477,6 +477,45 @@ code{background:#0b0e13;border:1px solid var(--line);border-radius:4px;padding:0
     <div class="verif">no double-counting live-vs-import (tested); conflict rule implemented + documented; (if post-sync) streamed trades sync; docs updated; manual two-broker smoke passes. <strong>Wave 4 is complete</strong> — tag <code>v1.x-wave4-live-broker</code>.</div>
   </div>
 </article>
+<article class="card" data-id="b41cae7d09" data-default="0">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 4 — Prompt 7: Account-mapping UI (Settings → Integrations) — close the <code>resolveAccount()</code> seam</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6 (CRUD + UI wiring; escalate to <strong>Opus 4.6</strong> only if the persistence shape needs a sync-registry decision).</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/broker-integration.md</code> §2/§4, <code>apps/desktop/electron/services/broker/index.ts</code> (the <code>resolveAccount()</code> stub at ~L86 — it returns <code>null</code> today, so every live fill surfaces <code>UNKNOWN_ACCOUNT</code> and creates no row), and <code>apps/desktop/electron/services/broker/ingest.ts</code> (the <code>UNKNOWN_ACCOUNT</code> path at ~L227–240).<br><br>Close the account-mapping seam so a real MT5/cTrader fill resolves to a Cairn account:<br><br>1. <strong>Persistence:</strong> add a <code>broker_account_map</code> table (migration, additive + idempotent, forward+backward tested) keyed by <code>(broker, broker_account_id)</code> → <code>cairn_account_id</code>, with <code>created_at</code>/<code>updated_at</code>/<code>deleted_at</code>. This is per-device configuration, so default to <strong>local-only / not synced</strong> — document that choice inline next to the other deliberately-excluded tables in <code>store.ts</code> <code>TABLE_SPECS</code> (do NOT register it for sync without asking).<br>2. <strong>Wire <code>resolveAccount()</code>:</strong> replace the <code>return null</code> stub with a lookup against <code>broker_account_map</code>; on a hit return the <code>ResolvedAccount</code>; on a miss keep returning <code>null</code> so the existing <code>UNKNOWN_ACCOUNT</code> path still fires (never fabricate an account).<br>3. <strong>Settings → Integrations → Account mapping:</strong> a table of every <code>(broker, broker_account_id)</code> Cairn has *observed* on the live stream but not yet mapped — surface these from a small &quot;seen unmapped accounts&quot; set the ingest service records when it hits <code>UNKNOWN_ACCOUNT</code> — each with a dropdown of Cairn accounts to bind it to. Saving a binding writes the row and, if a <code>LiveBrokerAdapter</code> is connected, re-resolves any buffered unmapped events. Existing bindings are editable/removable.<br>4. <strong>IPC:</strong> typed <code>broker:listAccountMap</code> / <code>broker:setAccountMap</code> / <code>broker:deleteAccountMap</code> / <code>broker:listUnmappedAccounts</code>, Zod-validated at the boundary, returning the universal <code>Result&lt;T&gt;</code>.<br><br>Tests: a fill for an unmapped account records the <code>(broker, id)</code> as unmapped and creates no trade; after a binding is saved, the same fill resolves and creates exactly one correctly-attributed trade; the map round-trips through IPC; the migration is forward+backward tested.<br><br>NO-SLOP FOOTER applies. Boundaries (§4) are binding: never auto-bind or guess an account — an unmapped fill stays unmapped until the trader binds it.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif"><code>resolveAccount()</code> resolves via <code>broker_account_map</code>; Settings → Integrations lists observed-but-unmapped accounts and lets the trader bind them; a live fill for a mapped account creates exactly one correctly-attributed trade; unmapped fills still surface (never auto-bound); migration + IPC tests green.</div>
+  </div>
+</article>
+<article class="card" data-id="c72f0a5e63" data-default="0">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 4 — Prompt 8: cTrader Protobuf codec — close the <code>loadProtobufCodec()</code> seam</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> <strong>Opus 4.6</strong> (protocol codec + read-only send-path boundary; security-critical).</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/broker-integration.md</code> §2.2 and §8, and <code>apps/desktop/electron/services/broker/ctrader/connection.ts</code> — <code>loadProtobufCodec()</code> (~L157) returns <code>null</code> today, so cTrader links via OAuth but never streams. The whole adapter above it is schema-agnostic and already unit-tested; this prompt ships only the codec.<br><br>1. <strong>Vendor the Spotware Open API protobuf schema</strong> (the <code>OpenApiCommonMessages.proto</code> + <code>OpenApiMessages.proto</code> set) into <code>apps/desktop/resources/ctrader-proto/</code> with a short <code>SOURCE.md</code> recording the upstream URL, version/commit, and licence. Do NOT fetch at runtime.<br>2. <strong>Implement the codec</strong> with <code>protobufjs</code>: load the bundled <code>.proto</code> set via <code>root.loadSync</code>, build the <code>payloadType → message-type</code> lookup table, and expose <code>encode</code>/<code>decode</code> matching the <code>CtraderCodec</code> interface the connection already expects. <code>loadProtobufCodec()</code> returns a real codec when the schema + library are present, and must still degrade to <code>null</code> (adapter reports <code>error</code> status, never crashes) if they are absent — preserve that graceful-degradation contract exactly.<br>3. <strong>Wire the live stream:</strong> decode inbound execution events (<code>ProtoOAExecutionEvent</code> and friends), map each to a <code>BrokerEvent</code> (<code>broker: &#x27;ctrader&#x27;</code>) via the existing adapter logic, and hand them to the Prompt-1 ingest service. <strong>Read-only:</strong> decode/handle inbound messages and the auth/subscribe handshake only — the adapter must contain NO order-placing message types on the *send* path (<code>ProtoOANewOrderReq</code> / <code>ProtoOAAmendOrderReq</code> / <code>ProtoOAClosePositionReq</code> etc. are never encoded or sent). Keep <code>ctrader-readonly.test.ts</code> green and extend it to assert no order-execution message can be encoded.<br>4. Keep secrets out of source (<code>gitleaks</code> clean); tokens stay in the keychain from Prompt 4.<br><br>Tests: decode a set of recorded <code>ProtoOAExecutionEvent</code> byte payloads (add as fixtures) and assert the mapped <code>BrokerEvent</code>s match the ingest output; a round-trip encode/decode test for the heartbeat + auth messages; the read-only guard extended to the send path. Mock the socket — no live Spotware calls in CI.<br><br>NO-SLOP FOOTER applies. The read-only boundary (§14 #37) is non-negotiable: no order-execution message type may appear on the send path.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif"><code>loadProtobufCodec()</code> returns a working codec; cTrader streams real execution events into Cairn end-to-end against a real account; no order-execution message on the send path (tested); graceful <code>null</code> degradation preserved when the schema is absent; tests green (socket mocked); <code>.proto</code> source + licence recorded.</div>
+  </div>
+</article>
+<article class="card" data-id="d8e3b1f4a7" data-default="0">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Wave 4 — Prompt 9: Commit Wave 4, live two-broker end-to-end QA, tag &amp; closeout</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6 (escalate to <strong>Opus 4.6</strong> if the reconciliation money rule needs a second look during QA).</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">The entire Wave 4 surface (MT5 EA→loopback bridge, cTrader adapter + codec, live detection, configurable auto-log, statement↔live reconciliation, account-mapping UI) is built but <strong>uncommitted</strong> on the working branch. Close it out.<br><br>1. <strong>Pre-commit gates.</strong> Run all five on the Windows host and make them green without weakening any: <code>pnpm typecheck</code>, <code>pnpm lint --max-warnings 0</code>, <code>pnpm test:unit</code>, <code>pnpm build</code>, <code>pnpm test:e2e</code> (smoke). Fix what they surface honestly (no <code>any</code>, no skipped tests, no <code>--max-warnings</code> bump).<br>2. <strong>Read-only assertions.</strong> Confirm <code>tests/unit/broker/mt5-ea-readonly.test.ts</code> and <code>ctrader-readonly.test.ts</code> are green and now cover the cTrader send path (Prompt 8). No adapter or EA contains an order-execution path.<br>3. <strong>Sync-gap check.</strong> Confirm the live ingest write path and the import write path (<code>commitCandidates</code>) both call <code>enqueueSyncOp</code> so streamed fills and bulk imports sync; the server still only ever sees ciphertext. If the import-adapter bulk-commit enqueue is still open, close it here and add a test.<br>4. <strong>Commit</strong> in logically-grouped Conventional Commits (<code>feat(broker): …</code>, <code>feat(ctrader): …</code>, <code>test(broker): …</code>, <code>docs: …</code>). Each commit compiles and passes tests on its own.<br>5. <strong>Manual two-broker end-to-end QA</strong> (<code>docs/broker-integration.md</code> §10): map both accounts in Settings → Integrations; take a demo trade in MT5 and one in cTrader; confirm each auto-logs per the active mode (draft → reflection queue + sidebar badge; fully-auto → complete, <code>unreviewed</code>, never counted clean); widen a stop on each to fire a live mentor-voice warning + <code>rule_violations</code> row; then import each broker&#x27;s day statement and confirm <strong>zero duplicate rows</strong> and that the settled statement wins the monetary columns while the live stream keeps timing/modification history.<br>6. <strong>Docs:</strong> replace the &quot;uncommitted&quot; language in <code>docs/build-status.md</code> Wave 4 section with the real commit hashes + a &quot;Wave 4 — DONE&quot; note; tick the Wave 4 end-state list in <code>docs/roadmap-v1.2.md</code> §6.1 (#37–#40); update the <code>CLAUDE.md</code> §17.5 Wave 4 row and §17.6 headline. Tag <code>v1.x-wave4-live-broker</code>.<br><br>NO-SLOP FOOTER applies. If any gate is red or any QA step double-counts a trade, Wave 4 is NOT done — fix before tagging.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">five gates green on the Windows host; Wave 4 committed with real hashes and tagged; both read-only guards green (incl. cTrader send path); streamed + imported trades enqueue for sync; manual two-broker QA passes with zero duplicates and correct conflict-resolution; docs + CLAUDE.md updated. <strong>Wave 4 is fully complete and committed.</strong></div>
+  </div>
+</article>
 </section>
 <section class="stage"><h2 class="stage-h sdone">8.5 v0.1.1 RELEASE HOTFIX — PACKAGED MIGRATION PATH (DONE 2026-06-03) <span class="stage-count">1/1</span></h2>
 <article class="card" data-id="aa7ed97a6f" data-default="1">
@@ -490,6 +529,34 @@ code{background:#0b0e13;border:1px solid var(--line);border-radius:4px;padding:0
     <div class="prompt">Read <code>CLAUDE.md</code> §2.5 (data integrity) and the v0.1.1 launch-failure analysis. The packaged Windows installer fails on first launch with <code>Can&#x27;t find meta/_journal.json file</code> because Drizzle migrations are packaged inside <code>resources/app.asar/electron/db/migrations</code> but the runtime looks for them at <code>resources/migrations</code>. Apply exactly two changes: (1) in <code>electron/db/index.ts</code>, change the <code>app.isPackaged</code> migrations path from <code>join(process.resourcesPath, &#x27;migrations&#x27;)</code> to <code>join(process.resourcesPath, &#x27;app.asar&#x27;, &#x27;electron&#x27;, &#x27;db&#x27;, &#x27;migrations&#x27;)</code>; (2) in <code>electron-builder.yml</code>, add <code>- electron/db/**/*</code> to the <code>files</code> list. Do not change the dev (<code>__dirname</code>-relative) branch. Then run the five quality gates and verify the migration files appear in the asar.</div>
     <div class="lbl">Verification — Definition of done</div>
     <div class="verif">typecheck + lint + test green; packaged installer ships migrations; clean-machine onboarding completes with no _journal.json error.</div>
+  </div>
+</article>
+</section>
+<section class="stage"><h2 class="stage-h ">8.8 OUTSTANDING VERIFICATION GAPS (close before v2.0 launch) <span class="stage-count">0/2</span></h2>
+<article class="card" data-id="e1a7c40b92" data-default="0">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Verification — Prompt 1: Run the full five gates + server suite on the Windows host (Stage 18.5/18.6)</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6 (execution + triage; escalate to <strong>Opus 4.6</strong> only if a gate surfaces a design issue).</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>docs/build-status.md</code> — the Stage 18.5 &quot;Verification&quot; note records that the five repo gates and the full server suite were NOT run on the Windows host (the sandbox can&#x27;t resolve the Windows-symlinked <code>node_modules</code> and the server integration suite needs Docker Compose Postgres).<br><br>Run, on the Windows host, and make all green without weakening anything:<br><br>1. <strong>Desktop + shared gates:</strong> <code>pnpm typecheck</code>, <code>pnpm lint --max-warnings 0</code>, <code>pnpm test:unit</code>, <code>pnpm build</code>, <code>pnpm test:e2e</code> (smoke).<br>2. <strong>Server suite:</strong> bring up the Postgres dependency (<code>docker compose up -d</code> for the DB), run the server&#x27;s full vitest suite (the auth / vault / billing / webhook integration tests that need a real DB), and the 6 DB-free docs tests (<code>apps/server/tests/integration/docs.test.ts</code>).<br>3. <strong>Docs routes smoke:</strong> start the server, hit <code>GET /openapi.json</code> (valid OpenAPI 3.1), <code>GET /docs</code> (Scalar UI renders, relaxed CSP only on the three doc routes), and confirm all three doc routes 404 when <code>ENABLE_API_DOCS=false</code>.<br>4. Fix anything red honestly. Then update the <code>docs/build-status.md</code> Stage 18.5 &quot;Verification&quot; note from &quot;still need a run on the Windows host&quot; to record the date the gates + server suite passed.<br><br>NO-SLOP FOOTER applies. Do not declare green from the sandbox — these must pass on the real host with the real DB.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">all five repo gates + the full server suite (with Docker Postgres) green on the Windows host; docs routes verified live and 404 when disabled; <code>docs/build-status.md</code> updated with the pass date.</div>
+  </div>
+</article>
+<article class="card" data-id="f4b9d2e618" data-default="0">
+  <label class="top">
+    <input type="checkbox" class="chk">
+    <span class="ttl">Verification — Prompt 2: Repackage the installer with the v0.1.1 migrations hotfix + clean-machine reinstall</span>
+  </label>
+  <div class="meta"><span class="badge">Model</span> Sonnet 4.6 (build + verify; no Opus needed).</div>
+  <div class="body">
+    <div class="lbl">Prompt</div>
+    <div class="prompt">Read <code>prompts.md</code> §8.5 (the v0.1.1 packaged-migration hotfix) and <code>docs/build-status.md</code> (which notes the hotfix <code>d53be8d</code> is committed but <strong>not yet repackaged/reinstalled</strong>). The code fix is done; this prompt proves it in a packaged build.<br><br>1. Confirm both fix sites are present: <code>electron/db/index.ts</code> packaged branch points at <code>join(process.resourcesPath, &#x27;app.asar&#x27;, &#x27;electron&#x27;, &#x27;db&#x27;, &#x27;migrations&#x27;)</code>, and <code>electron-builder.yml</code> <code>files</code> includes <code>electron/db/**/*</code>.<br>2. <code>pnpm build</code>, then produce the installer (<code>pnpm dist</code>, or <code>pnpm build &amp;&amp; electron-builder</code>).<br>3. Assert the migrations are inside the asar: <code>npx asar list dist/win-unpacked/resources/app.asar</code> shows <code>electron\db\migrations\meta\_journal.json</code> and the <code>.sql</code> files.<br>4. Install the <code>.exe</code> on a clean machine/VM → onboarding completes with <strong>no</strong> <code>Can&#x27;t find meta/_journal.json</code> error and the DB initialises through the latest migration (0013).<br>5. Update <code>docs/build-status.md</code> to record the repackage + clean-install verification date and the current installed version.<br><br>NO-SLOP FOOTER applies.</div>
+    <div class="lbl">Verification — Definition of done</div>
+    <div class="verif">packaged installer contains the migrations in the asar; clean-machine onboarding completes with no <code>_journal.json</code> error through migration 0013; <code>docs/build-status.md</code> records the verified repackage.</div>
   </div>
 </article>
 </section>
