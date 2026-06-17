@@ -114,6 +114,13 @@ export async function pushOnce(deps: PushDeps): Promise<PushOutcome> {
       return { kind: 'rate-limited', retryAfterMs: res.retryAfterMs ?? null }
     }
 
+    // 402 — the vault is gated behind Cairn Pro (docs/billing.md §5). Pause and let the
+    // renderer prompt the user to upgrade rather than retrying a payment-required call.
+    if (res.status === 402) {
+      log.warn('[sync] push requires Cairn Pro (402)')
+      return { kind: 'upgrade-required' }
+    }
+
     // Other 4xx (400/403/413) — a client-side problem that will just recur. Pause.
     if (res.status >= 400 && res.status < 500) {
       log.error('[sync] push client error', { status: res.status, body: res.body })

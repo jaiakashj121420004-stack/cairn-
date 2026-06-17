@@ -128,6 +128,11 @@ export async function pullOnce(deps: PullDeps): Promise<PullOutcome> {
     if (res.status === 429) {
       return { kind: 'rate-limited', retryAfterMs: res.retryAfterMs ?? null }
     }
+    // 402 — the vault is gated behind Cairn Pro (docs/billing.md §5). Pause and prompt.
+    if (res.status === 402) {
+      log.warn('[sync] pull requires Cairn Pro (402)')
+      return { kind: 'upgrade-required' }
+    }
     if (res.status >= 400 && res.status < 500) {
       log.error('[sync] pull client error', { status: res.status, body: res.body })
       return { kind: 'client-error', status: res.status }

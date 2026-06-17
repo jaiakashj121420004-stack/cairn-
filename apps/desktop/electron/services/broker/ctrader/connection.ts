@@ -13,9 +13,12 @@
  * anywhere downstream of it (CLAUDE.md §14 #37).
  */
 
+import { join } from 'path'
 import { connect as tlsConnect } from 'tls'
 import { err, ok } from '@cairn/shared-types'
 import { FrameDecoder } from '../mt5/frame'
+import { buildCtraderCodec } from './codec'
+import type { ProtobufModule } from './codec'
 import type { Result } from '@cairn/shared-types'
 import type { TLSSocket } from 'tls'
 
@@ -144,26 +147,42 @@ export function openTlsConnection(deps: TlsConnectionDeps): Promise<Result<Ctrad
 }
 
 /**
- * Lazily construct the production protobuf codec.
+ * Locate the vendored cTrader `.proto` directory for the current runtime.
  *
- * The Open API schema (`OpenApiCommonMessages.proto` + `OpenApiMessages.proto`)
- * is compiled at runtime with protobufjs. Both the library and the bundled `.proto`
- * files are optional at build time, so this returns `null` when they are
- * unavailable — the adapter then reports an `error` status with a clear code
- * rather than crashing, exactly as the keychain and MT5 bridge degrade. Wiring a
- * concrete `.proto` set is the one remaining production step for this transport;
- * all of the adapter logic above is schema-agnostic and fully exercised in tests.
+ * Mirrors the DB-migrations resolution in `electron/db/index.ts`: in a packaged
+ * build the schema is copied beside the asar as an `extraResource`
+ * (`<resources>/ctrader-proto`); in dev/built-but-unpackaged runs `__dirname` is
+ * `out/main/`, so the source tree's `resources/ctrader-proto` is two levels up.
+ */
+function resolveProtoDir(): string {
+  const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
+  if (__dirname.includes('app.asar') && resourcesPath) {
+    return join(resourcesPath, 'ctrader-proto')
+  }
+  return join(__dirname, '..', '..', 'resources', 'ctrader-proto')
+}
+
+/**
+ * Construct the production protobuf codec from the vendored Open API schema
+ * (`resources/ctrader-proto/`, compiled at runtime with protobufjs — see
+ * `codec.ts`). The library and the bundled `.proto` files are both treated as
+ * optional: this returns `null` when either is unavailable so the adapter reports
+ * an `error` status with a clear code rather than crashing, exactly as the keychain
+ * and MT5 bridge degrade.
  */
 export async function loadProtobufCodec(): Promise<CtraderCodec | null> {
   try {
-    // Non-literal specifier so neither tsc nor the bundler hard-requires this
-    // optional dependency (it is absent until the proto schema ships).
+    // Non-literal specifier so neither tsc nor the bundler hard-requires the
+    // dependency; a missing module degrades to null instead of throwing on import.
     const moduleName = 'protobufjs'
-    const mod: unknown = await import(/* @vite-ignore */ moduleName).catch(() => null)
+    const mod = (await import(/* @vite-ignore */ moduleName).catch(() => null)) as
+      | ProtobufModule
+      | { default: ProtobufModule }
+      | null
     if (!mod) return null
-    // The proto wiring (root.loadSync of the bundled schema, ProtoMessage lookup,
-    // payloadType → message-type table) is assembled here when the schema ships.
-    return null
+    // protobufjs is CJS; under some interop it arrives under `.default`.
+    const pb = 'loadSync' in mod ? mod : mod.default
+    return buildCtraderCodec(pb, resolveProtoDir())
   } catch {
     return null
   }

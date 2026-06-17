@@ -177,6 +177,14 @@ export class SyncRunner {
           message: 'Sync was rejected. It will retry after the next manual sync.',
         })
         return
+      case 'upgrade-required':
+        this.paused = true
+        this.opts.notify({
+          level: 'error',
+          code: SYNC_ERROR_CODES.UPGRADE_REQUIRED,
+          message: 'Cloud sync needs Cairn Pro. Open Settings → Billing to upgrade.',
+        })
+        return
       case 'wrong-key':
         this.paused = true
         this.opts.notify({

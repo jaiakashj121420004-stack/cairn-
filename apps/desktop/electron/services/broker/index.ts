@@ -5,8 +5,9 @@
  * both live transports feed events into: the MT5 loopback bridge (§2.1) and the
  * cTrader Open API stream (§2.2). Both normalise to the same {@link BrokerEvent}
  * stream and write through the shared committer path. Account mapping
- * ({@link resolveAccount}) is still a stub pending the Settings → Integrations
- * account-map UI, so events surface UNKNOWN_ACCOUNT until that lands.
+ * ({@link resolveAccount}) resolves each `(broker, brokerAccountId)` through the
+ * per-device `broker_account_map` configured in Settings → Integrations; an
+ * unmapped account surfaces UNKNOWN_ACCOUNT rather than guessing (CLAUDE.md §14 #39).
  */
 
 import { randomBytes } from 'crypto'
@@ -17,11 +18,17 @@ import {
   err,
   ok,
 } from '@cairn/shared-types'
-import { eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { BrowserWindow, shell } from 'electron'
 import log from 'electron-log'
 import { getDb } from '../../db/index'
 import * as schema from '../../db/schema'
+import {
+  deleteBrokerAccountMap,
+  findBrokerAccountBinding,
+  listBrokerAccountMap,
+  setBrokerAccountMap,
+} from './account-map'
 import { createCtraderAdapter } from './ctrader/adapter'
 import {
   getCtraderAccountId,
@@ -44,13 +51,16 @@ import { getMt5Port, getOrCreatePairingToken } from './mt5/config'
 import type { FetchLike } from './ctrader/oauth'
 import type { BrokerIngestService, BrokerEmitName, ResolvedAccount } from './ingest'
 import type {
+  BrokerAccountMapEntry,
   BrokerAutoLogMode,
   BrokerConnectionStatus,
+  BrokerKind,
   BrokerWarning,
   CtraderEnvironment,
   CtraderRuntimeConfig,
   LiveBrokerAdapter,
   Result,
+  UnmappedBrokerAccount,
 } from '@cairn/shared-types'
 
 export type { BrokerIngestService } from './ingest'
@@ -79,12 +89,41 @@ function broadcast(name: BrokerEmitName, payload: unknown): void {
 }
 
 /**
- * Map a broker account id to a Cairn account. No transport is configured yet, so
- * this returns null today; it is wired to the Settings → Integrations account
- * mapping when the first transport lands (next Wave 4 prompt).
+ * The default setup a broker-captured trade is filed under: the first active setup
+ * by display order. The `broker_account_map` binds only the *account* (the trader's
+ * choice); the setup is auto-resolved because a streamed fill carries no setup, and
+ * the trader refines it at reflection time (draft mode). Null only if no active
+ * setup exists (a freshly wiped catalogue) — in which case the fill stays unmapped
+ * rather than being filed under a guessed setup.
  */
-function resolveAccount(_brokerAccountId: string): ResolvedAccount | null {
-  return null
+function firstActiveSetupId(): string | null {
+  const row = getDb()
+    .select({ id: schema.setups.id })
+    .from(schema.setups)
+    .where(eq(schema.setups.active, 1))
+    .orderBy(asc(schema.setups.displayOrder))
+    .get()
+  return row?.id ?? null
+}
+
+/**
+ * Map a `(broker, brokerAccountId)` to a Cairn account via the per-device
+ * `broker_account_map` (docs/broker-integration.md §6). On a hit, resolve the
+ * default setup and return the {@link ResolvedAccount}; on a miss (no binding, or
+ * no setup to file under) return null so the ingest service surfaces UNKNOWN_ACCOUNT
+ * and creates no trade. Cairn never guesses an account (CLAUDE.md §14 #39).
+ */
+function resolveAccount(broker: BrokerKind, brokerAccountId: string): ResolvedAccount | null {
+  try {
+    const binding = findBrokerAccountBinding(getDb(), broker, brokerAccountId)
+    if (!binding) return null
+    const defaultSetupId = firstActiveSetupId()
+    if (!defaultSetupId) return null
+    return { accountId: binding.cairnAccountId, defaultSetupId }
+  } catch (e) {
+    log.warn('[broker] resolveAccount lookup failed:', e)
+    return null
+  }
 }
 
 /**
@@ -114,8 +153,46 @@ export function getBrokerIngestService(): BrokerIngestService {
     emit: broadcast,
     resolveAccount,
     getAutoLogMode,
+    log: (m) => log.warn(m),
   })
   return _service
+}
+
+// ── Account mapping (docs/broker-integration.md §6) ─────────────────────────────
+//
+// The Settings → Integrations account-map panel reaches these. Bindings are
+// per-device config in `broker_account_map` (NOT synced); the in-memory
+// seen/buffered unmapped accounts live on the ingest singleton.
+
+/** Every active `(broker, brokerAccountId) → cairnAccountId` binding. */
+export function listBrokerAccountBindings(): BrokerAccountMapEntry[] {
+  return listBrokerAccountMap(getDb())
+}
+
+/** Broker accounts observed on the live stream but not yet bound. */
+export function listUnmappedBrokerAccounts(): UnmappedBrokerAccount[] {
+  return getBrokerIngestService().listUnmapped()
+}
+
+/**
+ * Bind a broker account to a Cairn account, then replay any events that streamed in
+ * while it was unmapped so they converge into trades. Returns the saved binding.
+ */
+export function setBrokerAccountBinding(
+  broker: BrokerKind,
+  brokerAccountId: string,
+  cairnAccountId: string,
+): BrokerAccountMapEntry {
+  const entry = setBrokerAccountMap(getDb(), broker, brokerAccountId, cairnAccountId)
+  // Re-resolve buffered fills now that the account is bound (a no-op when nothing was
+  // buffered — e.g. no adapter has streamed events this session).
+  getBrokerIngestService().flushUnmapped(broker, brokerAccountId)
+  return entry
+}
+
+/** Remove a binding (soft-delete). Future fills on that account become unmapped again. */
+export function deleteBrokerAccountBinding(broker: BrokerKind, brokerAccountId: string): void {
+  deleteBrokerAccountMap(getDb(), broker, brokerAccountId)
 }
 
 /**

@@ -12,6 +12,14 @@ import { initMainTelemetry } from './services/telemetry'
 // Install crash handlers immediately — before anything else can fail
 installCrashHandlers()
 
+// Electron's setuid sandbox helper can't run from an AppImage's read-only SquashFS
+// mount, so it prints a "running as root without --no-sandbox" warning (and may fail)
+// on every launch. AppImage's runtime sets APPIMAGE, so disable the sandbox cleanly
+// only in that case — Windows, macOS, and non-AppImage Linux packages keep it.
+if (process.platform === 'linux' && process.env['APPIMAGE']) {
+  app.commandLine.appendSwitch('no-sandbox')
+}
+
 log.initialize()
 log.transports.file.level = 'info'
 log.transports.console.level = 'debug'

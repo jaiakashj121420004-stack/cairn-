@@ -43,6 +43,8 @@ function mergeOutcome(push: PushOutcome, pull: PullOutcome): PushOutcome {
       return { kind: 'auth-expired' }
     case 'client-error':
       return { kind: 'client-error', status: pull.status, code: SYNC_ERROR_CODES.CLIENT_ERROR }
+    case 'upgrade-required':
+      return { kind: 'upgrade-required' }
     case 'server-error':
       return { kind: 'server-error', status: pull.status }
     case 'network-error':

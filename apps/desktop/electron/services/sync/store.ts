@@ -231,6 +231,15 @@ const tradePartialRowSchema = z
   })
   .passthrough()
 
+// Only the tables below are syncable. Many local tables are deliberately NOT here
+// because they are per-device or locally-derived, not shared user content:
+//   - settings / sync_* / backup_log     : machine-local bookkeeping
+//   - broker_account_map (Wave 4)        : a binding from a broker login to a Cairn
+//                                          account is meaningless on another device
+//                                          (it watches a different terminal), so it
+//                                          stays local and is intentionally absent
+//                                          here. Do NOT register it for sync without
+//                                          an explicit decision (docs/broker-integration.md §6).
 const TABLE_SPECS: Readonly<Record<string, TableSpec>> = {
   trades: {
     sqlName: 'trades',

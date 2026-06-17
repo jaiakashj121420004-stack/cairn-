@@ -83,16 +83,24 @@ import type {
 } from '../shared/types/index'
 import type {
   SignupResult,
+  BrokerAccountMapEntry,
+  BrokerKind,
   BrokerStatus,
   Mt5BridgeConfig,
   CtraderEnvironment,
   CtraderRuntimeConfig,
+  UnmappedBrokerAccount,
 } from '@cairn/shared-types'
 import type {
   ForgotPasswordInput,
   LoginInput,
   ResetPasswordInput,
   SignupInput,
+  CheckoutInputBody,
+  CancelInputBody,
+  BillingStatusOutput,
+  CheckoutOutput,
+  CancelOutput,
 } from '@cairn/shared-zod'
 
 // ── cairn:event push channel ─────────────────────────────────────────────────
@@ -390,6 +398,20 @@ const api = {
       ipcRenderer.invoke('broker:ctraderDisconnect'),
     ctraderSetEnvironment: (env: CtraderEnvironment): Promise<IpcResponse<void>> =>
       ipcRenderer.invoke('broker:ctraderSetEnvironment', env),
+    listAccountMap: (): Promise<IpcResponse<BrokerAccountMapEntry[]>> =>
+      ipcRenderer.invoke('broker:listAccountMap'),
+    listUnmappedAccounts: (): Promise<IpcResponse<UnmappedBrokerAccount[]>> =>
+      ipcRenderer.invoke('broker:listUnmappedAccounts'),
+    setAccountMap: (input: {
+      broker: BrokerKind
+      brokerAccountId: string
+      cairnAccountId: string
+    }): Promise<IpcResponse<BrokerAccountMapEntry>> =>
+      ipcRenderer.invoke('broker:setAccountMap', input),
+    deleteAccountMap: (input: {
+      broker: BrokerKind
+      brokerAccountId: string
+    }): Promise<IpcResponse<void>> => ipcRenderer.invoke('broker:deleteAccountMap', input),
   },
 
   auth: {
@@ -407,6 +429,15 @@ const api = {
       ipcRenderer.invoke('auth:forgotPassword', input),
     resetPassword: (input: ResetPasswordInput): Promise<IpcResponse<{ reset: true }>> =>
       ipcRenderer.invoke('auth:resetPassword', input),
+  },
+
+  billing: {
+    status: (): Promise<IpcResponse<BillingStatusOutput>> => ipcRenderer.invoke('billing:status'),
+    checkout: (input: CheckoutInputBody): Promise<IpcResponse<CheckoutOutput>> =>
+      ipcRenderer.invoke('billing:checkout', input),
+    portal: (): Promise<IpcResponse<CheckoutOutput>> => ipcRenderer.invoke('billing:portal'),
+    cancel: (input: CancelInputBody): Promise<IpcResponse<CancelOutput>> =>
+      ipcRenderer.invoke('billing:cancel', input),
   },
 
   events: {

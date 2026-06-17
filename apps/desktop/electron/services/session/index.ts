@@ -14,6 +14,7 @@ import {
   storeDataKey as keychainStoreDataKey,
 } from '../keychain'
 import { activateSync, deactivateSync } from '../sync/activate'
+import { setTelemetryUser } from '../telemetry'
 import { AuthHttpClient, nodeAuthFetch } from './auth-client'
 import { VaultEnroller } from './enrollment'
 import { createElectronDeviceIdStore, createElectronSessionPersistence } from './persistence'
@@ -68,6 +69,7 @@ export function getSessionStore(): SessionStore {
       // is fully constructed before `getSessionStore()` resolves inside the callback.
       onVaultActivate: (deviceId) => activateSync(getSessionStore(), deviceId, baseUrl),
       onVaultDeactivate: () => deactivateSync(),
+      onSessionChange: (email) => setTelemetryUser(email),
       log: { warn: (msg, meta) => log.warn(msg, meta) },
     })
   }

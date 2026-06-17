@@ -83,6 +83,12 @@ export interface SessionStoreDeps {
   readonly onVaultActivate?: (deviceId: string) => void
   /** Called on lock/logout to tear the sync runner down. */
   readonly onVaultDeactivate?: () => void
+  /**
+   * Called whenever the active session's identity changes — `email` on login/restore/
+   * refresh, `null` on logout — so opt-in crash telemetry can attach (or clear) a
+   * pseudonymous `user.id` (CLAUDE.md §18.9). No-op telemetry consumer by default.
+   */
+  readonly onSessionChange?: (email: string | null) => void
 }
 
 export class SessionStore implements SyncContext {
@@ -95,6 +101,7 @@ export class SessionStore implements SyncContext {
   private readonly platform: string
   private readonly onVaultActivate: (deviceId: string) => void
   private readonly onVaultDeactivate: () => void
+  private readonly onSessionChange: (email: string | null) => void
 
   private session: ActiveSession | null = null
   /** Enrolled device id — set on vault unlock; null gates sync as not-ready. */
@@ -112,6 +119,7 @@ export class SessionStore implements SyncContext {
     this.platform = deps.platform ?? 'unknown'
     this.onVaultActivate = deps.onVaultActivate ?? (() => undefined)
     this.onVaultDeactivate = deps.onVaultDeactivate ?? (() => undefined)
+    this.onSessionChange = deps.onSessionChange ?? (() => undefined)
   }
 
   // ── Auth operations ───────────────────────────────────────────────────────────
@@ -141,6 +149,7 @@ export class SessionStore implements SyncContext {
     }
     this.persistence.clearResume()
     this.onVaultDeactivate()
+    this.onSessionChange(null)
     this.session = null
     this.dataKey = null
     this.deviceId = null
@@ -367,6 +376,7 @@ export class SessionStore implements SyncContext {
       refreshToken,
     }
     this.session = active
+    this.onSessionChange(email)
     const saved = await this.persistence.saveRefreshToken(session.user.userId, refreshToken)
     if (!saved.ok) {
       // Non-fatal: the in-memory token still works for this run; only cross-restart

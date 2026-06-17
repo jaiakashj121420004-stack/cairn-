@@ -1,30 +1,13 @@
 /**
- * Cairn client-side cryptography (CLAUDE.md §2.4, §2.13, §18.4).
+ * Cairn client-side cryptography — desktop re-export shim (CLAUDE.md §2.4, §18.4).
  *
- * Envelope encryption with libsodium: a random 32-byte data key encrypts vault
- * records (XChaCha20-Poly1305); the data key is wrapped by a KEK derived from the
- * user's password or recovery phrase (Argon2id). The server never sees the KEK, the
- * data key, or plaintext. Full design and rationale: `docs/security.md`.
+ * The implementation moved to `@cairn/shared-crypto` (packages/shared-crypto) so the
+ * exact same code runs in the Electron main process and in-browser on web. This file
+ * preserves the historical import path `electron/services/crypto` for every existing
+ * desktop importer (sync engine, session enrollment, keychain, tests) — they keep
+ * working unchanged. New code may import from `@cairn/shared-crypto` directly.
  *
- * NOTE (Stage 18.4): this module ships the *capability* only. No real rows are
- * encrypted yet — existing local SQLite data stays plaintext until the sync engine
- * (Stage 18.6) opts rows in.
+ * NOTE (Stage 18.4): this still ships the *capability* only; no extra rows are
+ * encrypted by re-exporting. The sync engine decides what is encrypted.
  */
-export { CryptoError } from './errors'
-export { initCrypto, isCryptoReady } from './sodium'
-export {
-  DEFAULT_KDF_PARAMS,
-  RECOVERY_KDF_PARAMS,
-  RECOVERY_KDF_SALT,
-  RECOVERY_PHRASE_WORD_COUNT,
-  RECOVERY_ENTROPY_BYTES,
-  SALT_BYTES,
-  KEY_BYTES,
-  NONCE_BYTES,
-  TAG_BYTES,
-  MEMLIMIT_INTERACTIVE_BYTES,
-} from './params'
-export { generateSalt, generateDataKey } from './random'
-export { deriveKEK } from './kdf'
-export { wrapDataKey, unwrapDataKey, encryptRecord, decryptRecord } from './aead'
-export { generateRecoveryPhrase, keyFromRecoveryPhrase } from './recovery'
+export * from '@cairn/shared-crypto'

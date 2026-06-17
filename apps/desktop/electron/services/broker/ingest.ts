@@ -48,11 +48,13 @@ import type { PairDetail, AccountDetail } from '../import-adapters/_shared/commi
 import type { LiveDetectionService } from '../rules-engine/live-detection'
 import type {
   BrokerEvent,
+  BrokerKind,
   BrokerStatus,
   BrokerConnectionStatus,
   BrokerAutoLogMode,
   BrokerWarning,
   Result,
+  UnmappedBrokerAccount,
 } from '@cairn/shared-types'
 import type { SyncOpType } from '@cairn/sync-protocol'
 
@@ -77,8 +79,12 @@ export interface BrokerIngestDeps {
   now: () => number
   /** Forwards a `cairn:event` to renderer windows. No-op acceptable. */
   emit: (name: BrokerEmitName, payload: unknown) => void
-  /** Maps a broker account id to a Cairn account; null = not configured. */
-  resolveAccount: (brokerAccountId: string) => ResolvedAccount | null
+  /**
+   * Maps a `(broker, brokerAccountId)` to a Cairn account; null = not bound.
+   * Keyed by broker too, because the same numeric account id can exist on both
+   * platforms. A null result is never fabricated into an account (CLAUDE.md §14 #39).
+   */
+  resolveAccount: (broker: BrokerKind, brokerAccountId: string) => ResolvedAccount | null
   /**
    * Current auto-log mode (docs/broker-integration.md §3). Read fresh per event
    * so a Settings change takes effect without restarting the service. Injected
@@ -96,6 +102,11 @@ export interface BrokerIngestDeps {
     opType: SyncOpType,
     row: Record<string, unknown> | null,
   ) => void
+  /**
+   * Optional diagnostic logger (no PII). Used only for the rare unmapped-buffer
+   * overflow so a dropped event is never silent (CLAUDE.md §19 "no silent caps").
+   */
+  log?: (message: string) => void
 }
 
 /** Outcome of applying one trade-bearing event. `null` data = heartbeat. */
@@ -121,6 +132,32 @@ export interface BrokerIngestService {
   /** Fold + persist one event. Returns `ok(null)` for heartbeats. */
   apply(event: BrokerEvent): Result<AppliedEvent | null>
   status(): BrokerStatus
+  /**
+   * Broker accounts seen on the live stream but not yet bound to a Cairn account
+   * (docs/broker-integration.md §6). Drives the Settings → Integrations account-map
+   * table. Empty once everything observed is bound.
+   */
+  listUnmapped(): UnmappedBrokerAccount[]
+  /**
+   * Re-apply the events buffered for a now-bound broker account. Called after a
+   * binding is saved so fills that arrived before the mapping existed converge into
+   * trades. Returns the number of buffered events that applied. Drops the buffered +
+   * seen entry for the account whether or not anything was pending (idempotent).
+   */
+  flushUnmapped(broker: BrokerKind, brokerAccountId: string): number
+}
+
+/**
+ * Cap on events buffered for a SINGLE unmapped broker account. A trader who never
+ * binds an account could otherwise stream unboundedly; past the cap the oldest
+ * buffered event is dropped (and logged — never silently). Generous: a normal
+ * session is dozens of events, and binding clears the buffer.
+ */
+const MAX_BUFFERED_EVENTS_PER_ACCOUNT = 2000
+
+/** Stable map key for an unmapped `(broker, brokerAccountId)` pair. */
+function unmappedKey(broker: BrokerKind, brokerAccountId: string): string {
+  return `${broker}::${brokerAccountId}`
 }
 
 export function createBrokerIngestService(
@@ -129,6 +166,7 @@ export function createBrokerIngestService(
 ): BrokerIngestService {
   const { db, now, emit, resolveAccount, getAutoLogMode } = deps
   const enqueue = deps.enqueue ?? enqueueSyncOp
+  const logDiag = deps.log ?? (() => {})
 
   // Live detection (spec §5). Built from the same db/clock so it shares the
   // ingest's deterministic time in tests; can be injected for isolation.
@@ -136,6 +174,39 @@ export function createBrokerIngestService(
 
   /** Per-position fold state, keyed by brokerTradeId. */
   const accum = new Map<string, AccumulatedTrade>()
+
+  // Unmapped-account tracking (docs/broker-integration.md §6). When a fill names a
+  // broker account with no Cairn binding, we record it (for the Settings table) and
+  // buffer its events (so binding it later can replay them into a real trade). Both
+  // are keyed by `${broker}::${brokerAccountId}` and live only in memory — they are
+  // a session convenience, not durable state.
+  const seenUnmapped = new Map<string, UnmappedBrokerAccount>()
+  const bufferedUnmapped = new Map<string, BrokerEvent[]>()
+
+  /** Note an unmapped fill: bump the seen record and buffer the event for replay. */
+  function recordUnmapped(event: BrokerEvent): void {
+    const key = unmappedKey(event.broker, event.brokerAccountId)
+    const ts = now()
+
+    const buf = bufferedUnmapped.get(key) ?? []
+    buf.push(event)
+    if (buf.length > MAX_BUFFERED_EVENTS_PER_ACCOUNT) {
+      buf.shift() // drop oldest
+      logDiag(
+        `[broker] unmapped buffer for ${key} exceeded ${MAX_BUFFERED_EVENTS_PER_ACCOUNT}; dropped oldest event`,
+      )
+    }
+    bufferedUnmapped.set(key, buf)
+
+    const prev = seenUnmapped.get(key)
+    seenUnmapped.set(key, {
+      broker: event.broker,
+      brokerAccountId: event.brokerAccountId,
+      firstSeenMs: prev?.firstSeenMs ?? ts,
+      lastSeenMs: ts,
+      eventCount: buf.length,
+    })
+  }
 
   let connection: BrokerConnectionStatus = 'disconnected'
   let broker: BrokerEvent['broker'] | null = null
@@ -221,11 +292,14 @@ export function createBrokerIngestService(
     }
     accum.set(event.brokerTradeId, next)
 
-    const account = resolveAccount(event.brokerAccountId)
+    const account = resolveAccount(event.broker, event.brokerAccountId)
     if (!account) {
+      // Not bound yet: surface it for the account-map UI and buffer the event so a
+      // later binding can replay it into a trade. Never fabricated (CLAUDE.md §14 #39).
+      recordUnmapped(event)
       return fail(
         'UNKNOWN_ACCOUNT',
-        `No Cairn account mapped to broker account ${event.brokerAccountId}`,
+        `No Cairn account mapped to ${event.broker} account ${event.brokerAccountId}`,
       )
     }
 
@@ -405,5 +479,24 @@ export function createBrokerIngestService(
     return { connection, broker, lastEventMs, lastHeartbeatMs }
   }
 
-  return { apply, status }
+  function listUnmapped(): UnmappedBrokerAccount[] {
+    return [...seenUnmapped.values()].sort((a, b) => b.lastSeenMs - a.lastSeenMs)
+  }
+
+  function flushUnmapped(brokerKind: BrokerKind, brokerAccountId: string): number {
+    const key = unmappedKey(brokerKind, brokerAccountId)
+    const events = bufferedUnmapped.get(key) ?? []
+    // Clear first: a successful re-apply must not re-buffer under the same key, and a
+    // still-unmapped event re-buffers itself through apply() → recordUnmapped anyway.
+    bufferedUnmapped.delete(key)
+    seenUnmapped.delete(key)
+
+    let applied = 0
+    for (const event of events) {
+      if (apply(event).ok) applied++
+    }
+    return applied
+  }
+
+  return { apply, status, listUnmapped, flushUnmapped }
 }

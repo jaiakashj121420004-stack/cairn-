@@ -22,6 +22,9 @@ export const SYNC_ERROR_CODES = {
   RATE_LIMITED: 'SYNC_RATE_LIMITED',
   /** Non-401 4xx (400/403/413) — auto-sync paused until a manual run. */
   CLIENT_ERROR: 'SYNC_CLIENT_ERROR',
+  /** 402 — cloud sync requires a Cairn Pro entitlement (docs/billing.md §5). Paused; the
+   *  renderer surfaces the upgrade prompt and routes to Settings → Billing. */
+  UPGRADE_REQUIRED: 'SYNC_UPGRADE_REQUIRED',
   /** 5xx — backing off with jitter, will auto-retry. */
   SERVER_ERROR: 'SYNC_SERVER_ERROR',
   /** Fetch threw (offline / DNS / TLS) — backing off, will auto-retry. */
@@ -125,6 +128,8 @@ export type PushOutcome =
   | { readonly kind: 'rate-limited'; readonly retryAfterMs: number | null }
   /** Non-401 4xx — pause auto-sync until a manual run. */
   | { readonly kind: 'client-error'; readonly status: number; readonly code: SyncErrorCode }
+  /** 402 — cloud sync needs Cairn Pro; pause and prompt the user to upgrade. */
+  | { readonly kind: 'upgrade-required' }
   /** 5xx — exponential backoff with jitter. */
   | { readonly kind: 'server-error'; readonly status: number }
   /** Fetch threw — exponential backoff with jitter. */
@@ -151,6 +156,8 @@ export type PullOutcome =
   | { readonly kind: 'auth-expired' }
   | { readonly kind: 'rate-limited'; readonly retryAfterMs: number | null }
   | { readonly kind: 'client-error'; readonly status: number }
+  /** 402 — cloud sync needs Cairn Pro; pause and prompt the user to upgrade. */
+  | { readonly kind: 'upgrade-required' }
   | { readonly kind: 'server-error'; readonly status: number }
   | { readonly kind: 'network-error'; readonly message: string }
   | { readonly kind: 'not-ready'; readonly reason: string }

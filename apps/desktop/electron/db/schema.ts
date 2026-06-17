@@ -465,6 +465,33 @@ export const syncClocks = sqliteTable(
   }),
 )
 
+/**
+ * Live-broker → Cairn account bindings (Wave 4, docs/broker-integration.md §4/§6).
+ *
+ * Maps a broker-side `(broker, broker_account_id)` to the Cairn account every fill
+ * on it is attributed to. A live fill whose `(broker, broker_account_id)` has no row
+ * here resolves to no account and creates no trade — Cairn never guesses (CLAUDE.md
+ * §14 #39). The unique index is PARTIAL (`WHERE deleted_at IS NULL`) so a removed
+ * binding can be re-created for the same broker account.
+ *
+ * This is PER-DEVICE configuration (a binding is meaningless on another machine that
+ * watches a different terminal), so it is deliberately NOT a syncable table — it is
+ * intentionally absent from the sync engine's TABLE_SPECS (see
+ * electron/services/sync/store.ts).
+ */
+export const brokerAccountMap = sqliteTable('broker_account_map', {
+  id: text('id').primaryKey(),
+  /** 'mt5' | 'ctrader'. */
+  broker: text('broker').notNull(),
+  brokerAccountId: text('broker_account_id').notNull(),
+  cairnAccountId: text('cairn_account_id')
+    .notNull()
+    .references(() => accounts.id),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+  deletedAt: integer('deleted_at'),
+})
+
 export const backupLog = sqliteTable('backup_log', {
   id: text('id').primaryKey(),
   kind: text('kind').notNull(),

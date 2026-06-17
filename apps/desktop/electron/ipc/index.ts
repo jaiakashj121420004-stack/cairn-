@@ -4,7 +4,9 @@ import { registerAccountHandlers } from './accounts'
 import { registerAnalyticsHandlers } from './analytics'
 import { registerAuthHandlers } from './auth'
 import { registerBackupHandlers } from './backup'
+import { registerBillingHandlers } from './billing'
 import { registerBrokerHandlers } from './broker'
+import { registerBrokerAccountMapHandlers } from './broker-account-map'
 import { registerDashboardHandlers } from './dashboard'
 import { registerDataHandlers } from './data'
 import { registerDbHandlers } from './db'
@@ -51,6 +53,8 @@ export function setupIpcHandlers(): void {
   registerSyncHandlers()
   registerSyncConflictHandlers()
   registerAuthHandlers()
+  registerBillingHandlers()
   registerVaultHandlers()
   registerBrokerHandlers()
+  registerBrokerAccountMapHandlers()
 }
