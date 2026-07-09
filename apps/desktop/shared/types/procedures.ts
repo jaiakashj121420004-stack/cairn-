@@ -16,6 +16,8 @@ import type {
   UpdateAccountTemplateInput,
   CreateAccountInput,
   UpdateAccountInput,
+  AdvancePhaseInput,
+  UpdateAccountPhasesInput,
   DraftTradeInput,
   EvaluateModificationInput,
   OverrideInputDTO,
@@ -83,6 +85,7 @@ import type {
   PublicSession,
   SignupResult,
   BrokerAccountMapEntry,
+  BrokerDiagnostics,
   BrokerKind,
   BrokerStatus,
   Mt5BridgeConfig,
@@ -182,6 +185,8 @@ export interface Procedures {
   'accounts:update': { input: UpdateAccountInput; output: Account }
   'accounts:stats': { input: void; output: AccountStats[] }
   'accounts:delete': { input: { id: string }; output: { ok: true } }
+  'accounts:advancePhase': { input: AdvancePhaseInput; output: Account }
+  'accounts:updatePhases': { input: UpdateAccountPhasesInput; output: Account }
 
   'pairs:list': { input: void; output: Pair[] }
   'pairs:create': { input: CreatePairInput; output: Pair }
@@ -330,6 +335,7 @@ export interface Procedures {
     input: { broker: BrokerKind; brokerAccountId: string }
     output: void
   }
+  'broker:diagnostics': { input: void; output: BrokerDiagnostics }
 
   'auth:signup': { input: SignupInput; output: SignupResult }
   'auth:login': { input: LoginInput; output: PublicSession }
@@ -363,6 +369,8 @@ export const PROCEDURE_NAMES = [
   'accounts:update',
   'accounts:stats',
   'accounts:delete',
+  'accounts:advancePhase',
+  'accounts:updatePhases',
   'pairs:list',
   'pairs:create',
   'pairs:update',
@@ -464,6 +472,7 @@ export const PROCEDURE_NAMES = [
   'broker:listUnmappedAccounts',
   'broker:setAccountMap',
   'broker:deleteAccountMap',
+  'broker:diagnostics',
   'auth:signup',
   'auth:login',
   'auth:logout',

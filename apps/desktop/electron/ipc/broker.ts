@@ -8,6 +8,7 @@ import { ipcMain } from 'electron'
 import {
   connectCtrader,
   disconnectCtrader,
+  getBrokerDiagnostics,
   getBrokerIngestService,
   getCtraderRuntimeConfig,
   setCtraderEnvironmentSetting,
@@ -15,6 +16,7 @@ import {
 import { getMt5BridgeConfig } from '../services/broker/mt5/config'
 import type { IpcResponse } from '../../shared/types/index'
 import type {
+  BrokerDiagnostics,
   BrokerStatus,
   CtraderEnvironment,
   CtraderRuntimeConfig,
@@ -72,4 +74,15 @@ export function registerBrokerHandlers(): void {
       }
     },
   )
+
+  // ── broker:diagnostics ────────────────────────────────────────────────────────
+  // Connection-health snapshot for Settings → Integrations. Read-only; every
+  // field is sourced from state the desktop main process actually tracks.
+  ipcMain.handle('broker:diagnostics', (): IpcResponse<BrokerDiagnostics> => {
+    try {
+      return { ok: true, data: getBrokerDiagnostics() }
+    } catch (err) {
+      return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
+    }
+  })
 }

@@ -11,8 +11,8 @@ interface Props {
 }
 
 const OPTIONS: Array<{ value: ThemePreference; label: string; desc: string }> = [
-  { value: 'dark', label: 'Dark', desc: 'Graphite & Citrus — default for focus sessions.' },
-  { value: 'light', label: 'Light', desc: 'Bone & Forest — clean and readable.' },
+  { value: 'dark', label: 'Dark', desc: 'Deep-space cockpit — the flagship for focus sessions.' },
+  { value: 'light', label: 'Light', desc: 'Daylight cockpit — the same panel, lights on.' },
   { value: 'system', label: 'System', desc: 'Follows your OS preference automatically.' },
 ]
 
@@ -37,7 +37,7 @@ export function StepTheme({ step, totalSteps, onBack, onNext }: Props) {
             className={[
               'flex items-center justify-between rounded-[10px] border px-4 py-3 text-left transition-colors',
               themePreference === opt.value
-                ? 'border-accent-a bg-accent-a/8'
+                ? 'border-info bg-info/8'
                 : 'border-border bg-surface hover:bg-surface-elevated',
             ].join(' ')}
           >
@@ -49,7 +49,7 @@ export function StepTheme({ step, totalSteps, onBack, onNext }: Props) {
               className={[
                 'h-4 w-4 rounded-full border-2 transition-colors',
                 themePreference === opt.value
-                  ? 'border-accent-a bg-accent-a'
+                  ? 'border-info bg-info shadow-[0_0_8px_hsl(var(--info)/0.6)]'
                   : 'border-border bg-transparent',
               ].join(' ')}
             />

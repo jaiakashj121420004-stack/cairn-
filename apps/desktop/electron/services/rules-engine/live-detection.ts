@@ -47,6 +47,7 @@ import {
   detectSlWidened,
   detectTpNarrowed,
 } from './close-detection'
+import { parseRuleConfig } from './guardrail'
 import type { KillzoneRecord } from './types'
 import type { TradeDirection } from '../../../shared/types/index'
 import type { CairnDb } from '../../db/index'
@@ -130,11 +131,7 @@ export function createLiveDetectionService(deps: LiveDetectionDeps): LiveDetecti
       config(key: string): Record<string, unknown> | null {
         const r = byKey.get(key)
         if (!r) return null
-        try {
-          return JSON.parse(r.value) as Record<string, unknown>
-        } catch {
-          return null
-        }
+        return parseRuleConfig<Record<string, unknown>>(r.value, key, 'live-detection')
       },
     }
   }

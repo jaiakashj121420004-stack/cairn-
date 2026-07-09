@@ -32,9 +32,9 @@ describe('timingSafeEqualUtf8', () => {
   it('returns true for identical strings', () => {
     const secret = 'a'.repeat(40)
     expect(timingSafeEqualUtf8(secret, secret)).toBe(true)
-    expect(timingSafeEqualUtf8('hunter2-with-unicode-ünïçødé', 'hunter2-with-unicode-ünïçødé')).toBe(
-      true,
-    )
+    expect(
+      timingSafeEqualUtf8('hunter2-with-unicode-ünïçødé', 'hunter2-with-unicode-ünïçødé'),
+    ).toBe(true)
   })
 
   it('returns false for different same-length strings', () => {

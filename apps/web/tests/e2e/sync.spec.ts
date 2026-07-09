@@ -72,7 +72,9 @@ test('signup → verify → enroll → sync → second device recovers and sees 
 
   // Seed an encrypted op from the unlocked device (simulates a desktop push).
   const seeded = await a.evaluate(async () => {
-    return window.__cairnTest?.seedOp('trade', 't-001', { symbol: 'EURUSD', rMultiple: 2.3 }) ?? false
+    return (
+      window.__cairnTest?.seedOp('trade', 't-001', { symbol: 'EURUSD', rMultiple: 2.3 }) ?? false
+    )
   })
   expect(seeded).toBe(true)
 

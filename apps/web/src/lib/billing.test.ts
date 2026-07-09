@@ -19,7 +19,9 @@ import {
  * becomes a typed `INTERNAL` rather than a wrong render.
  */
 
-function fakeCaller(handler: (method: string, path: string, body?: unknown) => Result<unknown>): BillingCaller {
+function fakeCaller(
+  handler: (method: string, path: string, body?: unknown) => Result<unknown>,
+): BillingCaller {
   return {
     call: vi.fn((method: string, path: string, body?: unknown) =>
       Promise.resolve(handler(method, path, body)),

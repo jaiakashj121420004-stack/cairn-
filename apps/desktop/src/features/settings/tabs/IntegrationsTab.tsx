@@ -3,6 +3,7 @@ import {
   DEFAULT_BROKER_AUTO_LOG_MODE,
   type BrokerAccountMapEntry,
   type BrokerAutoLogMode,
+  type BrokerDiagnostics,
   type BrokerKind,
   type BrokerStatus,
   type CtraderEnvironment,
@@ -42,6 +43,8 @@ export function IntegrationsTab() {
 
   return (
     <div className="max-w-xl space-y-10">
+      <ConnectionHealthCard />
+
       <section className="space-y-6">
         <div>
           <h2 className="text-h3 font-semibold text-text-primary">Live broker auto-log</h2>
@@ -131,6 +134,114 @@ function deriveLiveState(status: BrokerStatus | null, now: number): LiveState {
 function secondsAgo(ms: number | null, now: number): string | null {
   if (ms === null) return null
   return `${Math.max(0, Math.round((now - ms) / 1000))}s ago`
+}
+
+/**
+ * Settings → Integrations → Connection health (top of page). A single,
+ * honest read of `broker:diagnostics`: both live-broker transports plus the
+ * account map, sourced entirely from state the main process actually tracks —
+ * a cTrader codec failure is surfaced verbatim rather than a bare "off".
+ */
+function ConnectionHealthCard() {
+  const [diag, setDiag] = useState<BrokerDiagnostics | null>(null)
+  const [now, setNow] = useState<number>(() => Date.now())
+  const [refreshing, setRefreshing] = useState(false)
+
+  const refresh = useCallback(async () => {
+    setRefreshing(true)
+    const res = await ipc.broker.diagnostics()
+    if (res.ok) setDiag(res.data)
+    setNow(Date.now())
+    setRefreshing(false)
+  }, [])
+
+  useEffect(() => {
+    void refresh()
+    const id = setInterval(() => void refresh(), STATUS_POLL_MS)
+    return () => clearInterval(id)
+  }, [refresh])
+
+  function dot(ok: boolean, hasError: boolean): string {
+    if (ok) return 'bg-accent-a'
+    return hasError ? 'bg-warning' : 'bg-text-muted'
+  }
+
+  const mt5LastEvent = diag ? secondsAgo(diag.mt5.lastEventAt, now) : null
+  const ctraderLastEvent = diag ? secondsAgo(diag.ctrader.lastEventAt, now) : null
+
+  return (
+    <section className="space-y-4 rounded-[10px] border border-border bg-surface-elevated p-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-h3 font-semibold text-text-primary">Connection health</h2>
+        <Button variant="secondary" size="sm" loading={refreshing} onClick={() => void refresh()}>
+          Refresh
+        </Button>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5 rounded-[8px] border border-border bg-surface px-3 py-2.5">
+          <div className="flex items-center gap-2">
+            <span
+              className={`inline-block h-2 w-2 rounded-full ${dot(diag?.mt5.listening ?? false, false)}`}
+            />
+            <span className="text-body-sm font-medium text-text-primary">MetaTrader 5</span>
+          </div>
+          <p className="text-caption text-text-muted">
+            {diag === null
+              ? '…'
+              : diag.mt5.listening
+                ? `Listening on 127.0.0.1:${diag.mt5.port ?? '…'}`
+                : 'Not listening'}
+          </p>
+          <p className="text-caption text-text-muted">
+            Last event: {mt5LastEvent ?? (diag ? 'none yet' : '…')}
+          </p>
+        </div>
+
+        <div className="space-y-1.5 rounded-[8px] border border-border bg-surface px-3 py-2.5">
+          <div className="flex items-center gap-2">
+            <span
+              className={`inline-block h-2 w-2 rounded-full ${dot(diag?.ctrader.streaming ?? false, diag?.ctrader.codecError != null)}`}
+            />
+            <span className="text-body-sm font-medium text-text-primary">cTrader</span>
+          </div>
+          <p className="text-caption text-text-muted">
+            {diag === null
+              ? '…'
+              : !diag.ctrader.linked
+                ? 'Not linked'
+                : diag.ctrader.streaming
+                  ? 'Streaming'
+                  : 'Linked, not streaming'}
+            {diag && ` · codec ${diag.ctrader.codecLoaded ? 'loaded' : 'not loaded'}`}
+          </p>
+          <p className="text-caption text-text-muted">
+            Last event: {ctraderLastEvent ?? (diag ? 'none yet' : '…')}
+          </p>
+          {diag?.ctrader.codecError && (
+            <p className="mt-1 break-all rounded-[6px] bg-surface px-2 py-1 font-mono text-[11px] text-text-muted">
+              {diag.ctrader.codecError}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4 text-caption text-text-muted">
+        <span>
+          <span className="font-medium text-text-primary">
+            {diag?.accountMap.mappedCount ?? '…'}
+          </span>{' '}
+          mapped
+        </span>
+        <span>
+          <span className="font-medium text-text-primary">
+            {diag?.accountMap.unmappedCount ?? '…'}
+          </span>{' '}
+          unmapped
+        </span>
+      </div>
+    </section>
+  )
 }
 
 /**
@@ -467,9 +578,9 @@ function AccountMappingPanel() {
       <div>
         <h2 className="text-h3 font-semibold text-text-primary">Account mapping</h2>
         <p className="mt-1 text-caption text-text-muted leading-relaxed">
-          A broker fill arrives tagged with a broker-side account. Cairn files it under one of
-          your accounts only once you bind them here — it never guesses. Until an account is
-          bound, its fills are held and create no trade.
+          A broker fill arrives tagged with a broker-side account. Cairn files it under one of your
+          accounts only once you bind them here — it never guesses. Until an account is bound, its
+          fills are held and create no trade.
         </p>
       </div>
 
@@ -478,8 +589,8 @@ function AccountMappingPanel() {
         <h3 className="text-caption font-medium text-text-secondary">Waiting to be mapped</h3>
         {unmapped.length === 0 ? (
           <p className="text-caption text-text-muted leading-relaxed">
-            No unmapped accounts. New broker accounts appear here the first time a fill arrives
-            from them.
+            No unmapped accounts. New broker accounts appear here the first time a fill arrives from
+            them.
           </p>
         ) : (
           <ul className="space-y-2">
@@ -516,7 +627,10 @@ function AccountMappingPanel() {
                     onChange={(v) => void bind(b.broker, b.brokerAccountId, v)}
                   />
                 </div>
-                <Button variant="secondary" onClick={() => void remove(b.broker, b.brokerAccountId)}>
+                <Button
+                  variant="secondary"
+                  onClick={() => void remove(b.broker, b.brokerAccountId)}
+                >
                   Remove
                 </Button>
                 <span className="sr-only">currently {accountName(b.cairnAccountId)}</span>

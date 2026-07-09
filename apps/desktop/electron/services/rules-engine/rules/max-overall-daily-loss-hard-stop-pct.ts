@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { reportGuardrailDegraded } from '../guardrail'
 import { sumClosedPnlCents } from '../helpers'
 import type { Rule, RuleContext, RuleEvaluation } from '../types'
 
@@ -9,12 +10,17 @@ const configSchema = z.object({
 function evaluate(ctx: RuleContext, configUnknown: unknown): RuleEvaluation {
   const parsed = configSchema.safeParse(configUnknown)
   if (!parsed.success) {
+    // Hard locks fail CLOSED. A misconfigured hard lock must still block the
+    // trade (severity 'blocking'), not degrade to a warning the pre-trade gate
+    // ignores — and it must say so loudly (guardrail.degraded → banner).
+    reportGuardrailDegraded(rule.key, 'invalid config for hard daily drawdown stop')
     return {
       ruleKey: rule.key,
       ruleLabel: rule.label,
       passed: false,
-      severity: 'warning',
-      message: 'Rule misconfigured: hard stop',
+      severity: 'blocking',
+      message:
+        'This hard stop has invalid configuration. Trading is blocked until the rule is fixed in Settings.',
       canOverride: false,
     }
   }

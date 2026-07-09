@@ -38,6 +38,8 @@ const dispatch: Dispatch = {
   'accounts:update': (input) => window.api.accounts.update(input),
   'accounts:stats': () => window.api.accounts.stats(),
   'accounts:delete': (input) => window.api.accounts.delete(input.id),
+  'accounts:advancePhase': (input) => window.api.accounts.advancePhase(input),
+  'accounts:updatePhases': (input) => window.api.accounts.updatePhases(input),
 
   'pairs:list': () => window.api.pairs.list(),
   'pairs:create': (input) => window.api.pairs.create(input),
@@ -161,6 +163,7 @@ const dispatch: Dispatch = {
   'broker:listUnmappedAccounts': () => window.api.broker.listUnmappedAccounts(),
   'broker:setAccountMap': (input) => window.api.broker.setAccountMap(input),
   'broker:deleteAccountMap': (input) => window.api.broker.deleteAccountMap(input),
+  'broker:diagnostics': () => window.api.broker.diagnostics(),
 
   'auth:signup': (input) => window.api.auth.signup(input),
   'auth:login': (input) => window.api.auth.login(input),

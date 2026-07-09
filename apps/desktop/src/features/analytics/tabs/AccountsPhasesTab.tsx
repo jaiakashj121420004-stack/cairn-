@@ -97,7 +97,7 @@ export function AccountsPhasesTab() {
                   <td
                     className={cn(
                       'py-2 capitalize',
-                      a.status === 'funded'
+                      a.status === 'passed'
                         ? 'text-accent-a'
                         : a.status === 'failed'
                           ? 'text-danger'

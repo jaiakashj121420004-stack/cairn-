@@ -1,0 +1,958 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cairn — Pre-Trade Gate — Build Prompts</title>
+    <style>
+      :root {
+        --bg: #0e1116;
+        --panel: #161b22;
+        --panel2: #1b2230;
+        --line: #2a3140;
+        --txt: #e6edf3;
+        --mut: #8b97a7;
+        --acc: #4ea1ff;
+        --done: #3fb950;
+        --strike: #5b6675;
+        --warn: #d29922;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--txt);
+        font:
+          15px/1.55 -apple-system,
+          Segoe UI,
+          Roboto,
+          Inter,
+          sans-serif;
+      }
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: rgba(14, 17, 22, 0.92);
+        backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--line);
+        padding: 14px 22px;
+      }
+      header h1 {
+        margin: 0 0 6px;
+        font-size: 18px;
+      }
+      .bar {
+        height: 8px;
+        background: var(--panel2);
+        border-radius: 99px;
+        overflow: hidden;
+        margin: 8px 0 6px;
+      }
+      .bar > i {
+        display: block;
+        height: 100%;
+        background: var(--done);
+        width: 0;
+        transition: width 0.25s;
+      }
+      .sub {
+        color: var(--mut);
+        font-size: 13px;
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .sub b {
+        color: var(--txt);
+      }
+      .next {
+        color: var(--acc);
+      }
+      .controls {
+        margin-left: auto;
+        display: flex;
+        gap: 8px;
+      }
+      button {
+        background: var(--panel2);
+        color: var(--txt);
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        padding: 5px 10px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      button:hover {
+        border-color: var(--acc);
+      }
+      main {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 20px 18px 80px;
+      }
+      .intro {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-left: 3px solid var(--acc);
+        border-radius: 11px;
+        padding: 14px 16px;
+        margin: 14px 0;
+        font-size: 13.5px;
+        color: #cdd7e2;
+      }
+      .intro b {
+        color: var(--txt);
+      }
+      .intro code {
+        font-size: 12.5px;
+      }
+      .stage {
+        margin: 26px 0 6px;
+      }
+      .stage-h {
+        font-size: 15px;
+        letter-spacing: 0.02em;
+        color: var(--mut);
+        text-transform: uppercase;
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .stage-h.sdone {
+        color: var(--done);
+      }
+      .stage-count {
+        font-size: 12px;
+        color: var(--mut);
+        font-weight: 400;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        padding: 14px 16px;
+        margin: 12px 0;
+        transition: opacity 0.2s;
+      }
+      .card.done {
+        opacity: 0.55;
+        border-color: #23341f;
+        background: var(--panel2);
+      }
+      .card.test {
+        border-left: 3px solid var(--warn);
+      }
+      .top {
+        display: flex;
+        align-items: flex-start;
+        gap: 11px;
+        cursor: pointer;
+      }
+      .chk {
+        width: 19px;
+        height: 19px;
+        margin-top: 2px;
+        accent-color: var(--done);
+        flex: 0 0 auto;
+        cursor: pointer;
+      }
+      .ttl {
+        font-weight: 650;
+        font-size: 15.5px;
+      }
+      .card.done .ttl,
+      .card.done .prompt,
+      .card.done .verif,
+      .card.done .meta {
+        text-decoration: line-through;
+        text-decoration-color: var(--strike);
+        color: var(--mut);
+      }
+      .meta {
+        margin: 9px 0 4px;
+        font-size: 13px;
+        color: var(--mut);
+      }
+      .badge {
+        display: inline-block;
+        background: var(--panel2);
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 1px 7px;
+        font-size: 11px;
+        color: var(--acc);
+        margin-right: 6px;
+      }
+      .badge.man {
+        color: var(--warn);
+      }
+      .lbl {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--mut);
+        margin: 12px 0 4px;
+      }
+      .prompt {
+        background: #0b0e13;
+        border: 1px solid var(--line);
+        border-left: 3px solid var(--acc);
+        border-radius: 7px;
+        padding: 11px 13px;
+        font-size: 13.5px;
+        white-space: normal;
+      }
+      .verif {
+        font-size: 13.5px;
+        color: #cdd7e2;
+      }
+      code {
+        background: #0b0e13;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 0 4px;
+        font:
+          12.5px/1 ui-monospace,
+          Menlo,
+          Consolas,
+          monospace;
+      }
+      .card.done code {
+        color: var(--mut);
+      }
+      .hide-done .card.done {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Cairn — Pre-Trade Gate — Build Prompts</h1>
+      <div class="bar"><i id="pf"></i></div>
+      <div class="sub">
+        <span><b id="dcount">0</b> / <b>17</b> prompts done</span>
+        <span class="next" id="next"></span>
+        <span class="controls">
+          <button id="toggleHide">Hide done</button>
+          <button id="reset">Reset</button>
+        </span>
+      </div>
+    </header>
+    <main id="main">
+      <div class="intro">
+        <b>How to use this.</b> Run the prompts top to bottom — MT5 gate first, then test it on a
+        demo account, then port to cTrader, then test that. Each card lists the <b>model</b> to use
+        and a <b>Verification</b> bar (definition of done) — do not tick a card until its
+        verification passes. Tick the checkbox to strike it through; progress saves in this
+        browser.<br /><br />
+        <b>Binding context for every prompt:</b> read <code>plan.md</code> and
+        <code>docs/pre-trade-gate-popup.md</code> first. Hard rules — <b>read-only</b> (Cairn never
+        places/modifies/closes an order; locked decision #37 stands), money/pips in
+        <code>decimal.js</code> integers (§2.5/§19.5), Zod-validate every boundary, no
+        <code>any</code>, every promise awaited, migrations tested both ways (§19). Where a prompt
+        says <b>"NO-SLOP FOOTER applies"</b> it means: obey
+        <code>docs/engineering-quality.md</code> (§19) in full and finish with all five gates green
+        (typecheck · lint 0 · unit/integration · build · smoke E2E).
+      </div>
+
+      <!-- ───────────────── STAGE A ───────────────── -->
+      <section class="stage">
+        <h2 class="stage-h">A. MT5 GATE — FOUNDATION <span class="stage-count">0/2</span></h2>
+
+        <article class="card" data-id="ptg-a1" data-default="0">
+          <label class="top"
+            ><input type="checkbox" class="chk" /><span class="ttl"
+              >A1 — Spec, ADR, entitlement flag &amp; migration</span
+            ></label
+          >
+          <div class="meta">
+            <span class="badge">Model</span> <strong>Opus 4.8.</strong> Schema + migration + a
+            locked-decision record — correctness-critical.
+          </div>
+          <div class="body">
+            <div class="lbl">Prompt</div>
+            <div class="prompt">
+              Read <code>plan.md</code>, <code>docs/pre-trade-gate-popup.md</code>,
+              <code>CLAUDE.md</code> §2.5/§19.5 (money rules), §19.6 (migrations), and §20
+              (entitlements).<br /><br />Set up the foundation for the pre-trade gate. No UI yet.<br /><br />1.
+              Write <code>docs/adr/ADR-0002-pre-trade-gate.md</code> recording: the gate is paid,
+              <b>read-only</b>, MT5-first, and that locked decision #37 (no broker order-execution
+              path) is <b>preserved, not reversed</b>.<br />2. Add a Drizzle migration creating
+              <code>pre_trade_plans</code> (id, account_id, symbol, direction, planned_entry,
+              planned_sl, planned_tp, lot_x100, risk_bp, confluences JSON, invalidation TEXT,
+              breach_intent INTEGER, status, created_at, ttl_ms) — all money/pips integer-encoded,
+              never <code>real</code>.<br />3. Add a <code>gate_outcome</code> column to
+              <code>trades</code> (enum: <code>clean | breach_ack | breach_silent | n_a</code>,
+              default <code>n_a</code>).<br />4. Register a <code>pre_trade_gate</code> feature key
+              in the entitlement matrix (<code>packages/billing-types</code> / wherever the matrix
+              lives). Do not wire UI gating yet — just the key.<br />5. Migration tested forward +
+              backward on a seeded DB; update <code>docs/data-model.md</code>.<br /><br />NO-SLOP
+              FOOTER applies. Money rules (§2.5/§19.5) and migration rules (§19.6) are the binding
+              ones.
+            </div>
+            <div class="lbl">Verification — Definition of done</div>
+            <div class="verif">
+              ADR-0002 exists and states #37 is preserved. <code>pre_trade_plans</code> +
+              <code>gate_outcome</code> in schema, all money/pips integer. Migration
+              forward+backward test green. <code>pre_trade_gate</code> entitlement key registered.
+              Five gates green.
+            </div>
+          </div>
+        </article>
+
+        <article class="card" data-id="ptg-a2" data-default="0">
+          <label class="top"
+            ><input type="checkbox" class="chk" /><span class="ttl"
+              >A2 — Shared types &amp; the plan store service</span
+            ></label
+          >
+          <div class="meta">
+            <span class="badge">Model</span> Sonnet 4.6. Typed service over the new table —
+            mechanical once the schema exists.
+          </div>
+          <div class="body">
+            <div class="lbl">Prompt</div>
+            <div class="prompt">
+              Read <code>packages/shared-types/src/broker.ts</code> and the existing broker ingest
+              service (<code>apps/desktop/electron/services/broker/ingest.ts</code>).<br /><br />1.
+              In <code>packages/shared-types</code>, add the gate event/contract types:
+              <code>GateIntent</code> (broker, account, symbol, direction, price),
+              <code>GateLevels</code> (sl, tp, price), <code>PreTradePlan</code>, and a
+              <code>GateOutcome</code> union. Reuse the existing
+              <code>Result&lt;T&gt;</code> contract.<br />2. In the desktop main process add a
+              <code>pre-trade-plan-store</code> service: create/confirm/expire plans, look up the
+              active plan for <code>(account, symbol, direction)</code> within TTL. All writes
+              transactional; money/pips via the existing <code>_shared/encoder.ts</code>.<br />3.
+              Zod schemas for every new boundary type, sourced from
+              <code>packages/shared-zod</code>.<br />4. Unit tests for the store: create → confirm →
+              expire; only one active plan per key; TTL boundary.<br /><br />NO-SLOP FOOTER applies.
+            </div>
+            <div class="lbl">Verification — Definition of done</div>
+            <div class="verif">
+              Gate types + Zod schemas exist in the shared packages. Plan store CRUD + TTL works
+              with passing unit tests. No <code>any</code>; money integer-encoded. Five gates green.
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <!-- ───────────────── STAGE B ───────────────── -->
+      <section class="stage">
+        <h2 class="stage-h">
+          B. MT5 GATE — MQL5 CHART UI (READ-ONLY) <span class="stage-count">0/3</span>
+        </h2>
+
+        <article class="card" data-id="ptg-b1" data-default="0">
+          <label class="top"
+            ><input type="checkbox" class="chk" /><span class="ttl"
+              >B1 — Cairn Buy/Sell on-chart buttons + gate.intent</span
+            ></label
+          >
+          <div class="meta">
+            <span class="badge">Model</span> <strong>Opus 4.8.</strong> MQL5 is unfamiliar/fiddly
+            and must stay strictly read-only.
+          </div>
+          <div class="body">
+            <div class="lbl">Prompt</div>
+            <div class="prompt">
+              Read <code>apps/desktop/resources/mt5-bridge/CairnBridge.mq5</code> (the existing
+              read-only EA), <code>apps/desktop/electron/services/broker/mt5/frame.ts</code> (the
+              length-prefixed JSON frame format), and
+              <code>docs/broker-integration.md</code> §2.1/§8.<br /><br />Extend the EA —
+              <b>without adding any order-execution path</b> (no
+              <code>OrderSend</code
+              >/<code>OrderModify</code>/<code>OrderClose</code>/<code>CTrade</code>; the read-only
+              comment banner and the read-only test stay true).<br /><br />1. Draw two
+              <code>OBJ_BUTTON</code> chart objects: "Cairn Buy" and "Cairn Sell".<br />2. In
+              <code>OnChartEvent</code> (<code>CHARTEVENT_OBJECT_CLICK</code>), on a Cairn button
+              click, emit a <code>gate.intent</code> frame over the existing loopback socket with:
+              symbol, direction, current bid/ask, account login, timestamp. Reuse the existing
+              framing + pairing-token auth.<br />3. Keep the heartbeat and the existing
+              <code>OnTradeTransaction</code> capture untouched.<br />4. Update the EA install note
+              in <code>apps/desktop/resources/mt5-bridge/</code> if inputs changed.<br /><br />NO-SLOP
+              FOOTER applies. The read-only boundary is the binding rule — if a step seems to need
+              an order call, STOP: it does not.
+            </div>
+            <div class="lbl">Verification — Definition of done</div>
+            <div class="verif">
+              EA compiles; Buy/Sell buttons render on the chart; clicking one sends a well-formed
+              <code>gate.intent</code> frame (verify by logging it on the Cairn side).
+              <code>grep</code> shows zero order-execution calls; <code>mt5-ea-readonly</code> test
+              still green.
+            </div>
+          </div>
+        </article>
+
+        <article class="card" data-id="ptg-b2" data-default="0">
+          <label class="top"
+            ><input type="checkbox" class="chk" /><span class="ttl"
+              >B2 — Draggable SL/TP lines + live on-chart readout + gate.levels</span
+            ></label
+          >
+          <div class="meta">
+            <span class="badge">Model</span> <strong>Opus 4.8.</strong> Drag events + throttling +
+            live math — easy to get subtly wrong.
+          </div>
+          <div class="body">
+            <div class="lbl">Prompt</div>
+            <div class="prompt">
+              Continue in <code>CairnBridge.mq5</code>. Read-only still binds.<br /><br />1. When a
+              gate is active, create two selectable <code>OBJ_HLINE</code> objects for SL and TP
+              (distinct colors), draggable by the user.<br />2. In <code>OnChartEvent</code> handle
+              <code>CHARTEVENT_OBJECT_DRAG</code>: on SL/TP move, emit a
+              <code>gate.levels</code> frame (price, sl, tp). <b>Throttle</b> to at most ~10
+              frames/sec so the socket stays calm.<br />3. Draw an on-chart
+              <code>OBJ_LABEL</code> readout that Cairn populates via the inbound
+              <code>gate.drawLines</code> message (built in B3): lot size, R:R, risk-$ — so the
+              chart label and the Cairn overlay always show the same numbers (Cairn is the single
+              source of the math).<br />4. Clear the lines + label + buttons-state when the gate is
+              confirmed, cancelled, or times out.<br /><br />NO-SLOP FOOTER applies.
+            </div>
+            <div class="lbl">Verification — Definition of done</div>
+            <div class="verif">
+              Dragging SL/TP streams throttled <code>gate.levels</code> frames; the on-chart label
+              updates from Cairn-sent values; objects clean up on gate end. Still zero order calls;
+              read-only test green.
+            </div>
+          </div>
+        </article>
+
+        <article class="card" data-id="ptg-b3" data-default="0">
+          <label class="top"
+            ><input type="checkbox" class="chk" /><span class="ttl"
+              >B3 — Cairn→EA channel on the loopback listener</span
+            ></label
+          >
+          <div class="meta">
+            <span class="badge">Model</span> Sonnet 4.6. Adds a return direction to an existing
+            transport.
+          </div>
+          <div class="body">
+            <div class="lbl">Prompt</div>
+            <div class="prompt">
+              Read <code>apps/desktop/electron/services/broker/mt5/listener.ts</code> and
+              <code>mt5/adapter.ts</code>.<br /><br />1. Add an outbound (Cairn→EA) path on the
+              existing loopback connection for two message types:
+              <code>gate.show</code> (open/refresh the gate) and <code>gate.drawLines</code> (the
+              computed lot/R:R/risk-$ + line positions to render). Keep it
+              <code>127.0.0.1</code>-only, token-authed, length-prefixed, size-capped — identical
+              posture to inbound.<br />2. Route inbound <code>gate.intent</code> /
+              <code>gate.levels</code> frames into the plan-store + a typed main-process event the
+              renderer can subscribe to over IPC.<br />3. Unit tests: round-trip a
+              <code>gate.intent</code> in and a <code>gate.drawLines</code> out against a fake
+              socket; oversized/!authed frames rejected.<br /><br />NO-SLOP FOOTER applies.
+            </div>
+            <div class="lbl">Verification — Definition of done</div>
+            <div class="verif">
+              Bidirectional gate messages work over the loopback socket with tests; security posture
+              (loopback, token, size cap) unchanged; inbound frames reach the plan store + an IPC
+              event. Five gates green.
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <!-- ───────────────── STAGE C ───────────────── -->
+      <section class="stage">
+        <h2 class="stage-h">
+          C. MT5 GATE — OVERLAY WINDOW &amp; CALCULATOR <span class="stage-count">0/3</span>
+        </h2>
+
+        <article class="card" data-id="ptg-c1" data-default="0">
+          <label class="top"
+            ><input type="checkbox" class="chk" /><span class="ttl"
+              >C1 — Frameless always-on-top overlay window</span
+            ></label
+          >
+          <div class="meta">
+            <span class="badge">Model</span> Sonnet 4.6. Electron window plumbing + IPC.
+          </div>
+          <div class="body">
+            <div class="lbl">Prompt</div>
+            <div class="prompt">
+              Read <code>apps/desktop/electron/main.ts</code> (window creation) and the preload/IPC
+              setup.<br /><br />1. Create a second <code>BrowserWindow</code>: frameless,
+              always-on-top, transparent-friendly, no taskbar entry, skip-on-mission-control where
+              supported. It opens on a <code>gate.show</code> event and hides on
+              confirm/cancel/timeout.<br />2. Position it snapped near the MT5 chart with a sane
+              default and a fallback for multi-monitor / fullscreen; remember last position.<br />3.
+              Expose a narrow typed IPC surface to it: subscribe to
+              <code>gate.intent</code>/<code>gate.levels</code>, send <code>confirm(plan)</code> and
+              <code>breach(intent)</code>.<br />4. Context isolation on; no node integration in the
+              renderer.<br /><br />NO-SLOP FOOTER applies.
+            </div>
+            <div class="lbl">Verification — Definition of done</div>
+            <div class="verif">
+              Overlay opens on <code>gate.show</code>, is frameless + always-on-top, positions
+              sensibly on one and two monitors, and exposes only the typed IPC surface. Five gates
+              green.
+            </div>
+          </div>
+        </article>
+
+        <article class="card" data-id="ptg-c2" data-default="0">
+          <label class="top"
+            ><input type="checkbox" class="chk" /><span class="ttl"
+              >C2 — Checklist + risk panel (reuse PreTradePanel)</span
+            ></label
+          >
+          <div class="meta">
+            <span class="badge">Model</span> Sonnet 4.6. Reuses existing UI + calculator.
+          </div>
+          <div class="body">
+            <div class="lbl">Prompt</div>
+            <div class="prompt">
+              Read <code>apps/desktop/src/features/pre-trade/PreTradePanel.tsx</code>, its
+              <code>constants/</code>, and <code>apps/desktop/src/lib/calculators.ts</code> (<code
+                >calculateLotSize</code
+              >
+              is already integer-encoded — reuse it, do not reinvent the math).<br /><br />1. Render
+              a compact overlay variant of the pre-trade panel: confluences checklist, invalidation
+              field (with the existing ICT quick-chips), and a risk-% input.<br />2. Show live
+              <b>lot size, R:R, risk-$</b> computed from the streamed <code>gate.levels</code> via
+              <code>calculators.ts</code>.<br />3. Two terminal actions: <b>Confirm</b> (validate
+              the checklist, write the plan via IPC, then show the final numbers for manual entry)
+              and a red <b>Breach Rules</b> button (record an acknowledged-breach intent and
+              close).<br />4. Voice/visuals per <code>docs/design-system.md</code> — calm, mentor
+              tone (§1 voice); no celebratory copy.<br /><br />NO-SLOP FOOTER applies.
+            </div>
+            <div class="lbl">Verification — Definition of done</div>
+            <div class="verif">
+              Overlay shows the real checklist + risk input; lot/R:R/risk-$ update live from
+              streamed levels using <code>calculators.ts</code>; Confirm writes a plan; Breach
+              records an ack-breach intent. Render tests pass.
+            </div>
+          </div>
+        </article>
+
+        <article class="card" data-id="ptg-c3" data-default="0">
+          <label class="top"
+            ><input type="checkbox" class="chk" /><span class="ttl"
+              >C3 — Live recompute, copy-lot, limit-order nudge</span
+            ></label
+          >
+          <div class="meta">
+            <span class="badge">Model</span> Sonnet 4.6. Polish on the calculator UX.
+          </div>
+          <div class="body">
+            <div class="lbl">Prompt</div>
+            <div class="prompt">
+              Read <code>plan.md</code> §4 (slippage) and
+              <code>docs/pre-trade-gate-popup.md</code> §5.1.<br /><br />1. Keep lot/R:R/risk-$
+              recomputing live from streamed price right up to Confirm, so the trader reads the
+              freshest number at the moment of manual entry.<br />2. Add a one-click
+              <b>copy lot size</b> control and copyable SL/TP values, to cut manual re-entry
+              friction.<br />3. When the SL is tight (configurable pip threshold), surface a calm
+              <b>limit-order nudge</b> ("Place a limit at your planned entry to lock this risk
+              exactly") — informational, never blocking.<br />4. Mirror the computed values back to
+              the EA via <code>gate.drawLines</code> so the on-chart label matches the overlay.<br /><br />NO-SLOP
+              FOOTER applies.
+            </div>
+            <div class="lbl">Verification — Definition of done</div>
+            <div class="verif">
+              Numbers stay live until Confirm; copy-lot works; limit-order nudge shows on tight
+              stops and never blocks; chart label mirrors the overlay. Five gates green.
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <!-- ───────────────── STAGE D ───────────────── -->
+      <section class="stage">
+        <h2 class="stage-h">
+          D. MT5 GATE — MATCHING, SLIPPAGE &amp; SCORING <span class="stage-count">0/3</span>
+        </h2>
+
+        <article class="card" data-id="ptg-d1" data-default="0">
+          <label class="top"
+            ><input type="checkbox" class="chk" /><span class="ttl"
+              >D1 — Plan↔fill matcher with tolerance band + actual-risk recompute</span
+            ></label
+          >
+          <div class="meta">
+            <span class="badge">Model</span> <strong>Opus 4.8.</strong> Correctness-critical: a
+            mismatch mislabels a trade.
+          </div>
+          <div class="body">
+            <div class="lbl">Prompt</div>
+            <div class="prompt">
+              Read <code>apps/desktop/electron/services/broker/ingest.ts</code> (existing fill
+              handling + draft-linking, §5 of <code>docs/broker-integration.md</code>) and
+              <code>plan.md</code> §4.<br /><br />1. When a fill streams in, look for an active plan
+              matching <code>(account, symbol, direction)</code> within a configurable
+              <b>time window</b> and <b>price tolerance</b>. Match → bind the fill to the plan and
+              mark it for a <b>clean</b> outcome; no match → mark <b>silent breach</b>; a plan whose
+              Breach button was hit → <b>acknowledged breach</b>.<br />2. On a bound fill,
+              <b>recompute actual risk</b> from the real entry + the plan SL + real lot
+              (decimal.js), and store both planned and actual figures so the planned-vs-actual gap
+              is auditable.<br />3. <b>Big drift</b>: if a fill is within the key but outside
+              tolerance, do not silently bind — record a deviation flag (and raise a calm warning
+              via the existing live-detection path).<br />4. Property/unit tests across the window
+              edges and price tolerance, including the tight-stop drift example from the plan.<br /><br />NO-SLOP
+              FOOTER applies. Money math + matching are the binding correctness areas.
+            </div>
+            <div class="lbl">Verification — Definition of done</div>
+            <div class="verif">
+              Fills bind to plans inside tolerance (clean), miss → silent breach, ack-intent → ack
+              breach; actual risk recomputed + stored next to planned; out-of-tolerance fills
+              flagged not silently bound. Property tests cover window/price edges. Five gates green.
+            </div>
+          </div>
+        </article>
+
+        <article class="card" data-id="ptg-d2" data-default="0">
+          <label class="top"
+            ><input type="checkbox" class="chk" /><span class="ttl"
+              >D2 — Three gate outcomes into scoring (breach never clean)</span
+            ></label
+          >
+          <div class="meta">
+            <span class="badge">Model</span> <strong>Opus 4.8.</strong> Scoring integrity — must
+            hold regardless of P&amp;L.
+          </div>
+          <div class="body">
+            <div class="lbl">Prompt</div>
+            <div class="prompt">
+              Read <code>apps/desktop/electron/services/analytics/composite-score.ts</code> and
+              <code>adherence.ts</code>, and <code>CLAUDE.md</code> §2.3 (honesty forcing
+              functions).<br /><br />1. Feed <code>gate_outcome</code> into the composite score, A–F
+              grade, and clean-rate. A <b>breach is never counted clean, regardless of profit</b>.
+              Ordering: clean &gt; acknowledged breach &gt; silent breach.<br />2. Write
+              <code>rule_violations</code> rows for both breach kinds (with which rules were open /
+              skipped).<br />3. Surface the outcome on the trade in the log + at reflection time,
+              consistent with how <code>unreviewed</code> is already handled distinctly.<br />4.
+              Tests: a profitable silent breach still drags the score; ack &lt; clean; silent &lt;
+              ack; clean-rate excludes both breach kinds.<br /><br />NO-SLOP FOOTER applies.
+            </div>
+            <div class="lbl">Verification — Definition of done</div>
+            <div class="verif">
+              Score/grade/clean-rate reflect the three outcomes; a winning breach never scores
+              clean; <code>rule_violations</code> written for breaches; tests prove the ordering and
+              the profit-does-not-redeem rule. Five gates green.
+            </div>
+          </div>
+        </article>
+
+        <article class="card" data-id="ptg-d3" data-default="0">
+          <label class="top"
+            ><input type="checkbox" class="chk" /><span class="ttl"
+              >D3 — Dedupe vs statement import + gate settings</span
+            ></label
+          >
+          <div class="meta">
+            <span class="badge">Model</span> Sonnet 4.6. Reuses external_ref; adds a settings tab
+            section.
+          </div>
+          <div class="body">
+            <div class="lbl">Prompt</div>
+            <div class="prompt">
+              Read the Wave 3 import committer
+              (<code>apps/desktop/electron/services/import-adapters/_shared/committer.ts</code>) and
+              <code>customization.md</code>.<br /><br />1. Ensure a gate-captured trade and the same
+              trade later appearing in a statement import resolve to one row via
+              <code>external_ref</code> (<code>ON CONFLICT DO UPDATE</code>), round-tripped in a
+              test.<br />2. Add Settings → Integrations gate options: tolerance time window, price
+              tolerance, tight-stop threshold for the limit nudge, and the summon hotkey. Sensible
+              defaults; all user-configurable (§2.11).<br />3. Copy must state plainly that the gate
+              is read-only capture + scoring, not pre-trade blocking of native orders.<br /><br />NO-SLOP
+              FOOTER applies.
+            </div>
+            <div class="lbl">Verification — Definition of done</div>
+            <div class="verif">
+              Gate trade + statement import dedupe to one trade (tested); gate settings exist with
+              defaults and persist; Settings copy is accurate about read-only. Five gates green.
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <!-- ───────────────── STAGE E ───────────────── -->
+      <section class="stage">
+        <h2 class="stage-h">
+          E. MT5 GATE — ENTITLEMENT (PAID) <span class="stage-count">0/1</span>
+        </h2>
+
+        <article class="card" data-id="ptg-e1" data-default="0">
+          <label class="top"
+            ><input type="checkbox" class="chk" /><span class="ttl"
+              >E1 — Gate the feature behind EntitlementService</span
+            ></label
+          >
+          <div class="meta">
+            <span class="badge">Model</span> Sonnet 4.6. Single entitlement check; capture stays
+            free.
+          </div>
+          <div class="body">
+            <div class="lbl">Prompt</div>
+            <div class="prompt">
+              Read <code>docs/subscription-contract.md</code> (§20) and the
+              <code>EntitlementService</code> surface.<br /><br />1. Gate all gate-UI features
+              (chart buttons, overlay, draggable lines) behind a single
+              <code>EntitlementService.canUse(userId, 'pre_trade_gate')</code> — no scattered plan
+              checks.<br />2. Free users keep the existing read-only <b>capture</b> behavior (fills
+              still recorded) — they just do not get the gate overlay/buttons.<br />3. A
+              non-entitled trader who somehow triggers an intent gets a calm upsell, not an
+              error.<br />4. Tests: entitled → gate works; not entitled → capture-only, no gate UI,
+              clean upsell.<br /><br />NO-SLOP FOOTER applies.
+            </div>
+            <div class="lbl">Verification — Definition of done</div>
+            <div class="verif">
+              Gate UI appears only for entitled users; free users still get capture; one
+              <code>canUse</code> call gates everything; tests cover both paths. Five gates green.
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <!-- ───────────────── STAGE F ───────────────── -->
+      <section class="stage">
+        <h2 class="stage-h">F. MT5 — TEST <span class="stage-count">0/2</span></h2>
+
+        <article class="card test" data-id="ptg-f1" data-default="0">
+          <label class="top"
+            ><input type="checkbox" class="chk" /><span class="ttl"
+              >F1 — Automated test pass for the MT5 gate</span
+            ></label
+          >
+          <div class="meta">
+            <span class="badge">Model</span> Sonnet 4.6. Test authoring + green-gate sweep.
+          </div>
+          <div class="body">
+            <div class="lbl">Prompt</div>
+            <div class="prompt">
+              Read <code>docs/testing.md</code> and
+              <code>docs/engineering-quality.md</code>.<br /><br />Bring the MT5 gate to full
+              coverage:<br />1. <b>Matcher</b> — clean / ack-breach / silent-breach across time +
+              price tolerance, plus the tight-stop drift case and the big-drift flag.<br />2.
+              <b>Scoring</b> — profitable breach never clean; ack &lt; clean &lt;-ordering;
+              clean-rate exclusions.<br />3. <b>Calculator</b> — fast-check property tests on
+              lot/R:R/risk-$ in decimal.js.<br />4. <b>EA read-only</b> — extend
+              <code>mt5-ea-readonly</code> to cover the new EA surface (assert zero order-execution
+              symbols).<br />5. <b>Bridge</b> — fixture-replay <code>gate.intent</code>/<code
+                >gate.levels</code
+              >
+              in, <code>gate.drawLines</code> out.<br />Run all five gates; report coverage delta
+              (it must not drop).<br /><br />NO-SLOP FOOTER applies.
+            </div>
+            <div class="lbl">Verification — Definition of done</div>
+            <div class="verif">
+              All five test areas pass; coverage held or up; <code>mt5-ea-readonly</code> green
+              against the extended EA; typecheck · lint 0 · unit/integration · build · smoke E2E all
+              green.
+            </div>
+          </div>
+        </article>
+
+        <article class="card test" data-id="ptg-f2" data-default="0">
+          <label class="top"
+            ><input type="checkbox" class="chk" /><span class="ttl"
+              >F2 — Manual QA on an MT5 demo account (Akash)</span
+            ></label
+          >
+          <div class="meta">
+            <span class="badge man">Manual</span> Akash on a live MT5 <b>demo</b> account. Model:
+            Sonnet 4.6 to write the runbook + triage findings.
+          </div>
+          <div class="body">
+            <div class="lbl">Prompt</div>
+            <div class="prompt">
+              Have the model produce <code>docs/qa/mt5-gate-qa.md</code>: a step-by-step manual QA
+              script, then run it together on an MT5 <b>demo</b> account.<br /><br />Scenarios to
+              walk:<br />1. <b>Compliant:</b> Cairn Buy → drag SL/TP → enter risk → confirm → place
+              the same numbers natively → trade appears <b>clean</b>, planned≈actual.<br />2.
+              <b>Slippage:</b> wait several seconds so price drifts, then place at market → still
+              binds (clean) and actual risk is recomputed and stored.<br />3.
+              <b>Limit order:</b> place a pending order at the planned entry → exact match.<br />4.
+              <b>Acknowledged breach:</b> open gate → hit Breach Rules → place anything → logged
+              ack-breach, bad score even if it wins.<br />5. <b>Silent breach:</b> use native buy
+              with no gate → logged silent-breach (worst).<br />6. EA reconnect, overlay placement
+              on two monitors, hotkey summon.<br />Log every defect; the model fixes and you
+              re-run.<br /><br />NO-SLOP FOOTER applies to any fixes.
+            </div>
+            <div class="lbl">Verification — Definition of done</div>
+            <div class="verif">
+              All six scenarios behave per <code>plan.md</code> on a demo account; planned-vs-actual
+              + slippage handling confirmed by eye; no defect left open;
+              <code>docs/qa/mt5-gate-qa.md</code> saved with results.
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <!-- ───────────────── STAGE G ───────────────── -->
+      <section class="stage">
+        <h2 class="stage-h">G. cTRADER — PORT <span class="stage-count">0/2</span></h2>
+
+        <article class="card" data-id="ptg-g1" data-default="0">
+          <label class="top"
+            ><input type="checkbox" class="chk" /><span class="ttl"
+              >G1 — cAlgo cBot: chart UI + levels (read-only)</span
+            ></label
+          >
+          <div class="meta">
+            <span class="badge">Model</span> <strong>Opus 4.8.</strong> A new C# cBot in an
+            unfamiliar SDK, with the read-only boundary to uphold.
+          </div>
+          <div class="body">
+            <div class="lbl">Prompt</div>
+            <div class="prompt">
+              Read <code>docs/broker-integration.md</code> §2.2 and the existing cTrader adapter
+              (<code>apps/desktop/electron/services/broker/ctrader/</code>). Note: the Open API
+              cannot draw UI, so the in-platform gate is a <b>cAlgo cBot</b> running inside cTrader
+              Desktop — a new artifact.<br /><br />Build a read-only cBot (no
+              <code>ExecuteMarketOrder</code> / order calls of any kind):<br />1. Chart controls:
+              Cairn Buy/Sell buttons + draggable SL/TP lines + a live readout (mirror of the MT5
+              design).<br />2. On click/drag, send <code>gate.intent</code> /
+              <code>gate.levels</code> to the Cairn desktop app over a loopback channel (same shape
+              the MT5 bridge uses), token-authed.<br />3. Receive <code>gate.drawLines</code> to
+              render the readout from Cairn-computed values.<br />4. Ship the cBot source + an
+              install note under <code>apps/desktop/resources/ctrader-cbot/</code>.<br />A test (or
+              a documented review checklist) must assert the cBot contains no order-execution
+              call.<br /><br />NO-SLOP FOOTER applies. Read-only is the binding rule.
+            </div>
+            <div class="lbl">Verification — Definition of done</div>
+            <div class="verif">
+              cBot compiles in cTrader; Buy/Sell + draggable SL/TP render; intent/levels reach
+              Cairn; readout renders from Cairn values; zero order-execution calls (asserted).
+              Source + install note committed.
+            </div>
+          </div>
+        </article>
+
+        <article class="card" data-id="ptg-g2" data-default="0">
+          <label class="top"
+            ><input type="checkbox" class="chk" /><span class="ttl"
+              >G2 — Wire the cBot into the same gate pipeline</span
+            ></label
+          >
+          <div class="meta">
+            <span class="badge">Model</span> <strong>Opus 4.8.</strong> Normalizing a second
+            transport into one pipeline.
+          </div>
+          <div class="body">
+            <div class="lbl">Prompt</div>
+            <div class="prompt">
+              Read the broker <code>index.ts</code> singleton and the plan store + matcher from
+              Stage A/D.<br /><br />1. Normalize the cBot transport so its
+              <code>gate.intent</code>/<code>gate.levels</code>/fills flow into the <b>same</b> plan
+              store, matcher, scoring, and overlay as MT5 — the renderer and analytics stay
+              transport-agnostic.<br />2. Reuse the existing cTrader account mapping + symbol
+              resolver; an unmapped account surfaces (does not silently drop).<br />3. Entitlement
+              (<code>pre_trade_gate</code>) gates the cTrader gate UI identically.<br />4. Disclose
+              in Settings that cTrader transits Spotware for the read-only stream (existing
+              disclosure), while the gate loopback stays local.<br /><br />NO-SLOP FOOTER applies.
+            </div>
+            <div class="lbl">Verification — Definition of done</div>
+            <div class="verif">
+              A cTrader gate trade flows through the identical plan/matcher/scoring/overlay path as
+              MT5; account mapping + entitlement honored; Settings disclosure accurate. Five gates
+              green.
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <!-- ───────────────── STAGE H ───────────────── -->
+      <section class="stage">
+        <h2 class="stage-h">H. cTRADER — TEST <span class="stage-count">0/1</span></h2>
+
+        <article class="card test" data-id="ptg-h1" data-default="0">
+          <label class="top"
+            ><input type="checkbox" class="chk" /><span class="ttl"
+              >H1 — cTrader tests + manual QA on a demo account</span
+            ></label
+          >
+          <div class="meta">
+            <span class="badge man">Manual</span> Akash on a cTrader <b>demo</b> account. Model:
+            Sonnet 4.6 for the runbook + fixes.
+          </div>
+          <div class="body">
+            <div class="lbl">Prompt</div>
+            <div class="prompt">
+              Mirror Stage F for cTrader.<br /><br />1. Automated: cBot read-only assertion,
+              intent/levels round-trip against recorded payloads, and confirm the shared
+              matcher/scoring tests pass for cTrader-sourced events.<br />2. Manual
+              <code>docs/qa/ctrader-gate-qa.md</code> on a cTrader demo: the same six scenarios as
+              MT5 F2 (compliant, slippage, limit, ack-breach, silent-breach,
+              reconnect/placement/hotkey).<br />3. Confirm MT5 and cTrader reach feature parity;
+              note any platform-specific differences.<br /><br />NO-SLOP FOOTER applies to fixes.
+            </div>
+            <div class="lbl">Verification — Definition of done</div>
+            <div class="verif">
+              All six scenarios pass on a cTrader demo; automated cTrader tests green; MT5↔cTrader
+              parity confirmed; <code>docs/qa/ctrader-gate-qa.md</code> saved. Feature is done —
+              both platforms, read-only, tested.
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
+    <script>
+      const KEY = 'cairn_ptg_prompts_v1'
+      function load() {
+        try {
+          return JSON.parse(localStorage.getItem(KEY)) || {}
+        } catch (e) {
+          return {}
+        }
+      }
+      function save(s) {
+        localStorage.setItem(KEY, JSON.stringify(s))
+      }
+      let state = load()
+      const cards = [...document.querySelectorAll('.card')]
+      function apply() {
+        let done = 0
+        cards.forEach((c) => {
+          const id = c.dataset.id
+          const def = c.dataset.default === '1'
+          const v = id in state ? state[id] : def
+          const chk = c.querySelector('.chk')
+          chk.checked = v
+          c.classList.toggle('done', v)
+          if (v) done++
+        })
+        document.getElementById('dcount').textContent = done
+        document.getElementById('pf').style.width = (done / cards.length) * 100 + '%'
+        const first = cards.find((c) => !c.querySelector('.chk').checked)
+        const nx = document.getElementById('next')
+        if (first) {
+          nx.textContent = '▶ Continue: ' + first.querySelector('.ttl').textContent
+        } else {
+          nx.textContent = '✓ All prompts complete'
+        }
+        document.querySelectorAll('.stage').forEach((s) => {
+          const cs = [...s.querySelectorAll('.card')]
+          const d = cs.filter((c) => c.querySelector('.chk').checked).length
+          s.querySelector('.stage-count').textContent = d + '/' + cs.length
+          s.querySelector('.stage-h').classList.toggle('sdone', d === cs.length)
+        })
+      }
+      cards.forEach((c) => {
+        c.querySelector('.chk').addEventListener('change', (e) => {
+          state[c.dataset.id] = e.target.checked
+          save(state)
+          apply()
+        })
+      })
+      document.getElementById('reset').addEventListener('click', () => {
+        state = {}
+        localStorage.removeItem(KEY)
+        apply()
+      })
+      document.getElementById('toggleHide').addEventListener('click', (e) => {
+        document.getElementById('main').classList.toggle('hide-done')
+        e.target.textContent = document.getElementById('main').classList.contains('hide-done')
+          ? 'Show done'
+          : 'Hide done'
+      })
+      apply()
+    </script>
+  </body>
+</html>

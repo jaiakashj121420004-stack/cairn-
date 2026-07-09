@@ -45,7 +45,9 @@ export function BillingReturn({ outcome }: { outcome: 'success' | 'cancel' }): J
   return (
     <Screen>
       <Card>
-        <Heading sub={checked ? 'Your subscription is being activated.' : 'Confirming your subscription…'}>
+        <Heading
+          sub={checked ? 'Your subscription is being activated.' : 'Confirming your subscription…'}
+        >
           {checked ? "You're all set" : 'Almost there'}
         </Heading>
         <p className="mb-6 text-sm text-white/60">

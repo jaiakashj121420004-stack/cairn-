@@ -25,7 +25,11 @@ import type { VaultCache } from './vault-cache'
 import type { WrappedKey } from '@cairn/shared-types'
 
 function toWrappedWire(w: WrappedKey): WrappedKeyWire {
-  return { algorithm: w.algorithm, nonce: bytesToBase64(w.nonce), ciphertext: bytesToBase64(w.ciphertext) }
+  return {
+    algorithm: w.algorithm,
+    nonce: bytesToBase64(w.nonce),
+    ciphertext: bytesToBase64(w.ciphertext),
+  }
 }
 
 /**
@@ -218,7 +222,12 @@ export class WebVault {
     tableName: string,
     recordId: string,
     data: Record<string, unknown>,
-  ): { table_name: string; record_id: string; op_type: 'upsert'; payload_ciphertext: string } | null {
+  ): {
+    table_name: string
+    record_id: string
+    op_type: 'upsert'
+    payload_ciphertext: string
+  } | null {
     if (this.dataKey === null) return null
     const plaintext = new TextEncoder().encode(JSON.stringify(data))
     // Reuse the same AEAD + AD convention the real pull/decrypt path uses.

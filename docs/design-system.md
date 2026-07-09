@@ -1,5 +1,12 @@
 > Split from CLAUDE.md — Section 4: DESIGN SYSTEM
 
+> **Superseded —** as of **2026-07-09** the active visual language is **Neon Cockpit HUD**
+> (see the **v2.1 Neon Cockpit HUD (2026-07-09)** section at the end of this file). §4.1–4.12
+> below describe the earlier "Graphite & Citrus" / glassmorphism direction and are retained
+> for history only; the live token palette, HUD utilities, motion, and contrast rules are now
+> defined in the v2.1 section. Token *names* were preserved across the change, so the whole app
+> re-skinned through the token layer.
+
 ## 4. DESIGN SYSTEM
 
 ### 4.1 Design Direction
@@ -234,3 +241,126 @@ In the sidebar bottom-left corner, below the theme toggle:
 - Font: Inter, 11px, text-muted, letter-spacing 0.02em.
 - Hover: opacity 1 (from 0.4), 160ms ease.
 - Always present. Never referenced anywhere else in the app.
+
+---
+
+## v2.1 Neon Cockpit HUD (2026-07-09)
+
+> **This section supersedes §4.1–4.2 and the v1.1 glassmorphism language.** On 2026-07-09
+> the app creator (Jai Akash) approved an override of locked decision #10 (glassmorphism,
+> "zero purple/cyan"). The direction is now a dark, futuristic trading-terminal aesthetic —
+> a **Neon Cockpit HUD**. The purple/cyan ban is lifted: electric cyan is the primary brand
+> hue and violet is the secondary accent. This section is the source of truth for the visual
+> language; earlier §4 subsections are retained for history only.
+>
+> **What did NOT change** (so the whole app re-skinned through the token layer): the token
+> *names*, Inter for UI + **JetBrains Mono for every number**, the Discipline Ring as the
+> signature element, the spacing scale, the motion durations/springs, and the reduced-motion
+> contract.
+
+### Direction
+
+"A pre-flight cockpit for discipline." A deep-space near-black canvas with a faint HUD
+graticule and radial vignette; frosted translucent panels with 1px luminous (cyan-tinted)
+borders; corner-bracket ticks on hero cards; soft outer glow on hover/focus. **Glow carries
+meaning, never decoration.** The design is loud; the copy stays mentor-calm; the numbers stay
+unmissable and legible.
+
+### Token palette
+
+Tokens are HSL triplets in `apps/desktop/src/styles/globals.css`, consumed through Tailwind as
+`hsl(var(--token))`. Two themes: **dark = "deep-space cockpit"** (default) and **light =
+"daylight cockpit"**. Token names are identical across themes; theme is switched by the
+`data-theme` attribute on `<html>` (`src/stores/ui-store.ts`), which Tailwind's `darkMode`
+selector and the CSS `:root`/`[data-theme='light']` blocks key off.
+
+**Dark — "deep-space cockpit"**
+
+| Token | HSL | Hex ≈ | Role |
+|---|---|---|---|
+| `--background` | 227 47% 4% | `#05070E` | page (grid + vignette) |
+| `--surface` | 225 50% 8% | `#0A0F1E` | raised panel |
+| `--surface-elevated` | 220 43% 11% | `#101828` | elevated panel / inputs |
+| `--border` | 221 32% 18% | — | cool hairline |
+| `--border-strong` | 220 28% 26% | — | stronger divider |
+| `--text-primary` | 219 100% 95% | `#E8F0FF` | body / numbers (AA+) |
+| `--text-secondary` | 221 29% 67% | `#94A3C4` | labels (≈7:1 on elevated) |
+| `--text-muted` | 216 15% 53% | — | captions (≈4.6:1, AA) |
+| `--info` = `--primary` = `--ring` | 188 86% 53% | `#22D3EE` | electric cyan — brand / active |
+| `--accent-a` | 158 64% 52% | `#34D399` | neon green — profit / clean |
+| `--accent-b` | 258 90% 66% | `#8B5CF6` | violet — secondary (sparing) |
+| `--warning` | 43 96% 56% | `#FBBF24` | amber — caution |
+| `--danger` = `--destructive` | 351 95% 71% | `#FB7185` | rose — loss / violation |
+
+**Light — "daylight cockpit"** (same roles; hues darkened for AA on a pale steel page; glow is
+replaced by crisp 1px borders)
+
+| Token | HSL | Hex ≈ | Role |
+|---|---|---|---|
+| `--background` | 218 57% 97% | `#F4F7FC` | cool near-white page |
+| `--surface` | 0 0% 100% | `#FFFFFF` | card |
+| `--text-primary` | 222 47% 11% | `#0F172A` | body (≈15:1) |
+| `--info` = `--primary` | 193 82% 31% | `#0E7490` | deep cyan — brand / active |
+| `--accent-a` | 163 94% 24% | `#047857` | emerald — profit / clean |
+| `--accent-b` | 262 83% 58% | `#7C3AED` | violet — secondary |
+| `--warning` | 26 90% 37% | `#B45309` | amber — caution |
+| `--danger` | 347 77% 50% | `#E11D48` | rose — loss / violation |
+
+**Semantic mapping** (consistent everywhere): profit/win → `--accent-a` (green); loss/violation
+→ `--danger` (rose); active/brand/neutral-active → `--info` (cyan); secondary/neutral data series
+→ `--accent-b` (violet); caution → `--warning` (amber). Charts read these tokens via
+`src/components/analytics/chart-theme.ts`, so the entire Recharts layer re-skinned for free —
+grid lines are a faint hairline, axes muted, and the red/green P&L semantics are preserved.
+
+### HUD utility classes (`globals.css`)
+
+- **Depth / atmosphere:** `.hud-grid` (static 44px cyan graticule, ~3% alpha), `.aurora-mist`
+  (drifting nebula), `.aurora-ribbon` (page-top neon strip); grain overlay + neon depth orbs are
+  composed in `components/layout/Shell.tsx`.
+- **Panels:** `.glass`, `.glass-hero` (cyan→violet wash + cyan halo), `.glass-strong` (modals),
+  `.glass-sidebar`.
+- **HUD framing:** `.hud-corners` (bracket ticks), `.crown-{a,b,danger,info,warning}` (top
+  highlight line), `.card-glow-{a,b,danger,info}` (outer halo 8–15% alpha; muted to crisp borders
+  under `[data-theme='light']`).
+- **Signal text:** `.text-glow-{a,b,danger,info}` and `.text-gradient-{summit,aurora,danger,amber,info}`
+  — hero numerals / icons / large captions only, **never** under small body text.
+- **Navigation:** `.trail-line` + `.waypoint-active` (glowing cyan waypoint on the active route),
+  `.nav-active-accent`.
+- **Signature:** `.summit-halo` (breathing cyan aura behind the Discipline Ring), `.prismatic-edge`
+  (rotating conic refractive edge on hover).
+
+`GlassCard` (`components/ui/GlassCard.tsx`) exposes `hero`, `highlight`, and `glow` props that wire
+crown/glow/hero for you; new surfaces should prefer it over ad-hoc panel styles.
+
+### Motion
+
+Framer Motion with unchanged spring/duration tokens (`lib/motion.ts`). HUD flourishes: panel
+power-on (fade + y/scale on mount, staggered card reveal), number tick-up (Discipline Ring
+`useCountUp`, dashboard count-ups), the ring's animated progress-arc sweep, and ambient loops
+(`glow-pulse`, `dot-pulse`, `summit-breathe`, `aurora-flow`), plus the rule-violation shake.
+**Reduced motion is non-negotiable:** `main.tsx` sets `MotionGlobalConfig.skipAnimations` from
+`prefers-reduced-motion` (reactively, so it tracks changes after load), the CSS
+`@media (prefers-reduced-motion: reduce)` block collapses every animation/transition to ~0ms, and
+components call `useReducedMotion()` to skip count-ups and the arc sweep. Playwright runs under
+`reduced-motion: reduce`, so all of the above stays deterministic under E2E.
+
+### Contrast & readability law
+
+- Body text meets **WCAG AA** on its surface (every text token above is AA-verified against its
+  intended surface, both themes).
+- Numbers are **JetBrains Mono**, tabular (`tabular-nums`), and larger/heavier than the labels
+  around them; P&L is the most prominent number on any card.
+- **Never** place a glow or gradient text-fill under small body text — glow is reserved for hero
+  numerals, icons, borders, and captions rendered large enough to stay crisp.
+- Glow encodes state (cyan = active/brand, green = good, rose = bad, amber = caution). If a glow
+  would not communicate meaning, it is not used.
+
+### Where it lives (hero surfaces upgraded beyond the token layer)
+
+Sidebar + TopBar (HUD frame, glowing active waypoint, attribution preserved bottom-left), Shell
+(aurora ribbon + grid + nebula backdrop), DashboardPage (cockpit stat cards with crown lines,
+glow orbs, composite gauges) + DisciplineRing (neon glow filter, count-up, sweep, summit halo),
+PreTradePanel (rule check reads as a pre-flight checklist — subtle pass rows, glowing red hard-edge
+blocking rows), Onboarding (cockpit backdrop, segmented HUD progress, "Cockpit ready" finish),
+shared Modal / toast / GuardrailBanner / ConflictResolver (glow border by severity), and the
+dev gallery `features/dev/ComponentsPage.tsx`.

@@ -82,6 +82,43 @@ export const accounts = sqliteTable('accounts', {
   deletedAt: integer('deleted_at'),
 })
 
+/**
+ * Per-phase prop-firm rule configuration (migration 0016). One row per phase of
+ * the account's ladder (phase_number 1..step_count). All money/percent columns
+ * are integer basis points (§2.5/§19.5); `profit_target_pct` is NULL for a
+ * phase with no target (a funded phase).
+ *
+ * DENORMALIZATION CONTRACT: the `accounts` row's single columns
+ * (profit_target_pct + drawdown + trading-day columns) always mirror the
+ * ACTIVE phase's values — the rules engine reads the account row only.
+ * `accounts:advancePhase` / `accounts:updatePhases` (electron/ipc/accounts.ts)
+ * keep the mirror in sync inside one transaction.
+ *
+ * Unique (account_id, phase_number) is enforced by a PARTIAL index
+ * (`WHERE deleted_at IS NULL`, see 0016) so a soft-deleted phase can be
+ * re-created. Syncable: registered in TABLE_SPECS
+ * (electron/services/sync/store.ts) with the trade_partials soft-delete pattern.
+ */
+export const accountPhases = sqliteTable('account_phases', {
+  id: text('id').primaryKey(),
+  accountId: text('account_id')
+    .notNull()
+    .references(() => accounts.id),
+  phaseNumber: integer('phase_number').notNull(),
+  /** Basis points (10% → 1000). null = no profit target (funded phase). */
+  profitTargetPct: integer('profit_target_pct'),
+  dailyDrawdownType: text('daily_drawdown_type').notNull(),
+  dailyDrawdownValue: integer('daily_drawdown_value').notNull(),
+  totalDrawdownType: text('total_drawdown_type').notNull(),
+  totalDrawdownValue: integer('total_drawdown_value').notNull(),
+  minTradingDays: integer('min_trading_days'),
+  maxTradingDays: integer('max_trading_days'),
+  consistencyRulePct: integer('consistency_rule_pct'),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+  deletedAt: integer('deleted_at'),
+})
+
 export const accountRules = sqliteTable('account_rules', {
   id: text('id').primaryKey(),
   accountId: text('account_id')
@@ -158,6 +195,28 @@ export const sessions = sqliteTable('sessions', {
   // v2.0 sync (migration 0013): soft-delete tombstone so a removed session
   // syncs like any other row rather than vanishing only locally.
   deletedAt: integer('deleted_at'),
+})
+
+/**
+ * A persisted, non-overridable lock on one account's trading day (migration
+ * 0017). `sessions`' bias columns are NOT NULL, so a daily-loss circuit
+ * breaker cannot always express its lock as a `sessions` row — the trader may
+ * never have logged today's bias before the breach. This table is the
+ * lock of record for that case: `engine.ts#checkAndLockSession` writes one row
+ * the moment a daily-loss limit breaches, and the rules engine consults it
+ * (context-builder.ts -> RuleContext.dailyLock) so every subsequent pre-trade
+ * evaluation that trading day is hard-blocked regardless of whether a
+ * `sessions` row exists. `session-state.ts` folds it into the session-locked
+ * UI state too. One immutable row per (account, trading day).
+ */
+export const dailyLocks = sqliteTable('daily_locks', {
+  id: text('id').primaryKey(),
+  accountId: text('account_id')
+    .notNull()
+    .references(() => accounts.id),
+  tradingDay: text('trading_day').notNull(),
+  reason: text('reason').notNull(),
+  createdAt: integer('created_at').notNull(),
 })
 
 export const trades = sqliteTable('trades', {

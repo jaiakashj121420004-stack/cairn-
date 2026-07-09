@@ -1,3 +1,4 @@
+import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
 import { useState } from 'react'
 import { ThemeToggle } from '../../components/shared/ThemeToggle'
 import {
@@ -14,9 +15,12 @@ import {
   useToast,
   Tabs,
   Tooltip,
+  GlassCard,
 } from '../../components/ui'
+import { cn } from '../../lib/cn'
 import { formatCents, formatRMultiple, formatPercent, formatPips } from '../../lib/formatters'
 import { ipc } from '../../lib/ipc'
+import { DisciplineRing } from '../dashboard/DisciplineRing'
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -32,6 +36,22 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Row({ children }: { children: React.ReactNode }) {
   return <div className="flex flex-wrap items-center gap-3">{children}</div>
 }
+
+type PreflightStatus = 'pass' | 'warn' | 'block'
+const PREFLIGHT_ROWS: { label: string; status: PreflightStatus; msg?: string }[] = [
+  { label: 'Within killzone', status: 'pass' },
+  { label: 'Risk within 1% of account', status: 'pass' },
+  {
+    label: 'Daily loss limit',
+    status: 'warn',
+    msg: 'Approaching limit — 0.8R of buffer remaining.',
+  },
+  {
+    label: 'MSS confirmed',
+    status: 'block',
+    msg: 'Confirm the market-structure shift before entry.',
+  },
+]
 
 export function ComponentsPage() {
   const [checked, setChecked] = useState(false)
@@ -64,6 +84,122 @@ export function ComponentsPage() {
           </div>
           <ThemeToggle />
         </div>
+
+        {/* Neon Cockpit HUD — v2.1 design language */}
+        <Section title="Neon Cockpit HUD">
+          <p className="-mt-1 text-body-sm text-text-muted">
+            v2.1 (2026-07-09) — frosted HUD panels, luminous borders, corner brackets, and glow that
+            carries meaning. JetBrains Mono keeps every number crisp.
+          </p>
+
+          {/* Aurora ribbon — page-top signature accent */}
+          <div
+            className="aurora-ribbon h-[2px] w-full rounded-full opacity-80"
+            aria-hidden="true"
+          />
+
+          {/* GlassCard — crown highlight + outer glow, one per accent */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {(['info', 'accent-a', 'accent-b', 'danger'] as const).map((h) => (
+              <GlassCard key={h} highlight={h} glow padding="default">
+                <p className="text-micro font-semibold uppercase tracking-[0.14em] text-text-muted">
+                  {h}
+                </p>
+                <p className="stat-number mt-1 text-h2 text-text-primary">+2.34R</p>
+                <p className="mt-1 text-caption text-text-muted">crown + glow</p>
+              </GlassCard>
+            ))}
+          </div>
+
+          {/* Hero glass with HUD corner brackets + signal text */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <GlassCard hero padding="large" className="hud-corners overflow-hidden">
+              <p className="text-micro font-semibold uppercase tracking-[0.14em] text-text-muted">
+                Hero panel · HUD corners
+              </p>
+              <p className="stat-number mt-2 text-display text-text-primary text-glow-info">128</p>
+              <p className="mt-1 text-caption text-text-secondary">
+                glass-hero + hud-corners + text-glow-info
+              </p>
+            </GlassCard>
+            <div className="glass rounded-[16px] p-5">
+              <p className="text-micro font-semibold uppercase tracking-[0.14em] text-text-muted">
+                Gradient numerals
+              </p>
+              <div className="mt-2 space-y-1">
+                <p className="stat-number text-h1 text-gradient-summit">+18.4%</p>
+                <p className="stat-number text-h2 text-gradient-danger">-2.10R</p>
+                <p className="stat-number text-h2 text-gradient-amber">61%</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Pre-flight rule check + Discipline Ring */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="glass rounded-[12px] p-3">
+              <p className="mb-2 text-caption font-medium text-text-secondary">
+                Rule check (pre-flight)
+              </p>
+              <div className="space-y-1">
+                {PREFLIGHT_ROWS.map((r) => {
+                  const Icon =
+                    r.status === 'pass'
+                      ? CheckCircle2
+                      : r.status === 'block'
+                        ? XCircle
+                        : AlertTriangle
+                  const rowClass =
+                    r.status === 'pass'
+                      ? 'border-l-accent-a/70 bg-accent-a/[0.06]'
+                      : r.status === 'block'
+                        ? 'border-l-danger/70 bg-danger/[0.07]'
+                        : 'border-l-warning/70 bg-warning/[0.07]'
+                  const iconClass =
+                    r.status === 'pass'
+                      ? 'text-accent-a'
+                      : r.status === 'block'
+                        ? 'text-danger'
+                        : 'text-warning'
+                  const textClass =
+                    r.status === 'pass'
+                      ? 'text-text-secondary'
+                      : r.status === 'block'
+                        ? 'text-danger'
+                        : 'text-warning'
+                  return (
+                    <div
+                      key={r.label}
+                      className={cn(
+                        'flex items-start gap-2 rounded-[6px] border-l-2 py-1 pl-2 pr-1',
+                        rowClass,
+                      )}
+                    >
+                      <Icon
+                        className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', iconClass)}
+                        strokeWidth={1.5}
+                      />
+                      <div className="min-w-0">
+                        <p className={cn('text-caption font-medium', textClass)}>{r.label}</p>
+                        {r.msg && <p className="text-caption text-text-muted">{r.msg}</p>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="glass flex items-center justify-center rounded-[16px] p-4">
+              <DisciplineRing
+                score={82}
+                window={20}
+                ruleBreakdown={[
+                  { ruleKey: 'move_stop_loss', count: 2 },
+                  { ruleKey: 'over_leverage', count: 1 },
+                ]}
+              />
+            </div>
+          </div>
+        </Section>
 
         {/* Formatters */}
         <Section title="Formatters">

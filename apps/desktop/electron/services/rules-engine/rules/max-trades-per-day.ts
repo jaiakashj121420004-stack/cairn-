@@ -17,8 +17,13 @@ function evaluate(ctx: RuleContext, configUnknown: unknown): RuleEvaluation {
       canOverride: true,
     }
   }
-  const nonCancelled = ctx.tradesToday.filter((t) => t.status !== 'cancelled').length
-  const projected = nonCancelled + (ctx.tradeInProgress ? 1 : 0)
+  // Only placed trades count against the cap. Cancelled trades never happened;
+  // planned drafts are plans, not placed trades (the context builder already
+  // excludes them — this filter is defence-in-depth for direct callers).
+  const placed = ctx.tradesToday.filter(
+    (t) => t.status !== 'cancelled' && t.status !== 'planned',
+  ).length
+  const projected = placed + (ctx.tradeInProgress ? 1 : 0)
   const passed = projected <= parsed.data.maxTrades
   return {
     ruleKey: rule.key,
@@ -30,7 +35,7 @@ function evaluate(ctx: RuleContext, configUnknown: unknown): RuleEvaluation {
       : `Max trades per day reached (${parsed.data.maxTrades}).`,
     canOverride: true,
     suggestedAction: passed ? undefined : 'Stop trading for today.',
-    contextSnapshot: { taken: nonCancelled, max: parsed.data.maxTrades },
+    contextSnapshot: { taken: placed, max: parsed.data.maxTrades },
   }
 }
 

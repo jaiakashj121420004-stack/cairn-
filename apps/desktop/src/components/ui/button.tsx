@@ -13,34 +13,34 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<Variant, string> = {
   primary: [
-    'bg-accent-a text-background font-semibold',
+    'bg-primary text-primary-foreground font-semibold',
     'shadow-btn-primary',
-    'hover:brightness-[1.07] hover:shadow-[var(--btn-primary-shadow),0_6px_20px_hsl(var(--accent-a)/0.38)]',
-    'active:brightness-[0.96] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.18)]',
-    'focus-visible:ring-accent-a/30',
+    'hover:brightness-[1.08] hover:shadow-[var(--btn-primary-shadow),0_6px_22px_hsl(var(--primary)/0.45)]',
+    'active:brightness-[0.96] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.24)]',
+    'focus-visible:ring-primary/40',
     'disabled:opacity-40',
   ].join(' '),
   secondary: [
     'border border-border bg-surface/60 text-text-primary',
     'shadow-btn-secondary',
-    'hover:bg-surface-elevated hover:border-border-strong',
+    'hover:bg-surface-elevated hover:border-primary/40',
     'active:brightness-[0.96]',
-    'focus-visible:ring-accent-a/20',
+    'focus-visible:ring-primary/30',
     'disabled:opacity-40',
   ].join(' '),
   ghost: [
     'bg-transparent text-text-secondary',
     'hover:bg-surface-elevated hover:text-text-primary',
     'active:brightness-[0.96]',
-    'focus-visible:ring-accent-a/20',
+    'focus-visible:ring-primary/30',
     'disabled:opacity-40',
   ].join(' '),
   destructive: [
     'bg-danger text-background font-semibold',
     'shadow-btn-destructive',
-    'hover:brightness-[1.07]',
+    'hover:brightness-[1.08] hover:shadow-[var(--btn-destructive-shadow),0_6px_22px_hsl(var(--danger)/0.45)]',
     'active:brightness-[0.96]',
-    'focus-visible:ring-danger/30',
+    'focus-visible:ring-danger/40',
     'disabled:opacity-40',
   ].join(' '),
 }

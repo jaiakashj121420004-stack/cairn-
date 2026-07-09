@@ -134,9 +134,7 @@ export function registerBillingRoutes(app: FastifyInstance, deps: BillingRouteDe
         .limit(1)
       const existing = subRows[0]
       const customerId =
-        existing?.provider === providerName
-          ? (existing.providerCustomerId ?? undefined)
-          : undefined
+        existing?.provider === providerName ? (existing.providerCustomerId ?? undefined) : undefined
 
       // Seed a trial only for users with no live entitlement (new / lapsed / cancelled),
       // so we never downgrade an active or in-flight subscription back to trial.

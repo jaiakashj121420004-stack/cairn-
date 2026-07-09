@@ -28,8 +28,8 @@ export function Switch({ checked = false, onChange, label, disabled, className }
           if (!disabled) onChange?.(!checked)
         }}
         className={cn(
-          'relative h-5 w-9 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-a/20',
-          checked ? 'bg-accent-a' : 'bg-border-strong',
+          'relative h-5 w-9 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+          checked ? 'bg-primary shadow-[0_0_10px_hsl(var(--primary)/0.5)]' : 'bg-border-strong',
         )}
       >
         <motion.div

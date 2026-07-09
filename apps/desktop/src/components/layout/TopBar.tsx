@@ -10,9 +10,21 @@ import type { SessionState } from '../../stores/session-store'
 
 const SESSION_CONFIG: Record<SessionState, { label: string; dotClass: string; pulse: boolean }> = {
   idle: { label: 'Idle', dotClass: 'bg-text-muted/60', pulse: false },
-  active: { label: 'Session Active', dotClass: 'bg-accent-a', pulse: true },
-  paused: { label: 'Paused', dotClass: 'bg-warning', pulse: false },
-  locked: { label: 'Session Locked', dotClass: 'bg-danger', pulse: false },
+  active: {
+    label: 'Session Active',
+    dotClass: 'bg-accent-a shadow-[0_0_8px_hsl(var(--accent-a)/0.75)]',
+    pulse: true,
+  },
+  paused: {
+    label: 'Paused',
+    dotClass: 'bg-warning shadow-[0_0_8px_hsl(var(--warning)/0.7)]',
+    pulse: false,
+  },
+  locked: {
+    label: 'Session Locked',
+    dotClass: 'bg-danger shadow-[0_0_8px_hsl(var(--danger)/0.75)]',
+    pulse: false,
+  },
 }
 
 export function TopBar() {

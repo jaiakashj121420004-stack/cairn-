@@ -1,9 +1,29 @@
 // @vitest-environment node
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
+import {
+  setGuardrailSink,
+  resetGuardrailSink,
+} from '../../../../electron/services/rules-engine/guardrail'
 import { rule } from '../../../../electron/services/rules-engine/rules/daily-stop-after-losses'
 import { makeContext, makeTrade } from '../_helpers'
 
+afterEach(() => {
+  resetGuardrailSink()
+})
+
 describe('daily_stop_after_losses', () => {
+  it('misconfigured hard lock fails CLOSED: blocking, no override, guardrail reported', () => {
+    const sink = vi.fn()
+    setGuardrailSink(sink)
+    const r = rule.evaluate(makeContext(), { consecutiveLosses: 'two' })
+    expect(r.passed).toBe(false)
+    expect(r.severity).toBe('blocking')
+    expect(r.canOverride).toBe(false)
+    expect(sink).toHaveBeenCalledWith(
+      expect.objectContaining({ ruleKey: 'daily_stop_after_losses' }),
+    )
+  })
+
   it('passes when streak is under threshold', () => {
     const ctx = makeContext({
       tradesToday: [makeTrade({ id: 'a', pnlCents: -5000 })],

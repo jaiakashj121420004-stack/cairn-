@@ -2,11 +2,7 @@ import { ERROR_CODES } from '@cairn/shared-types'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, ErrorText, Heading, Screen } from '@web/components/ui'
-import {
-  cancelSubscription,
-  getBillingStatus,
-  openBillingPortal,
-} from '@web/lib/billing'
+import { cancelSubscription, getBillingStatus, openBillingPortal } from '@web/lib/billing'
 import type { BillingStatusOutput } from '@cairn/shared-zod'
 
 /**
@@ -64,7 +60,11 @@ export function Billing(): JSX.Element {
   }
 
   async function onCancel(): Promise<void> {
-    if (!window.confirm('Cancel Cairn Pro at the end of the current billing period? Your local data is never deleted.'))
+    if (
+      !window.confirm(
+        'Cancel Cairn Pro at the end of the current billing period? Your local data is never deleted.',
+      )
+    )
       return
     setBusy('cancel')
     setError('')
@@ -75,14 +75,19 @@ export function Billing(): JSX.Element {
       setError(res.error.message)
       return
     }
-    setNotice('Cancellation scheduled for the end of your billing period. Sync stays on until then.')
+    setNotice(
+      'Cancellation scheduled for the end of your billing period. Sync stays on until then.',
+    )
     await refresh()
   }
 
-  const isPaid = status !== null && (status.state === 'active' || status.state === 'past_due' || status.state === 'trial')
-  const nextDate = status?.current_period_end !== null && status?.current_period_end !== undefined
-    ? formatDate(status.current_period_end)
-    : null
+  const isPaid =
+    status !== null &&
+    (status.state === 'active' || status.state === 'past_due' || status.state === 'trial')
+  const nextDate =
+    status?.current_period_end !== null && status?.current_period_end !== undefined
+      ? formatDate(status.current_period_end)
+      : null
 
   return (
     <Screen>
@@ -109,7 +114,11 @@ export function Billing(): JSX.Element {
 
             {isPaid ? (
               <div className="space-y-3">
-                <Button onClick={() => void onPortal()} disabled={busy !== null} data-testid="open-portal">
+                <Button
+                  onClick={() => void onPortal()}
+                  disabled={busy !== null}
+                  data-testid="open-portal"
+                >
                   {busy === 'portal' ? 'Opening…' : 'Open billing portal'}
                 </Button>
                 <Button

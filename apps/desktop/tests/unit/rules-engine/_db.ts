@@ -31,6 +31,16 @@ const MIGRATIONS = [
   readFileSync(join(__dirname, '../../../electron/db/migrations/0011_sync.sql'), 'utf-8'),
   readFileSync(join(__dirname, '../../../electron/db/migrations/0012_sync_merge.sql'), 'utf-8'),
   readFileSync(join(__dirname, '../../../electron/db/migrations/0013_sync_clocks.sql'), 'utf-8'),
+  readFileSync(
+    join(__dirname, '../../../electron/db/migrations/0014_live_detection_outcome.sql'),
+    'utf-8',
+  ),
+  readFileSync(
+    join(__dirname, '../../../electron/db/migrations/0015_broker_account_map.sql'),
+    'utf-8',
+  ),
+  readFileSync(join(__dirname, '../../../electron/db/migrations/0016_account_phases.sql'), 'utf-8'),
+  readFileSync(join(__dirname, '../../../electron/db/migrations/0017_daily_locks.sql'), 'utf-8'),
 ]
 
 let SQL: Awaited<ReturnType<typeof initSqlJs>> | null = null

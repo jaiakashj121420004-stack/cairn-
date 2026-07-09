@@ -13,7 +13,9 @@ export function VerifyEmail(): JSX.Element {
   const email = params.get('email')
   const verifyEmail = useSession((s) => s.verifyEmail)
   const navigate = useNavigate()
-  const [state, setState] = useState<'idle' | 'verifying' | 'done' | 'error'>(token ? 'verifying' : 'idle')
+  const [state, setState] = useState<'idle' | 'verifying' | 'done' | 'error'>(
+    token ? 'verifying' : 'idle',
+  )
   const [error, setError] = useState('')
 
   useEffect(() => {

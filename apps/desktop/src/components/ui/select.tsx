@@ -82,7 +82,7 @@ export function Select({
         aria-expanded={open}
         className={cn(
           'flex h-[38px] w-full items-center justify-between rounded-[10px] border border-border bg-surface-elevated px-3',
-          'text-body transition-colors focus:border-accent-a focus:outline-none focus:shadow-focus',
+          'text-body transition-colors focus:border-primary focus:outline-none focus:shadow-focus',
           selected ? 'text-text-primary' : 'text-text-muted',
           error && 'border-danger',
           disabled && 'cursor-not-allowed opacity-50',

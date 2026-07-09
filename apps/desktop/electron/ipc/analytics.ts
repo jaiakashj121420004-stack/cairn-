@@ -1,7 +1,7 @@
-import { and, asc, eq, isNotNull, isNull } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNotNull, isNull, type SQL } from 'drizzle-orm'
 import { ipcMain } from 'electron'
 import { getDb } from '../db/index'
-import { playbooks, trades } from '../db/schema'
+import { accounts, playbooks, trades } from '../db/schema'
 import {
   getAdherenceScore,
   getAdherenceTrendWeekly,
@@ -10,6 +10,7 @@ import {
   getRuleBreakImpact,
   getTopRulesBroken,
 } from '../services/analytics/adherence'
+import { computeAdvancedMetrics } from '../services/analytics/advanced-metrics'
 import {
   getEmotionalBuckets,
   getHourDayHeatmap,
@@ -68,6 +69,27 @@ import type {
   RuleAdherenceStats,
   SetupPerformanceStats,
 } from '../../shared/types/index'
+import type { CairnDb } from '../db/index'
+
+/**
+ * Starting-balance base for the filter's account scope — the fixed
+ * denominator for Sharpe/Sortino's daily-return approximation and for the
+ * max-drawdown %-of-peak figure (see advanced-metrics.ts). When the filter
+ * spans multiple accounts (or 'all'), balances are summed so the scope reads
+ * as one combined book. Soft-deleted accounts are excluded.
+ */
+function getScopedStartingBalanceCents(db: CairnDb, filter: AnalyticsFilter): number {
+  const clauses: SQL[] = [isNull(accounts.deletedAt)]
+  if (filter.accountIds !== 'all' && filter.accountIds.length > 0) {
+    clauses.push(inArray(accounts.id, filter.accountIds))
+  }
+  const rows = db
+    .select({ accountSizeCents: accounts.accountSizeCents })
+    .from(accounts)
+    .where(and(...clauses))
+    .all()
+  return rows.reduce((sum, r) => sum + r.accountSizeCents, 0)
+}
 
 function err(e: unknown): IpcResponse<never> {
   return { ok: false, error: { code: 'ANALYTICS_ERROR', message: String(e) } }
@@ -195,6 +217,7 @@ export function registerAnalyticsHandlers(): void {
             pnlR: trades.pnlR,
             pnlCents: trades.pnlCents,
             exitTime: trades.exitTime,
+            durationMinutes: trades.durationMinutes,
           })
           .from(trades)
           .where(and(...where))
@@ -209,6 +232,11 @@ export function registerAnalyticsHandlers(): void {
           dowSummary: getDowSummary(rows, tz),
           timeOfDayHeatmap: getTimeOfDayHeatmap(rows, tz),
           rDistribution: getRDistributionPure(rows),
+          advancedMetrics: computeAdvancedMetrics(
+            rows,
+            getScopedStartingBalanceCents(db, filter),
+            tz,
+          ),
         }
         return { ok: true, data }
       } catch (e) {

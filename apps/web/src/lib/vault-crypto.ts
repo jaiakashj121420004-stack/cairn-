@@ -5,11 +5,7 @@ import {
   memzero,
   unwrapDataKey,
 } from '@cairn/shared-crypto'
-import {
-  type KdfParamsWire,
-  type VaultKeyOutput,
-  type WrappedKeyWire,
-} from '@cairn/shared-zod'
+import { type KdfParamsWire, type VaultKeyOutput, type WrappedKeyWire } from '@cairn/shared-zod'
 import { adFor, base64ToBytes, decodeCiphertext } from './vault-codec'
 import type { KDFParams, WrappedKey } from '@cairn/shared-types'
 

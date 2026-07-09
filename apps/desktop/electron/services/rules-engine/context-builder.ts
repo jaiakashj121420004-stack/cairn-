@@ -1,4 +1,4 @@
-import { and, eq, gte, isNull, lte } from 'drizzle-orm'
+import { and, eq, gte, isNull, lte, ne } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import {
   getConfiguredTimeZone,
@@ -9,6 +9,7 @@ import {
 import { listActiveCooldowns } from './cooldowns'
 import type {
   AccountRuleConfig,
+  DailyLockRecord,
   DraftTrade,
   KillzoneRecord,
   RuleContext,
@@ -43,6 +44,11 @@ export function buildContext(
 
   const todayStart = tradingDayStart(now, timeZone)
   const todayEnd = tradingDayEnd(now, timeZone)
+  // Drafts (status 'planned') are excluded: a draft is a plan, not a placed
+  // trade, so it must never consume the daily trade cap. Exclusion is safe for
+  // every consumer of tradesToday — the loss-sum, consecutive-loss and
+  // revenge-window helpers only consider closed trades with realized P&L,
+  // which a planned trade can never have.
   const tradesToday = db
     .select()
     .from(schema.trades)
@@ -51,6 +57,7 @@ export function buildContext(
         eq(schema.trades.accountId, accountId),
         gte(schema.trades.createdAt, todayStart),
         lte(schema.trades.createdAt, todayEnd),
+        ne(schema.trades.status, 'planned'),
         isNull(schema.trades.deletedAt),
       ),
     )
@@ -90,6 +97,28 @@ export function buildContext(
 
   const activeCooldowns = listActiveCooldowns(db, accountId, now)
 
+  // Circuit-breaker lock for today (migration 0017 `daily_locks`), independent
+  // of whether a `sessions` row exists — see engine.ts#checkAndLockSession.
+  const dailyLockRow = db
+    .select()
+    .from(schema.dailyLocks)
+    .where(
+      and(
+        eq(schema.dailyLocks.accountId, accountId),
+        eq(schema.dailyLocks.tradingDay, todayDateStr),
+      ),
+    )
+    .get()
+  const dailyLock: DailyLockRecord | null = dailyLockRow
+    ? {
+        id: dailyLockRow.id,
+        accountId: dailyLockRow.accountId,
+        tradingDay: dailyLockRow.tradingDay,
+        reason: dailyLockRow.reason,
+        createdAt: dailyLockRow.createdAt,
+      }
+    : null
+
   const killzones = db
     .select()
     .from(schema.killzones)
@@ -115,7 +144,11 @@ export function buildContext(
   }
 
   return {
-    account: account as Account,
+    // The rules engine reads the denormalized account columns only (the active
+    // phase is mirrored onto the row — see accounts.ts denormalization
+    // contract); the phase ladder is not needed here, so the raw row satisfies
+    // the Account shape for context purposes.
+    account: account as unknown as Account,
     accountRules,
     currentSession,
     tradeInProgress: opts.draft,
@@ -128,5 +161,6 @@ export function buildContext(
     timeZone,
     activeCooldowns,
     killzones,
+    dailyLock,
   }
 }

@@ -118,7 +118,11 @@ export function Modal({
           <motion.div
             ref={panelRef}
             className={cn('relative w-full rounded-[16px] glass-strong', className)}
-            style={{ maxWidth }}
+            style={{
+              maxWidth,
+              borderColor: 'hsl(var(--info) / 0.24)',
+              boxShadow: 'var(--glass-shadow), 0 0 48px hsl(var(--info) / 0.1)',
+            }}
             variants={scaleIn}
             initial="initial"
             animate="animate"

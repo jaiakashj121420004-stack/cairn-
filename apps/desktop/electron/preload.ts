@@ -30,6 +30,8 @@ import type {
   UpdateAccountTemplateInput,
   CreateAccountInput,
   UpdateAccountInput,
+  AdvancePhaseInput,
+  UpdateAccountPhasesInput,
   DraftTradeInput,
   EvaluateModificationInput,
   OverrideInputDTO,
@@ -84,6 +86,7 @@ import type {
 import type {
   SignupResult,
   BrokerAccountMapEntry,
+  BrokerDiagnostics,
   BrokerKind,
   BrokerStatus,
   Mt5BridgeConfig,
@@ -150,6 +153,10 @@ const api = {
     stats: (): Promise<IpcResponse<AccountStats[]>> => ipcRenderer.invoke('accounts:stats'),
     delete: (id: string): Promise<IpcResponse<{ ok: true }>> =>
       ipcRenderer.invoke('accounts:delete', { id }),
+    advancePhase: (input: AdvancePhaseInput): Promise<IpcResponse<Account>> =>
+      ipcRenderer.invoke('accounts:advancePhase', input),
+    updatePhases: (input: UpdateAccountPhasesInput): Promise<IpcResponse<Account>> =>
+      ipcRenderer.invoke('accounts:updatePhases', input),
   },
 
   pairs: {
@@ -412,6 +419,8 @@ const api = {
       broker: BrokerKind
       brokerAccountId: string
     }): Promise<IpcResponse<void>> => ipcRenderer.invoke('broker:deleteAccountMap', input),
+    diagnostics: (): Promise<IpcResponse<BrokerDiagnostics>> =>
+      ipcRenderer.invoke('broker:diagnostics'),
   },
 
   auth: {

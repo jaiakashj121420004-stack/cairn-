@@ -26,7 +26,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             className={cn(
               'w-full rounded-[10px] border border-border bg-surface-elevated px-3 py-2',
               'text-body text-text-primary placeholder:text-text-muted',
-              'transition-colors focus:border-accent-a focus:outline-none focus:shadow-focus',
+              'transition-colors focus:border-primary focus:outline-none focus:shadow-focus',
               numeric && 'pr-14 text-right font-mono tabular-nums',
               error && 'border-danger focus:border-danger',
               className,

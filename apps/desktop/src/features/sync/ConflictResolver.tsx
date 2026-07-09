@@ -130,9 +130,9 @@ export function ConflictResolver() {
         <button
           type="button"
           onClick={() => void openModal()}
-          className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full border border-warning/40 bg-surface-elevated px-4 py-2 text-caption font-medium text-warning shadow-lg hover:brightness-110"
+          className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full border border-warning/50 bg-surface-elevated px-4 py-2 text-caption font-medium text-warning shadow-[0_8px_28px_rgba(0,0,0,0.5),0_0_22px_hsl(var(--warning)/0.22)] transition-[filter,box-shadow] hover:border-warning/70 hover:brightness-110"
         >
-          <AlertTriangle className="h-4 w-4" />
+          <AlertTriangle className="h-4 w-4 drop-shadow-[0_0_6px_hsl(var(--warning)/0.6)]" />
           {count} sync conflict{count === 1 ? '' : 's'}
         </button>
       )}
@@ -159,18 +159,18 @@ export function ConflictResolver() {
                     <span className="text-body font-semibold text-text-primary">
                       {labelFor(c.tableName)}
                     </span>
-                    <span className="font-mono text-[11px] text-text-tertiary">
+                    <span className="font-mono text-[11px] text-text-muted">
                       {c.recordId.slice(0, 8)}
                     </span>
                   </div>
 
                   {diffs.length === 0 ? (
-                    <p className="text-caption text-text-tertiary">
+                    <p className="text-caption text-text-muted">
                       The two versions differ only in metadata.
                     </p>
                   ) : (
                     <div className="mb-3 overflow-hidden rounded-md border border-border/60">
-                      <div className="grid grid-cols-[1fr_1fr_1fr] bg-surface px-2 py-1 text-[11px] font-medium text-text-tertiary">
+                      <div className="grid grid-cols-[1fr_1fr_1fr] bg-surface px-2 py-1 text-[11px] font-medium text-text-muted">
                         <span>Field</span>
                         <span>This device</span>
                         <span>Other device</span>

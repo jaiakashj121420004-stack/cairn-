@@ -7,10 +7,21 @@ import type {
   AccountTemplate,
   CreateAccountInput,
   AccountStatus,
+  DrawdownType,
+  DrawdownBasis,
 } from '@shared/types/index'
+import {
+  blankPhaseRow,
+  phaseLabel,
+  PhaseRulesFields,
+  phaseRowsToInputs,
+  resizePhaseRows,
+  rowsFromPhases,
+} from '../../components/shared/PhaseRulesFields'
 import { Button, Badge, Modal, Input, Select } from '../../components/ui'
 import { useToast } from '../../components/ui'
 import { ipc } from '../../lib/ipc'
+import type { PhaseFieldsRow } from '../../components/shared/PhaseRulesFields'
 
 const DD_TYPE_OPTIONS = [
   { value: 'percent_of_balance', label: '% of balance' },
@@ -38,12 +49,10 @@ type CreateForm = {
   currentPhase: string
   accountSizeStr: string
   leverage: string
-  dailyDrawdownType: CreateAccountInput['dailyDrawdownType']
-  dailyDrawdownValuePct: string
-  totalDrawdownType: CreateAccountInput['totalDrawdownType']
-  totalDrawdownValuePct: string
-  drawdownBasis: CreateAccountInput['drawdownBasis']
-  profitTargetPctStr: string
+  dailyDrawdownType: DrawdownType
+  totalDrawdownType: DrawdownType
+  drawdownBasis: DrawdownBasis
+  phaseRows: PhaseFieldsRow[]
   challengeCostStr: string
   notes: string
   weekendHoldingAllowed: boolean
@@ -59,11 +68,9 @@ const BLANK_FORM: CreateForm = {
   accountSizeStr: '10000',
   leverage: '100',
   dailyDrawdownType: 'percent_of_balance',
-  dailyDrawdownValuePct: '4',
   totalDrawdownType: 'percent_of_balance',
-  totalDrawdownValuePct: '8',
   drawdownBasis: 'initial_balance',
-  profitTargetPctStr: '10',
+  phaseRows: resizePhaseRows([blankPhaseRow({ target: '10', daily: '4', total: '8' })], 2),
   challengeCostStr: '0',
   notes: '',
   weekendHoldingAllowed: false,
@@ -88,6 +95,23 @@ function fmtBps(bps: number) {
   return `${(bps / 100).toFixed(1)}%`
 }
 
+/** Edit-modal rows for an account: its phase ladder, or its single values as one row per step. */
+function rowsFromAccount(account: Account): PhaseFieldsRow[] {
+  if (account.phases.length > 0) return rowsFromPhases(account.phases)
+  return resizePhaseRows(
+    [
+      {
+        profitTargetPctStr:
+          account.profitTargetPct > 0 ? String(account.profitTargetPct / 100) : '',
+        dailyDrawdownPctStr: String(account.dailyDrawdownValue / 100),
+        totalDrawdownPctStr: String(account.totalDrawdownValue / 100),
+        touched: { target: true, daily: true, total: true },
+      },
+    ],
+    account.stepCount,
+  )
+}
+
 export function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [stats, setStats] = useState<AccountStats[]>([])
@@ -102,6 +126,9 @@ export function AccountsPage() {
   const [editMaxTrades, setEditMaxTrades] = useState('0')
   const [editMaxLossFixed, setEditMaxLossFixed] = useState('0')
   const [editMaxLossPct, setEditMaxLossPct] = useState('0')
+  const [editPhaseRows, setEditPhaseRows] = useState<PhaseFieldsRow[]>([])
+  const [advanceConfirm, setAdvanceConfirm] = useState(false)
+  const [advancing, setAdvancing] = useState(false)
   const [form, setForm] = useState<CreateForm>(BLANK_FORM)
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Account | null>(null)
@@ -178,6 +205,8 @@ export function AccountsPage() {
     setEditStatus(account.status)
     setEditLeverage(String(account.leverage))
     setEditNotes(account.notes ?? '')
+    setEditPhaseRows(rowsFromAccount(account))
+    setAdvanceConfirm(false)
     setEditMaxTrades('0')
     setEditMaxLossFixed('0')
     setEditMaxLossPct('0')
@@ -202,6 +231,21 @@ export function AccountsPage() {
   function applyTemplate(templateId: string) {
     const tmpl = templates.find((t) => t.id === templateId)
     if (!tmpl) return
+    const targets = [
+      tmpl.profitTargetPhase1Pct,
+      tmpl.profitTargetPhase2Pct,
+      tmpl.profitTargetPhase3Pct,
+    ]
+    const phaseRows = Array.from({ length: Math.max(1, Math.min(5, tmpl.stepCount)) }, (_, i) => {
+      const target = i < 3 ? (targets[i] ?? null) : null
+      return {
+        profitTargetPctStr: target === null ? '' : String(target / 100),
+        dailyDrawdownPctStr: String(tmpl.dailyDrawdownValue / 100),
+        totalDrawdownPctStr: String(tmpl.totalDrawdownValue / 100),
+        // Template-supplied values stay put even if the user edits Phase 1 after.
+        touched: { target: true, daily: true, total: true },
+      }
+    })
     setForm((f) => ({
       ...f,
       templateId,
@@ -209,11 +253,9 @@ export function AccountsPage() {
       accountSizeStr: String(tmpl.accountSizeCents / 100),
       leverage: String(tmpl.leverage),
       dailyDrawdownType: tmpl.dailyDrawdownType,
-      dailyDrawdownValuePct: String(tmpl.dailyDrawdownValue / 100),
       totalDrawdownType: tmpl.totalDrawdownType,
-      totalDrawdownValuePct: String(tmpl.totalDrawdownValue / 100),
       drawdownBasis: tmpl.drawdownBasis,
-      profitTargetPctStr: String(tmpl.profitTargetPhase1Pct / 100),
+      phaseRows,
     }))
   }
 
@@ -226,27 +268,54 @@ export function AccountsPage() {
       toast('Select a prop firm', 'error')
       return
     }
+    const stepCountNum = parseInt(form.stepCount, 10)
+    if (!Number.isInteger(stepCountNum) || stepCountNum < 1 || stepCountNum > 5) {
+      toast('Steps must be between 1 and 5', 'error')
+      return
+    }
+    const currentPhaseNum = parseInt(form.currentPhase, 10)
+    if (
+      !Number.isInteger(currentPhaseNum) ||
+      currentPhaseNum < 1 ||
+      currentPhaseNum > stepCountNum
+    ) {
+      toast('Current phase must be between 1 and the number of steps', 'error')
+      return
+    }
+    const rows = resizePhaseRows(form.phaseRows, stepCountNum)
+    const converted = phaseRowsToInputs(rows, form.dailyDrawdownType, form.totalDrawdownType)
+    if (!converted.ok) {
+      toast(converted.error, 'error')
+      return
+    }
+    const phases = converted.phases
+    const active = phases[currentPhaseNum - 1]
+    if (!active) {
+      toast('Current phase has no configuration', 'error')
+      return
+    }
     setSaving(true)
     const res = await ipc.accounts.create({
       displayName: form.displayName,
       propFirmId: form.propFirmId,
       ...(form.templateId ? { templateId: form.templateId } : {}),
-      stepCount: Number(form.stepCount),
-      currentPhase: Number(form.currentPhase),
+      stepCount: stepCountNum,
+      currentPhase: currentPhaseNum,
       accountSizeCents: Math.round(Number(form.accountSizeStr) * 100),
       leverage: Number(form.leverage),
       dailyDrawdownType: form.dailyDrawdownType,
-      dailyDrawdownValue: Math.round(Number(form.dailyDrawdownValuePct) * 100),
+      dailyDrawdownValue: active.dailyDrawdownValue,
       totalDrawdownType: form.totalDrawdownType,
-      totalDrawdownValue: Math.round(Number(form.totalDrawdownValuePct) * 100),
+      totalDrawdownValue: active.totalDrawdownValue,
       drawdownBasis: form.drawdownBasis,
-      profitTargetPct: Math.round(Number(form.profitTargetPctStr) * 100),
+      profitTargetPct: active.profitTargetPct ?? 0,
       challengeCostCents: Math.round(Number(form.challengeCostStr) * 100),
       startDate: Date.now(),
       weekendHoldingAllowed: form.weekendHoldingAllowed,
       newsTradingAllowed: form.newsTradingAllowed,
+      phases,
       ...(form.notes ? { notes: form.notes } : {}),
-    })
+    } satisfies CreateAccountInput)
     if (res.ok) {
       toast('Account created', 'success')
       await load()
@@ -257,6 +326,16 @@ export function AccountsPage() {
 
   async function handleEditSave() {
     if (!editTarget) return
+    // Validate the phase ladder before writing anything.
+    const converted = phaseRowsToInputs(
+      editPhaseRows,
+      editTarget.dailyDrawdownType,
+      editTarget.totalDrawdownType,
+    )
+    if (!converted.ok) {
+      toast(converted.error, 'error')
+      return
+    }
     setSaving(true)
     const leverageNum = parseInt(editLeverage, 10)
     const res = await ipc.accounts.update({
@@ -267,6 +346,15 @@ export function AccountsPage() {
       notes: editNotes || null,
     })
     if (res.ok) {
+      const phasesRes = await ipc.accounts.updatePhases({
+        accountId: editTarget.id,
+        phases: converted.phases,
+      })
+      if (!phasesRes.ok) {
+        toast(phasesRes.error.message, 'error')
+        setSaving(false)
+        return
+      }
       const maxTradesNum = parseInt(editMaxTrades, 10) || 0
       const maxLossFixedNum = parseFloat(editMaxLossFixed) || 0
       const maxLossPctNum = parseFloat(editMaxLossPct) || 0
@@ -297,6 +385,25 @@ export function AccountsPage() {
       toast(res.error.message, 'error')
     }
     setSaving(false)
+  }
+
+  async function handleAdvancePhase() {
+    if (!editTarget) return
+    setAdvancing(true)
+    const res = await ipc.accounts.advancePhase({ accountId: editTarget.id })
+    if (res.ok) {
+      toast(
+        `${phaseLabel(res.data.currentPhase, res.data.stepCount)} rules are now in effect.`,
+        'success',
+      )
+      await load()
+      setEditTarget(res.data)
+      setEditPhaseRows(rowsFromAccount(res.data))
+    } else {
+      toast(res.error.message, 'error')
+    }
+    setAdvanceConfirm(false)
+    setAdvancing(false)
   }
 
   async function handleDelete() {
@@ -344,7 +451,7 @@ export function AccountsPage() {
             {visible.map((account) => {
               const s = statsMap.get(account.id)
               const profitPct = s ? fmtBps(s.profitPctBps) : '—'
-              const targetPct = fmtBps(account.profitTargetPct)
+              const targetPct = account.profitTargetPct > 0 ? fmtBps(account.profitTargetPct) : '—'
               const ddUsed = s ? fmtBps(s.ddUsedBps) : '—'
               const ddMax = fmtBps(account.totalDrawdownValue)
               const equity = fmtMoney(account.currentEquityCents)
@@ -385,7 +492,14 @@ export function AccountsPage() {
                   >
                     <Pencil className="h-4 w-4" strokeWidth={1.5} />
                   </button>
-                  <ChevronRight className="h-4 w-4 text-text-muted/40 shrink-0" strokeWidth={1.5} />
+                  <button
+                    type="button"
+                    onClick={() => void openEdit(account)}
+                    className="rounded-[8px] p-1.5 text-text-muted hover:bg-surface-elevated hover:text-text-primary transition-colors"
+                    title="Open account settings"
+                  >
+                    <ChevronRight className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                  </button>
                 </div>
               )
             })}
@@ -437,7 +551,18 @@ export function AccountsPage() {
               type="number"
               numeric
               value={form.stepCount}
-              onChange={(e) => setForm({ ...form, stepCount: e.target.value })}
+              onChange={(e) => {
+                const v = e.target.value
+                const n = parseInt(v, 10)
+                setForm((f) => ({
+                  ...f,
+                  stepCount: v,
+                  phaseRows:
+                    Number.isInteger(n) && n >= 1 && n <= 5
+                      ? resizePhaseRows(f.phaseRows, n)
+                      : f.phaseRows,
+                }))
+              }}
               hint="Total phases"
             />
             <Input
@@ -449,22 +574,6 @@ export function AccountsPage() {
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Daily DD (%)"
-              type="number"
-              numeric
-              value={form.dailyDrawdownValuePct}
-              onChange={(e) => setForm({ ...form, dailyDrawdownValuePct: e.target.value })}
-            />
-            <Input
-              label="Total DD (%)"
-              type="number"
-              numeric
-              value={form.totalDrawdownValuePct}
-              onChange={(e) => setForm({ ...form, totalDrawdownValuePct: e.target.value })}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
             <Select
               label="DD type"
               options={DD_TYPE_OPTIONS}
@@ -472,7 +581,7 @@ export function AccountsPage() {
               onChange={(v) =>
                 setForm({
                   ...form,
-                  dailyDrawdownType: v as CreateAccountInput['dailyDrawdownType'],
+                  dailyDrawdownType: v as DrawdownType,
                 })
               }
             />
@@ -480,19 +589,17 @@ export function AccountsPage() {
               label="DD basis"
               options={DD_BASIS_OPTIONS}
               value={form.drawdownBasis}
-              onChange={(v) =>
-                setForm({ ...form, drawdownBasis: v as CreateAccountInput['drawdownBasis'] })
-              }
+              onChange={(v) => setForm({ ...form, drawdownBasis: v as DrawdownBasis })}
             />
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <Input
-              label="Profit target (%)"
-              type="number"
-              numeric
-              value={form.profitTargetPctStr}
-              onChange={(e) => setForm({ ...form, profitTargetPctStr: e.target.value })}
-            />
+          <PhaseRulesFields
+            rows={form.phaseRows}
+            onChange={(rows) =>
+              setForm((f) => ({ ...f, phaseRows: rows, stepCount: String(rows.length) }))
+            }
+            idPrefix="create-phase"
+          />
+          <div className="grid grid-cols-2 gap-3">
             <Input
               label="Leverage"
               type="number"
@@ -534,7 +641,7 @@ export function AccountsPage() {
         open={editTarget !== null}
         onClose={() => setEditTarget(null)}
         title={`Edit ${editTarget?.displayName ?? ''}`}
-        maxWidth="460px"
+        maxWidth="560px"
       >
         <div className="space-y-4">
           <Input
@@ -556,6 +663,47 @@ export function AccountsPage() {
               value={editLeverage}
               onChange={(e) => setEditLeverage(e.target.value)}
               hint="Min 1, max 3000"
+            />
+          </div>
+          {editTarget && (
+            <div className="rounded-[10px] border border-border bg-surface-elevated/50 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-caption font-medium text-text-secondary">
+                  Current phase: {phaseLabel(editTarget.currentPhase, editTarget.stepCount)} (
+                  {editTarget.currentPhase}/{editTarget.stepCount})
+                </p>
+                {editTarget.currentPhase < editTarget.stepCount && !advanceConfirm && (
+                  <Button size="sm" variant="secondary" onClick={() => setAdvanceConfirm(true)}>
+                    Advance to {phaseLabel(editTarget.currentPhase + 1, editTarget.stepCount)}
+                  </Button>
+                )}
+              </div>
+              {advanceConfirm && (
+                <div className="space-y-2">
+                  <p className="text-caption text-text-secondary">
+                    {phaseLabel(editTarget.currentPhase, editTarget.stepCount)} complete.{' '}
+                    {phaseLabel(editTarget.currentPhase + 1, editTarget.stepCount)} rules take
+                    effect immediately.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => void handleAdvancePhase()} loading={advancing}>
+                      Confirm
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => setAdvanceConfirm(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="space-y-2">
+            <p className="text-caption font-medium text-text-secondary">Phase rules</p>
+            <PhaseRulesFields
+              rows={editPhaseRows}
+              onChange={setEditPhaseRows}
+              editableCount
+              idPrefix="edit-phase"
             />
           </div>
           <div className="rounded-[10px] border border-border bg-surface-elevated/50 p-3 space-y-3">
@@ -665,7 +813,7 @@ export function AccountsPage() {
             </Button>
             <Button
               variant="destructive"
-              disabled={deleteConfirm !== deleteTarget?.displayName}
+              disabled={deleteConfirm.trim() !== (deleteTarget?.displayName ?? '').trim()}
               loading={deleting}
               onClick={() => void handleDelete()}
             >

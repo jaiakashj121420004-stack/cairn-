@@ -1,13 +1,15 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { eq, and, isNull, gte, lte, desc, asc, count } from 'drizzle-orm'
+import { eq, and, isNull, gte, lte, ne, desc, asc, count } from 'drizzle-orm'
 import { ipcMain, app, dialog } from 'electron'
 import { v7 as uuidv7 } from 'uuid'
 import { z } from 'zod'
 import { getDb } from '../db/index'
 import * as schema from '../db/schema'
 import { calculatePnl, calculateDurationMinutes } from '../services/pnl-calculator'
+import { evaluatePreTrade } from '../services/rules-engine/index'
 import { enqueueSyncOp } from '../services/sync'
+import { getConfiguredTimeZone, tradingDayKey } from '../services/time/trading-day'
 import { computeTradeGrade, countRulesBroken } from '../services/trade-grade'
 import type {
   IpcResponse,
@@ -23,6 +25,7 @@ import type {
   PartialCloseRecord,
   TradeFilter,
 } from '../../shared/types/index'
+import type { DraftTrade } from '../services/rules-engine/types'
 
 function screenshotsRoot(): string {
   return path.join(app.getPath('userData'), 'cairn', 'screenshots')
@@ -81,6 +84,7 @@ function mapRow(row: typeof schema.trades.$inferSelect): Trade {
     whatIDidWrong: row.whatIDidWrong ?? null,
     tags: row.tags ?? null,
     phase2Complete: row.phase2Complete,
+    openedAt: row.openedAt ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     deletedAt: row.deletedAt ?? null,
@@ -322,6 +326,11 @@ const TradeFilterSchema = z.object({
   status: z.enum(['planned', 'open', 'closed', 'cancelled']).optional(),
 })
 
+const SetOpenSchema = z.object({
+  tradeId: z.string().min(1),
+  accountId: z.string().min(1),
+})
+
 export function registerTradeHandlers(): void {
   // ── trades:create ────────────────────────────────────────────────────────────
   ipcMain.handle('trades:create', (e, raw: CreateTradeInput): IpcResponse<Trade> => {
@@ -341,7 +350,9 @@ export function registerTradeHandlers(): void {
         if (existing) return { ok: true, data: mapRow(existing) }
       }
 
-      // Duplicate prevention: warn if near-identical trade within last 5 min (§13.11 item 7)
+      // Duplicate prevention: warn if near-identical trade within last 5 min (§13.11 item 7).
+      // Planned drafts are excluded from the check: a draft is a plan, not an
+      // order, so having planned the trade must never block placing it.
       const fiveMinAgo = now - 5 * 60_000
       const nearDup = db
         .select({ id: schema.trades.id })
@@ -351,6 +362,7 @@ export function registerTradeHandlers(): void {
             eq(schema.trades.accountId, d.accountId),
             eq(schema.trades.pairId, d.pairId),
             eq(schema.trades.direction, d.direction),
+            ne(schema.trades.status, 'planned'),
             isNull(schema.trades.deletedAt),
             gte(schema.trades.createdAt, fiveMinAgo),
           ),
@@ -431,45 +443,125 @@ export function registerTradeHandlers(): void {
   })
 
   // ── trades:setOpen ───────────────────────────────────────────────────────────
+  // Activates a planned draft into an open position. Activation is the gate:
+  // saving a draft is deliberately allowed while blocking rules fail (a plan can
+  // be for later), so the full pre-trade rule evaluation runs here, at the moment
+  // the plan becomes a position. Blocking failures stop the activation and are
+  // reported to the caller; the existing override flow in the pre-trade panel
+  // remains the only way to trade through a blocking rule.
   ipcMain.handle(
     'trades:setOpen',
     (e, raw: { tradeId: string; accountId: string }): IpcResponse<Trade> => {
+      const parsed = SetOpenSchema.safeParse(raw)
+      if (!parsed.success) {
+        return { ok: false, error: { code: 'VALIDATION_ERROR', message: parsed.error.message } }
+      }
       try {
         const db = getDb()
         const now = Date.now()
+        const { tradeId } = parsed.data
+
+        const trade = db.select().from(schema.trades).where(eq(schema.trades.id, tradeId)).get()
+        if (!trade || trade.deletedAt !== null) {
+          return { ok: false, error: { code: 'NOT_FOUND', message: 'Trade not found' } }
+        }
+        if (trade.status !== 'planned') {
+          return {
+            ok: false,
+            error: { code: 'CONFLICT', message: 'Only a planned trade can be activated.' },
+          }
+        }
+
+        // Re-run the exact pre-trade evaluation against the account's state
+        // NOW. A draft may have been saved hours ago; trade count, losses,
+        // cooldowns and session locks have moved since.
+        const draft: DraftTrade = {
+          accountId: trade.accountId,
+          sessionId: trade.sessionId ?? null,
+          pairId: trade.pairId,
+          setupId: trade.setupId,
+          killzoneId: trade.killzoneId ?? null,
+          direction: trade.direction as DraftTrade['direction'],
+          mode: trade.mode as DraftTrade['mode'],
+          entryPrice: trade.entryPrice,
+          stopLossPrice: trade.stopLossPrice,
+          takeProfitPrice: trade.takeProfitPrice,
+          slPips: trade.slPips,
+          rrRatio: trade.rrRatio,
+          lotSize: trade.lotSize,
+          riskAmountCents: trade.riskAmountCents,
+          riskPctBps: trade.riskPctBps,
+          plannedInvalidation: trade.plannedInvalidation,
+          mssConfirmed: trade.mssConfirmed,
+          htfBiasAligned: trade.htfBiasAligned,
+          dxyAligned: trade.dxyAligned ?? null,
+          preCalmScore: trade.preCalmScore,
+          preUrgencyScore: trade.preUrgencyScore,
+          preNeedScore: trade.preNeedScore,
+          timestamp: now,
+        }
+        const evaluations = evaluatePreTrade(db, trade.accountId, draft, now, trade.id)
+        const failures = evaluations.filter((r) => !r.passed && r.severity === 'blocking')
+        if (failures.length > 0) {
+          const labels = failures.map((f) => f.ruleLabel).join(', ')
+          return {
+            ok: false,
+            error: {
+              code: 'RULES_BLOCKED',
+              message: `Activation blocked: ${labels}. The trade stays planned.`,
+              details: failures,
+            },
+          }
+        }
+
+        // A stale draft carries the session of the day it was written. The
+        // position opens today, so it is re-linked to today's session (when one
+        // exists) and it is today's session that locks — never the old one.
+        // No session is created implicitly; session/bias rules were enforced by
+        // the evaluation above.
+        const timeZone = getConfiguredTimeZone(db)
+        const todaySession = db
+          .select()
+          .from(schema.sessions)
+          .where(
+            and(
+              eq(schema.sessions.accountId, trade.accountId),
+              eq(schema.sessions.sessionDate, tradingDayKey(now, timeZone)),
+            ),
+          )
+          .get()
 
         db.transaction(() => {
           db.update(schema.trades)
-            .set({ status: 'open', openedAt: now, updatedAt: now })
-            .where(eq(schema.trades.id, raw.tradeId))
+            .set({
+              status: 'open',
+              openedAt: now,
+              updatedAt: now,
+              ...(todaySession ? { sessionId: todaySession.id } : {}),
+            })
+            .where(eq(schema.trades.id, trade.id))
             .run()
 
-          const trade = db
-            .select()
-            .from(schema.trades)
-            .where(eq(schema.trades.id, raw.tradeId))
-            .get()
-
-          if (trade?.sessionId) {
+          if (todaySession) {
             db.update(schema.sessions)
               .set({ lockedAt: now, updatedAt: now })
-              .where(and(eq(schema.sessions.id, trade.sessionId), isNull(schema.sessions.lockedAt)))
+              .where(and(eq(schema.sessions.id, todaySession.id), isNull(schema.sessions.lockedAt)))
               .run()
           }
         })
 
-        const row = db.select().from(schema.trades).where(eq(schema.trades.id, raw.tradeId)).get()
-        if (!row) return { ok: false, error: { code: 'NOT_FOUND', message: 'Trade not found' } }
-        enqueueSyncOp('trades', raw.tradeId, 'upsert', row)
+        const row = db.select().from(schema.trades).where(eq(schema.trades.id, trade.id)).get()
+        if (!row) return { ok: false, error: { code: 'DB_ERROR', message: 'Activation failed' } }
+        enqueueSyncOp('trades', trade.id, 'upsert', row)
         if (!e.sender.isDestroyed()) {
           e.sender.send('cairn:event', {
             name: 'trade.placed',
-            payload: { tradeId: raw.tradeId, accountId: raw.accountId },
+            payload: { tradeId: trade.id, accountId: trade.accountId },
           })
-          if (row.sessionId) {
+          if (todaySession) {
             e.sender.send('cairn:event', {
               name: 'session.locked',
-              payload: { accountId: row.accountId },
+              payload: { accountId: trade.accountId },
             })
           }
         }

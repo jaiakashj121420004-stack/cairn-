@@ -5,6 +5,7 @@ import { getBackupSettings } from './ipc/backup'
 import { setupIpcHandlers } from './ipc/index'
 import { runScheduledLocalBackup, createBackup } from './services/backup-service'
 import { startCtraderBridge, startMt5Bridge } from './services/broker/index'
+import { setGuardrailSink } from './services/rules-engine/guardrail'
 import { runSelfHealing, installCrashHandlers } from './services/self-healing'
 import { getActiveSyncRunner } from './services/sync'
 import { initMainTelemetry } from './services/telemetry'
@@ -23,6 +24,27 @@ if (process.platform === 'linux' && process.env['APPIMAGE']) {
 log.initialize()
 log.transports.file.level = 'info'
 log.transports.console.level = 'debug'
+
+// Wire the rules-engine's guardrail-degraded sink to the real world: log it
+// (electron-log, so it survives even with no window open) and broadcast it to
+// every window over the existing `cairn:event` channel, exactly like the
+// broker/sync services do (services/broker/index.ts#broadcast,
+// services/sync/activate.ts#notify). Registered before any window opens so no
+// early degradation is missed. The rules engine itself stays free of
+// `electron`/`electron-log` imports so it remains directly unit-testable.
+setGuardrailSink(({ ruleKey, reason }) => {
+  log.error(
+    `[rules-engine] guardrail degraded — rule "${ruleKey}" is not being enforced: ${reason}`,
+  )
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.webContents.isDestroyed()) {
+      win.webContents.send('cairn:event', {
+        name: 'guardrail.degraded',
+        payload: { ruleKey, reason },
+      })
+    }
+  }
+})
 
 let mainWindow: BrowserWindow | null = null
 let backupTimer: ReturnType<typeof setInterval> | null = null

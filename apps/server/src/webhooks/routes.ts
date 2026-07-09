@@ -254,7 +254,8 @@ async function dispatchStripeEvent(db: Db, event: Stripe.Event): Promise<string 
       const userId = sub.metadata['cairn_user_id']
       if (!userId) return null
       const periodEnd = unixToDate(sub.current_period_end)
-      const customerId = typeof sub.customer === 'string' ? sub.customer : (sub.customer?.id ?? null)
+      const customerId =
+        typeof sub.customer === 'string' ? sub.customer : (sub.customer?.id ?? null)
 
       // Stripe's status is authoritative for the entry / direct status changes.
       if (sub.status === 'trialing') {
@@ -366,7 +367,8 @@ async function dispatchStripeEvent(db: Db, event: Stripe.Event): Promise<string 
         customer?: string | { id?: string } | null
         metadata?: Record<string, string> | null
       }
-      const customerId = typeof obj.customer === 'string' ? obj.customer : (obj.customer?.id ?? null)
+      const customerId =
+        typeof obj.customer === 'string' ? obj.customer : (obj.customer?.id ?? null)
       const userId = await resolveStripeUser(db, {
         userId: obj.metadata?.['cairn_user_id'] ?? null,
         customerId,
@@ -434,7 +436,12 @@ async function dispatchRazorpayEvent(db: Db, event: RazorpayWebhookEvent): Promi
     }
     case 'subscription.expired': {
       if (!userId) return null
-      return runLifecycle(db, { userId, event: 'canceled', provider: 'razorpay', providerSubscriptionId: subId })
+      return runLifecycle(db, {
+        userId,
+        event: 'canceled',
+        provider: 'razorpay',
+        providerSubscriptionId: subId,
+      })
     }
     case 'refund.created':
     case 'refund.processed': {

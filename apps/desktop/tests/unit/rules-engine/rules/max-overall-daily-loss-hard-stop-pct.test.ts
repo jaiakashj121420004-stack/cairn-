@@ -1,9 +1,29 @@
 // @vitest-environment node
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
+import {
+  setGuardrailSink,
+  resetGuardrailSink,
+} from '../../../../electron/services/rules-engine/guardrail'
 import { rule } from '../../../../electron/services/rules-engine/rules/max-overall-daily-loss-hard-stop-pct'
 import { makeContext, makeDraft, makeTrade } from '../_helpers'
 
+afterEach(() => {
+  resetGuardrailSink()
+})
+
 describe('max_overall_daily_loss_hard_stop_pct', () => {
+  it('misconfigured hard lock fails CLOSED: blocking, no override, guardrail reported', () => {
+    const sink = vi.fn()
+    setGuardrailSink(sink)
+    const r = rule.evaluate(makeContext(), { maxPct: -5 })
+    expect(r.passed).toBe(false)
+    expect(r.severity).toBe('blocking')
+    expect(r.canOverride).toBe(false)
+    expect(sink).toHaveBeenCalledWith(
+      expect.objectContaining({ ruleKey: 'max_overall_daily_loss_hard_stop_pct' }),
+    )
+  })
+
   it('passes when projected loss is below limit', () => {
     const ctx = makeContext({ tradesToday: [makeTrade({ pnlCents: -10000 })] })
     const result = rule.evaluate(ctx, { maxPct: 300 })

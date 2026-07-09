@@ -94,11 +94,22 @@ export function DisciplineRing({ score, window: win, ruleBreakdown, shake = fals
     <motion.div
       variants={shakeVariants}
       animate={shake ? 'shake' : 'idle'}
-      className="relative flex flex-col items-center"
+      className="summit-halo relative flex flex-col items-center"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       <svg viewBox="0 0 240 240" width={200} height={200} aria-label={`Discipline score ${score}%`}>
+        <defs>
+          {/* Neon glow — blurs the colored stroke and merges it back so the
+              halo takes the current tier hue automatically. */}
+          <filter id="ring-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3.5" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
         {/* Track */}
         <circle
           cx={120}
@@ -109,7 +120,7 @@ export function DisciplineRing({ score, window: win, ruleBreakdown, shake = fals
           strokeWidth={STROKE_WIDTH}
         />
 
-        {/* Progress arc */}
+        {/* Progress arc — glowing neon sweep */}
         <motion.circle
           cx={120}
           cy={120}
@@ -119,6 +130,7 @@ export function DisciplineRing({ score, window: win, ruleBreakdown, shake = fals
           strokeWidth={STROKE_WIDTH}
           strokeLinecap="round"
           strokeDasharray={CIRCUMFERENCE}
+          filter="url(#ring-glow)"
           initial={{ strokeDashoffset: animatedOffset }}
           animate={{ strokeDashoffset: offset }}
           transition={

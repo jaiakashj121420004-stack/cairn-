@@ -1,8 +1,10 @@
-import { eq, and, gte, lt, isNull, desc, sql } from 'drizzle-orm'
+import { eq, and, gte, lt, ne, isNull, desc, sql } from 'drizzle-orm'
 import { ipcMain } from 'electron'
 import { getDb } from '../db/index'
 import { trades, accounts, pairs, setups } from '../db/schema'
+import { computeAdvancedMetrics } from '../services/analytics/advanced-metrics'
 import { computeCompositeScore } from '../services/analytics/composite-score'
+import { getConfiguredTimeZone } from '../services/time/trading-day'
 import type {
   IpcResponse,
   DashboardStats,
@@ -163,7 +165,9 @@ export function registerDashboardHandlers(): void {
           streakCount > 0 && streakType ? { count: streakCount, type: streakType } : null
 
         // ── Today stats ───────────────────────────────────────────────────────
-        // Trade count + rules broken: trades PLACED today (by createdAt)
+        // Trade count + rules broken: trades PLACED today (by createdAt).
+        // Planned drafts are excluded — a draft is a plan, not a placed trade,
+        // so it must not appear in the daily count.
         const todayEntries = db
           .select({
             id: trades.id,
@@ -174,6 +178,7 @@ export function registerDashboardHandlers(): void {
           .where(
             and(
               eq(trades.accountId, accountId),
+              ne(trades.status, 'planned'),
               isNull(trades.deletedAt),
               gte(trades.createdAt, todayMs),
               lt(trades.createdAt, tomorrowMs),
@@ -345,6 +350,37 @@ export function registerDashboardHandlers(): void {
           .get()
         const totalPnlCents = totalPnlRes?.total ?? 0
 
+        // ── Advanced performance metrics (Sharpe, Sortino, drawdown, Kelly,
+        // SQN, day consistency, extremes & hold-time shape) ────────────────
+        // Capped at the last 200 closed trades for performance — this
+        // dashboard widget favours a fast, recent-window read over a full
+        // account-history scan. The full-history read lives in the
+        // Analytics → Metrics tab (analytics:derived).
+        const last200ForMetrics = db
+          .select({
+            pnlCents: trades.pnlCents,
+            pnlR: trades.pnlR,
+            exitTime: trades.exitTime,
+            durationMinutes: trades.durationMinutes,
+          })
+          .from(trades)
+          .where(
+            and(
+              eq(trades.accountId, accountId),
+              eq(trades.status, 'closed'),
+              isNull(trades.deletedAt),
+            ),
+          )
+          .orderBy(desc(trades.exitTime))
+          .limit(200)
+          .all()
+
+        const advancedMetrics = computeAdvancedMetrics(
+          last200ForMetrics,
+          account.accountSizeCents,
+          getConfiguredTimeZone(db),
+        )
+
         const result: DashboardStats = {
           disciplineScore,
           disciplineWindow,
@@ -376,6 +412,7 @@ export function registerDashboardHandlers(): void {
           weekAdherence,
           ddUsedBps,
           totalPnlCents,
+          advancedMetrics,
         }
 
         return { ok: true, data: result }

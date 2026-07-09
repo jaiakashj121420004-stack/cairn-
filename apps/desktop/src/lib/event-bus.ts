@@ -15,6 +15,7 @@ export type CairnEventName =
   | 'session.unlocked'
   | 'rule.violated'
   | 'sync:toast'
+  | 'guardrail.degraded'
 
 export interface CairnEventPayload {
   'trade.placed': { tradeId: string; accountId: string }
@@ -27,6 +28,11 @@ export interface CairnEventPayload {
   /** Emitted by the main-process sync runner when it pauses, backs off, or hits an
    *  auth/key problem. Pre-written copy only — never any vault content. */
   'sync:toast': { level: 'error' | 'warning' | 'info'; code: string; message: string }
+  /** Emitted by the rules engine (electron/services/rules-engine/guardrail.ts) when
+   *  a safety rule's stored `account_rules.value` JSON fails to parse — the rule is
+   *  not being enforced this cycle. `GuardrailBanner` turns this into a persistent
+   *  warning pointing at Settings. Never contains secrets/vault content. */
+  'guardrail.degraded': { ruleKey: string; reason: string }
 }
 
 type Listener<N extends CairnEventName> = (payload: CairnEventPayload[N]) => void

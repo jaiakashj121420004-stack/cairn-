@@ -180,12 +180,7 @@ describe('POST /billing/checkout', () => {
 
   it('defaults the plan to pro when omitted', async () => {
     const { accessToken } = await createVerifiedUser(ctx)
-    const res = await postJson(
-      ctx.app,
-      '/billing/checkout',
-      { country: 'US' },
-      bearer(accessToken),
-    )
+    const res = await postJson(ctx.app, '/billing/checkout', { country: 'US' }, bearer(accessToken))
     expect(res.statusCode).toBe(200)
     expect(stripe.checkouts[0]?.plan).toBe('pro')
     expect(stripe.checkouts[0]?.interval).toBe('monthly')
@@ -193,12 +188,7 @@ describe('POST /billing/checkout', () => {
 
   it('routes IN to Razorpay and returns 501 when that gateway is not configured', async () => {
     const { accessToken } = await createVerifiedUser(ctx)
-    const res = await postJson(
-      ctx.app,
-      '/billing/checkout',
-      { country: 'IN' },
-      bearer(accessToken),
-    )
+    const res = await postJson(ctx.app, '/billing/checkout', { country: 'IN' }, bearer(accessToken))
     expect(res.statusCode).toBe(501)
     expect(res.json().error.code).toBe('NOT_IMPLEMENTED')
   })

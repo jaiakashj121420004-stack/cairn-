@@ -47,7 +47,11 @@ interface SessionState {
   logout: () => Promise<void>
 }
 
-function applyAuthSession(set: (p: Partial<SessionState>) => void, email: string | null, wire: AuthSessionWire): void {
+function applyAuthSession(
+  set: (p: Partial<SessionState>) => void,
+  email: string | null,
+  wire: AuthSessionWire,
+): void {
   core.setAccessToken(wire.accessToken)
   set({
     status: 'signedIn',
@@ -86,7 +90,8 @@ export const useSession = create<SessionState>((set, get) => ({
 
   async login(email, password) {
     const parsed = loginSchema.safeParse({ email, password })
-    if (!parsed.success) return err(ERROR_CODES.INVALID_CREDENTIALS, 'check your email and password')
+    if (!parsed.success)
+      return err(ERROR_CODES.INVALID_CREDENTIALS, 'check your email and password')
     const res = await core.call<AuthSessionWire>('POST', '/auth/login', parsed.data)
     if (!res.ok) return res
     applyAuthSession(set, parsed.data.email, res.data)
@@ -107,7 +112,10 @@ export const useSession = create<SessionState>((set, get) => ({
   },
 
   async resetPassword(token, password) {
-    const res = await core.call<{ reset: true }>('POST', '/auth/reset-password', { token, password })
+    const res = await core.call<{ reset: true }>('POST', '/auth/reset-password', {
+      token,
+      password,
+    })
     return res.ok ? ok(undefined) : res
   },
 

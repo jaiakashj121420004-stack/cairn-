@@ -1,6 +1,11 @@
 import { AnimatePresence } from 'framer-motion'
 import { useState, useEffect } from 'react'
-import type { PropFirm, AccountTemplate, Account } from '@shared/types/index'
+import type {
+  PropFirm,
+  AccountTemplate,
+  Account,
+  CreateAccountPhaseInput,
+} from '@shared/types/index'
 import { ipc } from '../../lib/ipc'
 import { StepAccount } from './steps/StepAccount'
 import { StepBackup } from './steps/StepBackup'
@@ -31,6 +36,10 @@ export function OnboardingFlow({ onComplete }: Props) {
   const [step, setStep] = useState(STEP_WELCOME)
   const [propFirm, setPropFirm] = useState<PropFirm | null>(null)
   const [template, setTemplate] = useState<AccountTemplate | null>(null)
+  // Full per-phase config from StepTemplate — the template row only keeps the
+  // flat phase-1..3 targets + one drawdown set, so the account step needs this
+  // to create lossless account_phases rows.
+  const [templatePhases, setTemplatePhases] = useState<CreateAccountPhaseInput[] | null>(null)
   const [_account, setAccount] = useState<Account | null>(null)
   const [defaultFirm, setDefaultFirm] = useState<PropFirm | null>(null)
 
@@ -96,8 +105,9 @@ export function OnboardingFlow({ onComplete }: Props) {
           step={step}
           totalSteps={TOTAL_STEPS}
           onBack={() => void goToStep(STEP_PROP_FIRM)}
-          onNext={(tmpl) => {
+          onNext={(tmpl, phases) => {
             setTemplate(tmpl)
+            setTemplatePhases(phases)
             void goToStep(STEP_ACCOUNT)
           }}
           propFirm={propFirm}
@@ -116,6 +126,7 @@ export function OnboardingFlow({ onComplete }: Props) {
           }}
           propFirm={propFirm}
           template={template}
+          templatePhases={templatePhases}
         />
       )}
 

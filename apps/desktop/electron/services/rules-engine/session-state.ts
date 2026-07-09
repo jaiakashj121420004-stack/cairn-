@@ -6,6 +6,19 @@ import type { RuleContext, SessionStateDTO } from './types'
 export function deriveSessionState(ctx: RuleContext): SessionStateDTO {
   const active = activeCooldownsNow(ctx.activeCooldowns, ctx.now)
 
+  // A persisted circuit-breaker lock (daily_locks, migration 0017) is
+  // definitive and takes priority over everything below — it is written the
+  // moment a daily-loss limit breaches, independent of whether a `sessions`
+  // row exists for today (engine.ts#checkAndLockSession).
+  if (ctx.dailyLock) {
+    return {
+      state: 'locked',
+      lockedReason: `Daily Loss Circuit Breaker: ${ctx.dailyLock.reason}`,
+      unlockAt: tradingDayEnd(ctx.now, ctx.timeZone),
+      activeCooldowns: active,
+    }
+  }
+
   // Hard-lock rules: evaluate with no tradeInProgress to see if the session itself is locked.
   const hardLockCtx: RuleContext = { ...ctx, tradeInProgress: undefined }
   for (const r of listRules()) {

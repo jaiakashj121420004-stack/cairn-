@@ -18,7 +18,7 @@ import {
   err,
   ok,
 } from '@cairn/shared-types'
-import { asc, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { BrowserWindow, shell } from 'electron'
 import log from 'electron-log'
 import { getDb } from '../../db/index'
@@ -40,7 +40,11 @@ import {
   setCtraderEnvironment,
   CTRADER_STREAM_PORT,
 } from './ctrader/config'
-import { loadProtobufCodec, openTlsConnection } from './ctrader/connection'
+import {
+  getLastCtraderCodecError,
+  loadProtobufCodec,
+  openTlsConnection,
+} from './ctrader/connection'
 import { buildAuthUrl, exchangeCode, fetchTradingAccounts } from './ctrader/oauth'
 import { captureAuthCode } from './ctrader/oauth-redirect'
 import { createCtraderTokenProvider } from './ctrader/session'
@@ -48,12 +52,14 @@ import { clearCtraderTokens, readCtraderTokens, storeCtraderTokens } from './ctr
 import { createBrokerIngestService } from './ingest'
 import { createMt5Adapter } from './mt5/adapter'
 import { getMt5Port, getOrCreatePairingToken } from './mt5/config'
+import { resolveDefaultSetupId } from './setup-resolver'
 import type { FetchLike } from './ctrader/oauth'
 import type { BrokerIngestService, BrokerEmitName, ResolvedAccount } from './ingest'
 import type {
   BrokerAccountMapEntry,
   BrokerAutoLogMode,
   BrokerConnectionStatus,
+  BrokerDiagnostics,
   BrokerKind,
   BrokerWarning,
   CtraderEnvironment,
@@ -68,6 +74,15 @@ export type { BrokerIngestService } from './ingest'
 let _service: BrokerIngestService | null = null
 let _mt5Adapter: LiveBrokerAdapter | null = null
 let _ctraderAdapter: LiveBrokerAdapter | null = null
+
+// ── Diagnostics state (broker:diagnostics) ───────────────────────────────────
+// Extends the existing per-transport state with the handful of fields nothing
+// else already tracks. Populated only where the real event flows through this
+// module (adapter `onEvent` callbacks, `startCtraderStream`) — never guessed.
+let _mt5LastEventAt: number | null = null
+let _ctraderLastEventAt: number | null = null
+let _ctraderCodecLoaded = false
+let _ctraderCodecError: string | null = null
 
 /** The main-process `fetch` adapted to the injectable {@link FetchLike} shape. */
 const nodeFetch: FetchLike = (input, init) =>
@@ -89,36 +104,22 @@ function broadcast(name: BrokerEmitName, payload: unknown): void {
 }
 
 /**
- * The default setup a broker-captured trade is filed under: the first active setup
- * by display order. The `broker_account_map` binds only the *account* (the trader's
- * choice); the setup is auto-resolved because a streamed fill carries no setup, and
- * the trader refines it at reflection time (draft mode). Null only if no active
- * setup exists (a freshly wiped catalogue) — in which case the fill stays unmapped
- * rather than being filed under a guessed setup.
- */
-function firstActiveSetupId(): string | null {
-  const row = getDb()
-    .select({ id: schema.setups.id })
-    .from(schema.setups)
-    .where(eq(schema.setups.active, 1))
-    .orderBy(asc(schema.setups.displayOrder))
-    .get()
-  return row?.id ?? null
-}
-
-/**
  * Map a `(broker, brokerAccountId)` to a Cairn account via the per-device
  * `broker_account_map` (docs/broker-integration.md §6). On a hit, resolve the
- * default setup and return the {@link ResolvedAccount}; on a miss (no binding, or
- * no setup to file under) return null so the ingest service surfaces UNKNOWN_ACCOUNT
- * and creates no trade. Cairn never guesses an account (CLAUDE.md §14 #39).
+ * default setup — {@link resolveDefaultSetupId} falls back to the system
+ * "Unclassified" setup when the catalogue has none active — and return the
+ * {@link ResolvedAccount}. Returns null ONLY when the account itself is
+ * unbound, so the ingest service surfaces UNKNOWN_ACCOUNT and creates no
+ * trade. A mapped fill is never dropped for want of a setup (Cairn never
+ * guesses an ACCOUNT, CLAUDE.md §14 #39, but a bound account's fill must
+ * still land somewhere).
  */
 function resolveAccount(broker: BrokerKind, brokerAccountId: string): ResolvedAccount | null {
   try {
-    const binding = findBrokerAccountBinding(getDb(), broker, brokerAccountId)
+    const db = getDb()
+    const binding = findBrokerAccountBinding(db, broker, brokerAccountId)
     if (!binding) return null
-    const defaultSetupId = firstActiveSetupId()
-    if (!defaultSetupId) return null
+    const defaultSetupId = resolveDefaultSetupId(db, (m) => log.warn(m))
     return { accountId: binding.cairnAccountId, defaultSetupId }
   } catch (e) {
     log.warn('[broker] resolveAccount lookup failed:', e)
@@ -210,6 +211,7 @@ export async function startMt5Bridge(): Promise<void> {
     const adapter = createMt5Adapter({ log: (m) => log.info(`[broker:mt5] ${m}`) })
 
     adapter.onEvent((event) => {
+      _mt5LastEventAt = Date.now()
       const res = service.apply(event)
       if (!res.ok) {
         // UNKNOWN_ACCOUNT / UNRESOLVED_SYMBOL are expected until the account map is
@@ -266,11 +268,18 @@ async function startCtraderStream(): Promise<Result<void>> {
 
   const codec = await loadProtobufCodec()
   if (!codec) {
+    // Never silently inert (§14 hardening): capture the underlying reason into
+    // service state so `broker:diagnostics` surfaces it verbatim, and log it.
+    _ctraderCodecLoaded = false
+    _ctraderCodecError = getLastCtraderCodecError()
+    log.error(`[broker:ctrader] codec unavailable: ${_ctraderCodecError ?? 'unknown error'}`)
     return err(
       'CTRADER_CODEC_UNAVAILABLE',
       'cTrader protobuf schema is not available in this build; account is linked but streaming is off',
     )
   }
+  _ctraderCodecLoaded = true
+  _ctraderCodecError = null
 
   if (_ctraderAdapter) await _ctraderAdapter.disconnect()
 
@@ -300,6 +309,7 @@ async function startCtraderStream(): Promise<Result<void>> {
   })
 
   adapter.onEvent((event) => {
+    _ctraderLastEventAt = Date.now()
     const res = getBrokerIngestService().apply(event)
     if (!res.ok) log.warn(`[broker:ctrader] ingest rejected event: ${res.error.code}`)
   })
@@ -376,6 +386,37 @@ export async function getCtraderRuntimeConfig(): Promise<CtraderRuntimeConfig> {
     hasTokens: tokens.ok && tokens.data !== null,
     accountId: getCtraderAccountId(),
     connection: ctraderStatus(),
+  }
+}
+
+/**
+ * Connection-health snapshot for Settings → Integrations (`broker:diagnostics`).
+ * Every field is sourced from state this module (or its transports) already
+ * tracks — honestly, not guessed: `mt5.listening` mirrors whether the loopback
+ * adapter is currently held (`_mt5Adapter`); `ctrader.codecLoaded`/`codecError`
+ * are set at every {@link startCtraderStream} attempt (never a bare silent
+ * `null`, CLAUDE.md hardening); `lastEventAt` on both transports is stamped in
+ * their `onEvent` callbacks above, including heartbeats, so it is the most
+ * honest "is anything still arriving" signal available.
+ */
+export function getBrokerDiagnostics(): BrokerDiagnostics {
+  return {
+    mt5: {
+      listening: _mt5Adapter !== null,
+      port: getMt5Port(),
+      lastEventAt: _mt5LastEventAt,
+    },
+    ctrader: {
+      linked: getCtraderAccountId() !== null,
+      streaming: ctraderStatus() === 'connected',
+      codecLoaded: _ctraderCodecLoaded,
+      codecError: _ctraderCodecError,
+      lastEventAt: _ctraderLastEventAt,
+    },
+    accountMap: {
+      mappedCount: listBrokerAccountMap(getDb()).length,
+      unmappedCount: getBrokerIngestService().listUnmapped().length,
+    },
   }
 }
 

@@ -27,7 +27,8 @@ import type {
   TradeStatus,
   TradeListItem,
 } from '@shared/types/index'
-import { Button } from '../../components/ui'
+import { Button, useToast } from '../../components/ui'
+import { buildAdvancedMetricCells } from '../../lib/advanced-metrics-display'
 import { cn } from '../../lib/cn'
 import { eventBus } from '../../lib/event-bus'
 import { formatCents, formatRMultiple, formatDate } from '../../lib/formatters'
@@ -125,8 +126,8 @@ interface StatCardProps {
   sub?: string | undefined
   subPositive?: boolean | undefined
   colorVar: string // e.g. 'hsl(var(--accent-a))'
-  colorHsl: string // valid CSS hsl e.g. 'hsl(74,74%,59%)' — for SVG stroke/fill
-  colorRgb: string // RGB triplet e.g. '180,224,72' — for rgba() in style props
+  colorHsl: string // valid CSS hsl e.g. 'hsl(158,64%,52%)' — for SVG stroke/fill
+  colorRgb: string // RGB triplet e.g. '52,211,153' — for rgba() in style props
   icon: React.ElementType
   sparkData?: number[] | undefined
   delay?: number | undefined
@@ -153,11 +154,11 @@ function StatCard({
       className={cn('relative overflow-hidden rounded-[18px] flex flex-col', className)}
       style={{
         background:
-          'linear-gradient(160deg, rgba(255,255,255,0.058) 0%, rgba(255,255,255,0.022) 100%)',
+          'linear-gradient(160deg, rgba(160,200,255,0.05) 0%, rgba(160,200,255,0.018) 100%)',
         backdropFilter: 'blur(24px) saturate(200%)',
         WebkitBackdropFilter: 'blur(24px) saturate(200%)',
-        border: `1px solid rgba(${colorRgb},0.26)`,
-        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.08), 0 0 28px rgba(${colorRgb},0.07), 0 8px 32px rgba(0,0,0,0.32)`,
+        border: `1px solid rgba(${colorRgb},0.32)`,
+        boxShadow: `inset 0 1px 0 rgba(180,220,255,0.08), 0 0 30px rgba(${colorRgb},0.13), 0 8px 32px rgba(0,0,0,0.45)`,
       }}
     >
       {/* Color wash — top gradient tint */}
@@ -314,7 +315,8 @@ const COMPOSITE_PARTS: {
 
 function CompositeReadout({ composite }: { composite: DashboardStats['compositeScore'] }) {
   const { score, components, sufficient, sampleSize } = composite
-  const tone = score >= 70 ? 'hsl(74,74%,59%)' : score >= 40 ? 'hsl(36,52%,57%)' : 'hsl(0,65%,63%)'
+  const tone =
+    score >= 70 ? 'hsl(158,64%,52%)' : score >= 40 ? 'hsl(43,96%,56%)' : 'hsl(351,95%,71%)'
   return (
     <div className="mt-4 w-full px-5">
       <div className="h-px w-full bg-white/[0.06]" />
@@ -345,10 +347,10 @@ function CompositeReadout({ composite }: { composite: DashboardStats['compositeS
                     width: `${components[p.key]}%`,
                     background:
                       components[p.key] >= 70
-                        ? 'hsl(74,74%,59%)'
+                        ? 'hsl(158,64%,52%)'
                         : components[p.key] >= 40
-                          ? 'hsl(36,52%,57%)'
-                          : 'hsl(0,65%,63%)',
+                          ? 'hsl(43,96%,56%)'
+                          : 'hsl(351,95%,71%)',
                   }}
                 />
               </div>
@@ -412,6 +414,7 @@ const STATUS_BADGE: Record<TradeStatus, { label: string }> = {
    MAIN DASHBOARD
 ───────────────────────────────────────────────────────────────── */
 export function DashboardPage() {
+  const toast = useToast()
   const { todaySession, sessionState, selectedAccountId, refresh } = useSessionStore()
   const {
     newTradeRequested,
@@ -458,7 +461,13 @@ export function DashboardPage() {
     setActivatingDraft(draft.id)
     const res = await ipc.trades.setOpen(draft.id, draft.accountId)
     setActivatingDraft(null)
-    if (res.ok) void loadStats()
+    if (res.ok) {
+      toast('Trade activated. Position is now open.', 'success')
+      void loadStats()
+    } else {
+      // Carries the blocked-rule names when the activation gate refused.
+      toast(res.error.message, 'error')
+    }
   }
 
   useEffect(() => {
@@ -523,14 +532,15 @@ export function DashboardPage() {
     day: 'numeric',
   })
 
-  /* Colour tokens for stat cards */
-  const LIME = { var: 'hsl(var(--accent-a))', hsl: 'hsl(74,74%,59%)', rgb: '180,224,72' }
-  const AMBER = { var: 'hsl(var(--accent-b))', hsl: 'hsl(36,52%,57%)', rgb: '212,162,76' }
-  const BLUE = { var: 'hsl(var(--info))', hsl: 'hsl(220,100%,71%)', rgb: '107,159,255' }
-  const RED = { var: 'hsl(var(--danger))', hsl: 'hsl(0,65%,63%)', rgb: '226,92,92' }
+  /* Colour tokens for stat cards — Neon Cockpit HUD.
+     `hsl`/`rgb` mirror the CSS token values for SVG strokes and rgba() props. */
+  const GREEN = { var: 'hsl(var(--accent-a))', hsl: 'hsl(158,64%,52%)', rgb: '52,211,153' }
+  const VIOLET = { var: 'hsl(var(--accent-b))', hsl: 'hsl(258,90%,66%)', rgb: '139,92,246' }
+  const CYAN = { var: 'hsl(var(--info))', hsl: 'hsl(188,86%,53%)', rgb: '34,211,238' }
+  const ROSE = { var: 'hsl(var(--danger))', hsl: 'hsl(351,95%,71%)', rgb: '251,113,133' }
 
-  const pnlColor = dailyPnl === null ? BLUE : dailyPnl > 0 ? LIME : dailyPnl < 0 ? RED : BLUE
-  const exColor = expectancy === null ? BLUE : expectancy >= 0 ? LIME : RED
+  const pnlColor = dailyPnl === null ? CYAN : dailyPnl > 0 ? GREEN : dailyPnl < 0 ? ROSE : CYAN
+  const exColor = expectancy === null ? CYAN : expectancy >= 0 ? GREEN : ROSE
 
   /* Fake "equity sparkline" from recent trades cumulative */
   const equitySpark = stats?.recentTrades
@@ -602,12 +612,12 @@ export function DashboardPage() {
             className="col-span-1 relative overflow-hidden rounded-[18px] flex flex-col items-center justify-center py-6 shimmer-inner"
             style={{
               background:
-                'linear-gradient(160deg, rgba(180,224,72,0.08) 0%, rgba(255,255,255,0.025) 60%, rgba(180,224,72,0.05) 100%)',
+                'linear-gradient(160deg, hsl(188,86%,53%,0.09) 0%, rgba(180,220,255,0.02) 60%, hsl(188,86%,53%,0.05) 100%)',
               backdropFilter: 'blur(24px) saturate(200%)',
               WebkitBackdropFilter: 'blur(24px) saturate(200%)',
-              border: '1px solid hsl(74,74%,59%,0.25)',
+              border: '1px solid hsl(188,86%,53%,0.28)',
               boxShadow:
-                'inset 0 1px 0 rgba(255,255,255,0.08), 0 0 28px hsl(74,74%,59%,0.07), 0 8px 32px rgba(0,0,0,0.32)',
+                'inset 0 1px 0 rgba(180,220,255,0.08), 0 0 34px hsl(188,86%,53%,0.1), 0 8px 32px rgba(0,0,0,0.45)',
             }}
           >
             {/* Crown */}
@@ -615,14 +625,14 @@ export function DashboardPage() {
               className="pointer-events-none absolute top-0 left-[12%] right-[12%] h-[1.5px]"
               style={{
                 background:
-                  'linear-gradient(90deg, transparent, hsl(74,74%,59%), hsl(74,74%,59%,0.5), transparent)',
+                  'linear-gradient(90deg, transparent, hsl(188,86%,53%), hsl(188,86%,53%,0.5), transparent)',
               }}
             />
             {/* Top-right glow orb */}
             <div
               className="pointer-events-none absolute -top-8 -right-8 h-32 w-32 rounded-full"
               style={{
-                background: 'radial-gradient(circle, hsl(74,74%,59%,0.15) 0%, transparent 70%)',
+                background: 'radial-gradient(circle, hsl(188,86%,53%,0.15) 0%, transparent 70%)',
                 filter: 'blur(16px)',
               }}
             />
@@ -656,9 +666,9 @@ export function DashboardPage() {
                 : undefined
             }
             subPositive={equityPct !== null && equityPct >= 0}
-            colorVar={AMBER.var}
-            colorHsl={AMBER.hsl}
-            colorRgb={AMBER.rgb}
+            colorVar={VIOLET.var}
+            colorHsl={VIOLET.hsl}
+            colorRgb={VIOLET.rgb}
             icon={DollarSign}
             sparkData={equitySpark}
             delay={0.07}
@@ -787,6 +797,32 @@ export function DashboardPage() {
             </motion.div>
           ))}
         </div>
+
+        {/* ── Performance metrics — Sharpe, Sortino, drawdown, Kelly, SQN, etc. ── */}
+        {stats && (
+          <div>
+            <p className="mb-3 text-micro font-semibold uppercase tracking-[0.14em] text-text-muted/60">
+              Performance Metrics
+            </p>
+            <div className="grid grid-cols-4 gap-3">
+              {buildAdvancedMetricCells(stats.advancedMetrics).map((cell, i) => (
+                <motion.div
+                  key={cell.key}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.28, ease: 'easeOut', delay: 0.66 + i * 0.03 }}
+                  title={cell.tooltip}
+                  className="glass rounded-[14px] px-4 py-3.5"
+                >
+                  <span className="text-micro font-semibold uppercase tracking-widest text-text-muted/60">
+                    {cell.label}
+                  </span>
+                  <p className="stat-number mt-2 text-h2 text-text-primary">{cell.display}</p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ── Session context ─────────────────────────── */}
         <Panel delay={0.45}>

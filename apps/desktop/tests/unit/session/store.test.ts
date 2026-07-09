@@ -419,9 +419,9 @@ describe('SessionStore.onSessionChange', () => {
 
   it('is a no-op by default', async () => {
     const store = new SessionStore({ client: makeClient(), persistence, enroller })
-    await expect(
-      store.login({ email: 'a@b.com', password: 'password123' }),
-    ).resolves.toMatchObject({ ok: true })
+    await expect(store.login({ email: 'a@b.com', password: 'password123' })).resolves.toMatchObject(
+      { ok: true },
+    )
     await expect(store.logout()).resolves.toMatchObject({ ok: true })
   })
 })

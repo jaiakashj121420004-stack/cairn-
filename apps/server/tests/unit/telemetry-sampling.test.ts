@@ -1,6 +1,10 @@
 import { SpanStatusCode } from '@opentelemetry/api'
 import { describe, expect, it } from 'vitest'
-import { hrTimeToMillis, shouldExportSpan, traceIdToUnitInterval } from '../../src/telemetry/sampling'
+import {
+  hrTimeToMillis,
+  shouldExportSpan,
+  traceIdToUnitInterval,
+} from '../../src/telemetry/sampling'
 import type { ReadableSpan } from '@opentelemetry/sdk-trace-base'
 
 function span(opts: {

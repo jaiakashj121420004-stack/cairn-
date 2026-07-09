@@ -14,6 +14,7 @@ import fc from 'fast-check'
 import { drizzle } from 'drizzle-orm/sql-js'
 import * as appSchema from '../../electron/db/schema'
 import { runSeed } from '../../electron/db/seed'
+import type { CairnDb } from '../../electron/db/index'
 import {
   dollarsToCents,
   rToIntHundredths,
@@ -83,6 +84,8 @@ describe('migration journal wiring', () => {
       '0013_sync_clocks',
       '0014_live_detection_outcome',
       '0015_broker_account_map',
+      '0016_account_phases',
+      '0017_daily_locks',
     ])
     // Every journaled tag must resolve to a non-empty .sql file.
     for (const tag of orderedTags()) {
@@ -521,10 +524,7 @@ describe('migration 0015: broker_account_map table (Wave 4)', () => {
     // But two ACTIVE rows for the same (broker, account) collide on the partial index.
     expect(() => insert('m3', null)).toThrow()
 
-    const active = queryRows(
-      sqlite,
-      `SELECT id FROM broker_account_map WHERE deleted_at IS NULL`,
-    )
+    const active = queryRows(sqlite, `SELECT id FROM broker_account_map WHERE deleted_at IS NULL`)
     expect(active).toEqual([{ id: 'm2' }])
     sqlite.close()
   })
@@ -544,6 +544,153 @@ describe('migration 0015: broker_account_map table (Wave 4)', () => {
 
     expect(queryRows(sqlite, "SELECT id FROM sessions WHERE id = 's1'")).toEqual([{ id: 's1' }])
     expect(queryRows(sqlite, 'SELECT id FROM broker_account_map')).toEqual([])
+    sqlite.close()
+  })
+})
+
+describe('migration 0016: account_phases table + per-account backfill', () => {
+  const ACCOUNT_ID = 'acct-0016-backfill'
+
+  /**
+   * Build the pre-0016 state and seed one account with `stepCount` steps and
+   * distinct single values. 0016 is NOT applied here — the caller applies it and
+   * asserts the backfill. Uses drizzle (type-checked columns) over the same
+   * sqlite the raw `applyMigration` then runs on (shared in-memory handle).
+   */
+  function seededPre0016(stepCount: number): SqlJsDatabase {
+    const sqlite = new SQL.Database()
+    const tags = orderedTags()
+    for (const tag of tags.slice(0, tags.indexOf('0016_account_phases'))) {
+      applyMigration(sqlite, tag)
+    }
+    const db = drizzle(sqlite, { schema: appSchema }) as unknown as CairnDb
+    const now = Date.UTC(2026, 0, 1)
+    db.insert(appSchema.accounts)
+      .values({
+        id: ACCOUNT_ID,
+        displayName: 'Backfill Me',
+        templateId: null,
+        propFirmId: '00000000-0000-0000-0000-0000000000ff',
+        stepCount,
+        currentPhase: 1,
+        accountSizeCents: 1_000_000,
+        leverage: 100,
+        dailyDrawdownType: 'percent_of_balance',
+        dailyDrawdownValue: 500,
+        totalDrawdownType: 'percent_of_equity',
+        totalDrawdownValue: 1000,
+        drawdownBasis: 'initial_balance',
+        profitTargetPct: 800,
+        minTradingDays: 4,
+        maxTradingDays: 30,
+        weekendHoldingAllowed: 0,
+        newsTradingAllowed: 1,
+        consistencyRulePct: 2000,
+        challengeCostCents: 50000,
+        startDate: now,
+        status: 'active',
+        endDate: null,
+        endReason: null,
+        peakEquityCents: 1_000_000,
+        currentEquityCents: 1_000_000,
+        notes: null,
+        dailyTradeLimit: null,
+        maxDailyLossPct: null,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      })
+      .run()
+    return sqlite
+  }
+
+  it('creates the account_phases table with the migration 0016 columns', () => {
+    const sqlite = new SQL.Database()
+    for (const tag of orderedTags()) applyMigration(sqlite, tag)
+    expect(tableNames(sqlite)).toContain('account_phases')
+    const info = sqlite.exec('PRAGMA table_info(`account_phases`)')
+    const cols = new Map(
+      (info[0]?.values ?? []).map((r) => [r[1] as string, (r[2] as string).toLowerCase()]),
+    )
+    for (const c of [
+      'id',
+      'account_id',
+      'phase_number',
+      'profit_target_pct',
+      'daily_drawdown_type',
+      'daily_drawdown_value',
+      'total_drawdown_type',
+      'total_drawdown_value',
+      'min_trading_days',
+      'max_trading_days',
+      'consistency_rule_pct',
+      'created_at',
+      'updated_at',
+      'deleted_at',
+    ]) {
+      expect(cols.has(c)).toBe(true)
+    }
+    // Money/percent columns are integer basis points (§2.5), never float.
+    expect(cols.get('profit_target_pct')).toBe('integer')
+    expect(cols.get('daily_drawdown_value')).toBe('integer')
+    expect(cols.get('total_drawdown_value')).toBe('integer')
+    sqlite.close()
+  })
+
+  it('backfills one phase row per step, each copying the account single values', () => {
+    const sqlite = seededPre0016(3)
+    applyMigration(sqlite, '0016_account_phases')
+
+    const rows = queryRows(
+      sqlite,
+      `SELECT phase_number, profit_target_pct, daily_drawdown_type, daily_drawdown_value,
+              total_drawdown_type, total_drawdown_value, min_trading_days, max_trading_days,
+              consistency_rule_pct, deleted_at
+         FROM account_phases WHERE account_id = '${ACCOUNT_ID}' ORDER BY phase_number`,
+    )
+    expect(rows.map((r) => r.phase_number)).toEqual([1, 2, 3])
+    for (const r of rows) {
+      expect(r.profit_target_pct).toBe(800)
+      expect(r.daily_drawdown_type).toBe('percent_of_balance')
+      expect(r.daily_drawdown_value).toBe(500)
+      expect(r.total_drawdown_type).toBe('percent_of_equity')
+      expect(r.total_drawdown_value).toBe(1000)
+      expect(r.min_trading_days).toBe(4)
+      expect(r.max_trading_days).toBe(30)
+      expect(r.consistency_rule_pct).toBe(2000)
+      expect(r.deleted_at ?? null).toBeNull()
+    }
+    sqlite.close()
+  })
+
+  it('a single-step account gets exactly one phase row', () => {
+    const sqlite = seededPre0016(1)
+    applyMigration(sqlite, '0016_account_phases')
+    const rows = queryRows(
+      sqlite,
+      `SELECT phase_number FROM account_phases WHERE account_id = '${ACCOUNT_ID}'`,
+    )
+    expect(rows.map((r) => r.phase_number)).toEqual([1])
+    sqlite.close()
+  })
+
+  it('re-running 0016 on the post-state inserts zero additional rows (idempotent)', () => {
+    const sqlite = seededPre0016(3)
+    applyMigration(sqlite, '0016_account_phases')
+    const first = queryRows(
+      sqlite,
+      `SELECT id FROM account_phases WHERE account_id = '${ACCOUNT_ID}'`,
+    )
+    expect(first.length).toBe(3)
+
+    // CREATE TABLE/INDEX use IF NOT EXISTS and the backfill INSERT…SELECT is
+    // NOT-EXISTS-guarded per (account, phase) — a second pass applies zero rows.
+    applyMigration(sqlite, '0016_account_phases')
+    const second = queryRows(
+      sqlite,
+      `SELECT id FROM account_phases WHERE account_id = '${ACCOUNT_ID}'`,
+    )
+    expect(second.length).toBe(3)
     sqlite.close()
   })
 })

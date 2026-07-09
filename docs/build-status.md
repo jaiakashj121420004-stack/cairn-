@@ -253,3 +253,96 @@ Until those two land, the **manual MT5/cTrader end-to-end QA** in `docs/broker-i
 been exercised on a real tag (would currently produce unsigned artifacts). Five gates
 not re-run for this change (no application code paths touched — config/docs/workflow
 only).
+
+---
+
+## Neon HUD redesign (2026-07-09)
+
+User-approved override of locked decision #10 (glassmorphism → **Neon Cockpit HUD**), recorded
+in CLAUDE.md §14 #10 and `docs/design-system.md` § "v2.1 Neon Cockpit HUD (2026-07-09)". This is
+a **visual-language retoken + hero-surface pass only** — no functional/logic changes, no new
+dependencies (Tailwind + Framer Motion + CSS), no `electron/`, IPC, schema, service, or test files
+touched. All test-asserted UI strings were preserved (verified against `tests/e2e/smoke.spec.ts`,
+incl. onboarding copy such as "Trade the plan, not the emotion." and "You're set up.").
+
+**What changed:**
+
+- **Token layer (`src/styles/globals.css`):** both themes redefined — dark "deep-space cockpit"
+  (`#05070E` base) and light "daylight cockpit" (`#F4F7FC`). Token *names* kept, so the whole app
+  re-skinned through the layer. New HUD utilities added: `hud-grid`, `hud-corners`,
+  `crown-*`, `card-glow-*`, `text-glow-*`, `text-gradient-*`, `aurora-ribbon`/`aurora-mist`,
+  `trail-line`/`waypoint-active`, `summit-halo`, `prismatic-edge`. `tailwind.config.ts` glow
+  shadows + `glow-pulse`/`dot-pulse`/`shimmer` keyframes. Reduced-motion contract preserved
+  (`main.tsx` `MotionGlobalConfig.skipAnimations` + CSS `prefers-reduced-motion` block).
+- **Hero surfaces:** Sidebar, TopBar, Shell (aurora + grid + nebula backdrop), DashboardPage +
+  DisciplineRing (neon glow filter, count-up, arc sweep, summit halo), PreTradePanel (rule check
+  as a pre-flight checklist), Onboarding (cockpit backdrop + segmented HUD progress + "Cockpit
+  ready" finish), shared Modal / toast / GuardrailBanner (glow border by severity), StatCard /
+  GlassCard / button / badge (token-driven), charts (`chart-theme.ts` → neon tokens).
+- **This session's additions on top of the above:** docs (this entry + `design-system.md` v2.1
+  section + CLAUDE.md #10 amendment); `features/dev/ComponentsPage.tsx` gained a "Neon Cockpit
+  HUD" showcase section (GlassCard crown/glow/hero, `hud-corners`, text-glow/gradient, a pre-flight
+  rule-check sample, and the Discipline Ring) for eyeballing the language; `features/sync/
+  ConflictResolver.tsx` badge given a severity glow and its invalid `text-text-tertiary` classes
+  (no such token exists) corrected to `text-text-muted`.
+
+**Gates:** not re-run in this doc/gallery session (typecheck/lint/build unable to run here);
+changes are style-only and were self-reviewed for TS-strict + `import/order` + `--max-warnings 0`
+compliance. Re-run the five gates before packaging the next installer.
+
+---
+
+## Functional round — bugs, phases, drafts, metrics, guardrails (2026-07-09, uncommitted)
+
+Five parallel workstreams landed in the working tree on top of the Neon HUD retoken. All are
+**pending the five host gates** (the review sandbox cannot execute them; run `run-host-gates.ps1`)
+and a fresh installer build.
+
+1. **Per-phase prop-firm accounts** — migration `0016_account_phases.sql` (+ backfill,
+   idempotent) and `account_phases` table; accounts' single columns remain the ACTIVE phase's
+   effective values (rules engine untouched); new `accounts:advancePhase` / `accounts:updatePhases`
+   IPC (transactional, sync-enqueued, registered end-to-end); onboarding `StepTemplate`/
+   `StepAccount` collect every phase via shared `src/components/shared/PhaseRulesFields.tsx`;
+   AccountsPage create/edit modals do per-phase editing, phase advance (mentor-voice confirm),
+   add/remove phase (min 1), functional chevron, trimmed delete-confirm; TemplatesTab numeric
+   editing; leverage max aligned to 3000 on create+update; `analytics/phases.ts` + AccountsPhasesTab
+   `'funded'`→`'passed'` fix. Tests: `tests/integration/account-phases.test.ts` (16),
+   migration-0016 cases in `migrations.test.ts`, pass-rate case in `phases.test.ts`.
+2. **Draft-trade lifecycle (defects D1–D8)** — drafts (`status='planned'`) no longer count
+   against `max_trades_per_day` or dashboard today-count; Save draft renders in fast mode;
+   `trades:setOpen` now re-runs the full pre-trade rules gate (blocking failures →
+   `RULES_BLOCKED`, violations recorded, trade stays planned) and re-links stale drafts to
+   TODAY's session before locking; duplicate-trade guard ignores planned rows; `openedAt`
+   mapped onto the Trade DTO + "Activated" row in TradeDetailModal; dashboard draft activation
+   surfaces errors (toast) and refreshes. Tests: `tests/integration/draft-activation.test.ts`
+   + updated max-trades-per-day / context-builder cases.
+3. **Advanced metrics** — pure `electron/services/analytics/advanced-metrics.ts` (decimal.js:
+   Sharpe √252 daily, Sortino, max drawdown $/bps/duration, recovery factor, Kelly bps clamped,
+   SQN, day-consistency bps, extremes, stddev R, avg hold winners/losers) with
+   `{ value, sufficient }` contract; wired into `dashboard:getStats` (last-200 cap) and
+   `analytics:derived` (uncapped); rendered via shared `src/lib/advanced-metrics-display.ts`
+   on the Dashboard "Performance Metrics" grid and the Metrics tab "Advanced Metrics" panel.
+   Tests: `tests/unit/analytics/advanced-metrics.test.ts` (42 cases incl. fast-check
+   scale-invariance / non-negativity / clamp properties).
+4. **Guardrail hardening** — `rules-engine/guardrail.ts` sink (`parseRuleConfig`) replaces every
+   silent `catch {}` around rule-config JSON (engine, close-detection, live-detection); main
+   process logs + broadcasts `guardrail.degraded`; `GuardrailBanner` (mounted in App) shows a
+   persistent mentor-voice warning. Circuit breaker no longer needs a session row: migration
+   `0017_daily_locks.sql` + `daily_locks` table written on breach (`onConflictDoNothing`),
+   consulted by context-builder/engine/session-state as a hard lock. Hard-lock rules
+   (`daily_stop_after_losses`, `max_overall_daily_loss_hard_stop_pct`) now fail **closed** on
+   invalid config (blocking, non-overridable, guardrail-reported) instead of degrading to a
+   warning the gate ignores. Broker: `resolveAccount` falls back to a system "Unclassified"
+   setup (never drops a mapped fill); cTrader codec failures captured verbatim
+   (`getLastCtraderCodecError`); new `broker:diagnostics` IPC + "Connection health" card at the
+   top of Settings → Integrations. Tests: setup-resolver, ctrader-codec error capture, engine
+   guardrail + no-session circuit-breaker + hard-lock fail-closed cases.
+5. **Neon HUD** — see the section above.
+
+**Verification status:** static cross-workstream review done (no duplicate type/procedure
+registrations; IPC chains complete for `accounts:advancePhase`, `accounts:updatePhases`,
+`broker:diagnostics`; DashboardStats/DerivedStats consumers compile-consistent by inspection).
+The five gates + smoke E2E must be run on the Windows host before commit/packaging. Known
+follow-ups deliberately NOT in this round: web `/auth/me` session-restore fix, broader E2E
+journeys, `trustProxy` deployment guardrail, release-workflow dry-run tag, first-run demo mode,
+web read-only dashboard, and the MT5 on-chart pre-trade gate (next round, user-approved).

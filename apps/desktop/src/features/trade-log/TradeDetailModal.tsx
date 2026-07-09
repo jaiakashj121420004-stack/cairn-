@@ -292,6 +292,9 @@ export function TradeDetailModal({ tradeId, onClose, onTradeUpdated }: Props) {
                   <Row label="Risk">
                     {formatCents(detail.riskAmountCents)} ({formatPercent(detail.riskPctBps)})
                   </Row>
+                  {detail.openedAt !== null && (
+                    <Row label="Activated">{formatTimestamp(detail.openedAt)}</Row>
+                  )}
 
                   <div className="mt-2 mb-1">
                     <p className="text-caption text-text-muted">Invalidation</p>

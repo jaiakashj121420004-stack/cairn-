@@ -57,7 +57,11 @@ export function RecoveryPhrasePrompt(): JSX.Element {
             />
             I&apos;ve saved my recovery phrase somewhere safe.
           </label>
-          <Button disabled={!confirmed} onClick={() => navigate('/')} data-testid="recovery-continue">
+          <Button
+            disabled={!confirmed}
+            onClick={() => navigate('/')}
+            data-testid="recovery-continue"
+          >
             Continue
           </Button>
         </Card>

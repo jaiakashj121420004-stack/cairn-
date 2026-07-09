@@ -98,23 +98,41 @@ function detectKillzone(killzones: Killzone[]): string {
 }
 
 function RuleRow({ r }: { r: RuleEvaluationDTO }) {
-  const icon = r.passed ? (
-    <CheckCircle2 className="h-3.5 w-3.5 text-accent-a shrink-0" strokeWidth={1.5} />
-  ) : r.severity === 'blocking' ? (
-    <XCircle className="h-3.5 w-3.5 text-danger shrink-0" strokeWidth={1.5} />
-  ) : (
-    <AlertTriangle className="h-3.5 w-3.5 text-warning shrink-0" strokeWidth={1.5} />
-  )
+  const status = r.passed ? 'pass' : r.severity === 'blocking' ? 'block' : 'warn'
+  const icon =
+    status === 'pass' ? (
+      <CheckCircle2
+        className="h-3.5 w-3.5 text-accent-a shrink-0 drop-shadow-[0_0_5px_hsl(var(--accent-a)/0.6)]"
+        strokeWidth={1.5}
+      />
+    ) : status === 'block' ? (
+      <XCircle
+        className="h-3.5 w-3.5 text-danger shrink-0 drop-shadow-[0_0_5px_hsl(var(--danger)/0.6)]"
+        strokeWidth={1.5}
+      />
+    ) : (
+      <AlertTriangle
+        className="h-3.5 w-3.5 text-warning shrink-0 drop-shadow-[0_0_5px_hsl(var(--warning)/0.6)]"
+        strokeWidth={1.5}
+      />
+    )
+  // HUD status-row framing: faint hue-tinted fill + a glowing left rail.
+  const rowClass =
+    status === 'pass'
+      ? 'border-l-accent-a/70 bg-accent-a/[0.06]'
+      : status === 'block'
+        ? 'border-l-danger/70 bg-danger/[0.07]'
+        : 'border-l-warning/70 bg-warning/[0.07]'
   return (
-    <div className="flex items-start gap-2 py-1">
+    <div className={cn('flex items-start gap-2 rounded-[6px] border-l-2 py-1 pl-2 pr-1', rowClass)}>
       <span className="mt-0.5">{icon}</span>
       <div className="min-w-0">
         <p
           className={cn(
             'text-caption font-medium',
-            r.passed
+            status === 'pass'
               ? 'text-text-secondary'
-              : r.severity === 'blocking'
+              : status === 'block'
                 ? 'text-danger'
                 : 'text-warning',
           )}
@@ -1203,17 +1221,19 @@ export function PreTradePanel({
 
             {/* Sticky footer */}
             <div className="shrink-0 border-t border-border px-5 py-4 flex gap-2">
-              {!fastMode && (
-                <Button
-                  variant="secondary"
-                  className="flex-1"
-                  disabled={!isFormFilled || saving}
-                  loading={saving}
-                  onClick={() => void saveTrade('planned')}
-                >
-                  Save draft
-                </Button>
-              )}
+              {/* Save draft is available in both fast and full mode. It stays
+                  enabled while blocking rules fail — a plan can be for later.
+                  The rule gate runs at activation (trades:setOpen re-runs the
+                  full pre-trade evaluation), not at draft save. */}
+              <Button
+                variant="secondary"
+                className="flex-1"
+                disabled={!isFormFilled || saving}
+                loading={saving}
+                onClick={() => void saveTrade('planned')}
+              >
+                Save draft
+              </Button>
               <Button
                 className="flex-1"
                 disabled={!isFormFilled || hasBlockingFail || saving}

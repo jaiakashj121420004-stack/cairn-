@@ -144,16 +144,37 @@ export function createCtraderCodec(root: protobufjs.Root): CtraderCodec {
 }
 
 /**
+ * The most recent {@link buildCtraderCodec} failure reason, or null after a
+ * successful build (or before any build has been attempted). A bare `catch {}`
+ * here used to make a broken/missing vendored schema silently indistinguishable
+ * from "not configured yet" — `services/broker/index.ts` reads this to populate
+ * `broker:diagnostics.ctrader.codecError` so a build failure is always visible,
+ * never silent. Module-level (not a return value) so this stays a drop-in
+ * addition: `buildCtraderCodec`'s signature and success-path behavior are
+ * unchanged for existing callers/tests.
+ */
+let lastBuildError: string | null = null
+
+/** The reason the last {@link buildCtraderCodec} call returned `null`, or null. */
+export function getLastCodecBuildError(): string | null {
+  return lastBuildError
+}
+
+/**
  * Load the vendored `.proto` schema from `protoDir` with the supplied protobufjs
  * module and build a codec. Returns `null` on any failure (missing files, parse
  * error, missing message type) so the caller degrades gracefully — the adapter
- * reports an `error` status rather than crashing.
+ * reports an `error` status rather than crashing. The failure reason (never
+ * swallowed) is recorded and readable via {@link getLastCodecBuildError}.
  */
 export function buildCtraderCodec(pb: ProtobufModule, protoDir: string): CtraderCodec | null {
   try {
     const root = pb.loadSync(PROTO_FILES.map((f) => joinProto(protoDir, f)))
-    return createCtraderCodec(root)
-  } catch {
+    const codec = createCtraderCodec(root)
+    lastBuildError = null
+    return codec
+  } catch (err) {
+    lastBuildError = err instanceof Error ? err.message : String(err)
     return null
   }
 }

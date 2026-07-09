@@ -176,6 +176,27 @@ const accountRowSchema = z
   })
   .passthrough()
 
+/**
+ * Decrypted `account_phases` row (migration 0016). Targets/drawdowns are integer
+ * basis points (§2.5); `profitTargetPct` is null for a phase with no target
+ * (funded phase) — required key, nullable value, since the write path always
+ * enqueues the full Drizzle row.
+ */
+const accountPhaseRowSchema = z
+  .object({
+    id: z.string().min(1),
+    accountId: z.string().min(1),
+    phaseNumber: z.number().int(),
+    profitTargetPct: z.number().int().nullable(),
+    dailyDrawdownType: z.string().min(1),
+    dailyDrawdownValue: z.number().int(),
+    totalDrawdownType: z.string().min(1),
+    totalDrawdownValue: z.number().int(),
+    createdAt: z.number().int(),
+    updatedAt: z.number().int(),
+  })
+  .passthrough()
+
 /** Decrypted `sessions` row (the daily-bias plan). */
 const sessionRowSchema = z
   .object({
@@ -251,6 +272,12 @@ const TABLE_SPECS: Readonly<Record<string, TableSpec>> = {
     sqlName: 'accounts',
     rowSchema: accountRowSchema,
     columnMap: columnMapOf(schema.accounts),
+    softDelete: true,
+  },
+  account_phases: {
+    sqlName: 'account_phases',
+    rowSchema: accountPhaseRowSchema,
+    columnMap: columnMapOf(schema.accountPhases),
     softDelete: true,
   },
   sessions: {

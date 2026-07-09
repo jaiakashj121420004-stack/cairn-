@@ -131,7 +131,10 @@ function SignedInBilling() {
     const res = await ipc.billing.cancel({ when: 'period_end' })
     setBusy(null)
     if (res.ok) {
-      toast('Cancellation scheduled for the end of your billing period. Local data is untouched.', 'success')
+      toast(
+        'Cancellation scheduled for the end of your billing period. Local data is untouched.',
+        'success',
+      )
       void refresh()
     } else {
       toast(copyFor(res.error.code), 'error')
@@ -176,7 +179,13 @@ function SignedInBilling() {
             Web app + end-to-end-encrypted multi-device sync. 14-day free trial; cancel anytime.
           </p>
           <div className="grid grid-cols-2 gap-3">
-            <Select label="Region" options={COUNTRIES} value={country} onChange={setCountry} searchable />
+            <Select
+              label="Region"
+              options={COUNTRIES}
+              value={country}
+              onChange={setCountry}
+              searchable
+            />
             <Select
               label="Billing"
               options={INTERVALS}

@@ -39,8 +39,8 @@ export function SyncUpgradePrompt() {
       <div className="space-y-3 text-body text-text-secondary">
         <p>
           Syncing your journal across devices is part of{' '}
-          <span className="text-text-primary">Cairn Pro</span>. Your trades are end-to-end
-          encrypted — the server stores ciphertext only and can never read them.
+          <span className="text-text-primary">Cairn Pro</span>. Your trades are end-to-end encrypted
+          — the server stores ciphertext only and can never read them.
         </p>
         <p>
           This desktop app stays <span className="text-text-primary">free, forever</span>, fully

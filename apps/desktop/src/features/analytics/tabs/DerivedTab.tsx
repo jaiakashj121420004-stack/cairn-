@@ -18,6 +18,7 @@ import { ChartTooltip } from '../../../components/analytics/ChartTooltip'
 import { EmptyState } from '../../../components/analytics/EmptyState'
 import { InsufficientData } from '../../../components/analytics/InsufficientData'
 import { StatCard } from '../../../components/analytics/StatCard'
+import { buildAdvancedMetricCells } from '../../../lib/advanced-metrics-display'
 import { cn } from '../../../lib/cn'
 import { formatCents, formatRMultiple } from '../../../lib/formatters'
 import { ipc } from '../../../lib/ipc'
@@ -44,7 +45,9 @@ function heatColor(r: number): string {
   if (clamped === 0) return 'hsl(var(--surface-elevated))'
   const intensity = Math.abs(clamped) / 200
   const alpha = 0.15 + intensity * 0.65
-  return clamped > 0 ? `hsl(74,74%,59%,${alpha.toFixed(2)})` : `hsl(0,65%,63%,${alpha.toFixed(2)})`
+  return clamped > 0
+    ? `hsl(158,64%,52%,${alpha.toFixed(2)})`
+    : `hsl(351,95%,71%,${alpha.toFixed(2)})`
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -425,6 +428,16 @@ export function DerivedTab() {
       <Panel>
         <SectionTitle>Time-of-day heatmap (expectancy in R)</SectionTitle>
         <TimeOfDayHeatmap data={data.timeOfDayHeatmap} />
+      </Panel>
+
+      {/* Advanced metrics — Sharpe, Sortino, drawdown, Kelly, SQN, etc. */}
+      <Panel>
+        <SectionTitle>Advanced Metrics</SectionTitle>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {buildAdvancedMetricCells(data.advancedMetrics).map((cell) => (
+            <StatCard key={cell.key} label={cell.label} value={cell.display} title={cell.tooltip} />
+          ))}
+        </div>
       </Panel>
     </div>
   )

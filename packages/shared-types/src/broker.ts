@@ -278,3 +278,40 @@ export interface BrokerStatus {
   /** Wall-clock ms of the last heartbeat, or null. */
   readonly lastHeartbeatMs: number | null
 }
+
+/**
+ * Connection-health snapshot surfaced over the `broker:diagnostics` IPC
+ * (Settings → Integrations "Connection health" card). Every field is sourced
+ * from state the desktop main process actually tracks — a broker integration
+ * must never go silently inert (a bare `null`/`false` with no trace); a build
+ * that cannot load the cTrader codec, for instance, still reports why in
+ * `ctrader.codecError` rather than just reporting `codecLoaded: false`.
+ */
+export interface BrokerDiagnostics {
+  readonly mt5: {
+    /** True when the loopback listener is currently bound. */
+    readonly listening: boolean
+    /** The configured loopback port (always known — falls back to the default). */
+    readonly port: number | null
+    /** Wall-clock ms of the most recent event (including heartbeats), or null. */
+    readonly lastEventAt: number | null
+  }
+  readonly ctrader: {
+    /** True once an account id has been linked via OAuth. */
+    readonly linked: boolean
+    /** True when the execution stream is currently connected. */
+    readonly streaming: boolean
+    /** True when the last codec load attempt succeeded. */
+    readonly codecLoaded: boolean
+    /** The verbatim reason the last codec load attempt failed, or null. */
+    readonly codecError: string | null
+    /** Wall-clock ms of the most recent event (including heartbeats), or null. */
+    readonly lastEventAt: number | null
+  }
+  readonly accountMap: {
+    /** Active `(broker, brokerAccountId) -> cairnAccountId` bindings. */
+    readonly mappedCount: number
+    /** Broker accounts observed on the live stream but not yet bound. */
+    readonly unmappedCount: number
+  }
+}

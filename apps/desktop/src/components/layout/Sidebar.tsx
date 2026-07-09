@@ -86,8 +86,9 @@ export function Sidebar() {
               <span
                 className="block text-[9.5px] font-semibold uppercase leading-none mt-1"
                 style={{
-                  color: 'hsl(74,55%,36%)',
+                  color: 'hsl(188,80%,48%)',
                   letterSpacing: '0.18em',
+                  textShadow: '0 0 10px hsl(188,86%,53%,0.4)',
                 }}
               >
                 Discipline · Logged
@@ -182,8 +183,8 @@ function NavItem({ to, label, icon: Icon, collapsed, badge = 0 }: NavItemProps) 
             isActive
               ? {
                   background:
-                    'linear-gradient(90deg, hsl(74,74%,59%,0.10) 0%, hsl(74,74%,59%,0.02) 100%)',
-                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
+                    'linear-gradient(90deg, hsl(188,86%,53%,0.12) 0%, hsl(188,86%,53%,0.02) 100%)',
+                  boxShadow: 'inset 0 1px 0 rgba(180,220,255,0.06)',
                 }
               : undefined
           }
@@ -192,7 +193,7 @@ function NavItem({ to, label, icon: Icon, collapsed, badge = 0 }: NavItemProps) 
             <Icon
               className={cn(
                 'h-[18px] w-[18px] transition-all duration-200',
-                isActive && 'text-accent-a drop-shadow-[0_0_8px_hsl(74,74%,59%,0.55)]',
+                isActive && 'text-info drop-shadow-[0_0_8px_hsl(188,86%,53%,0.65)]',
                 !isActive && 'group-hover:scale-[1.05]',
               )}
               strokeWidth={isActive ? 2 : 1.5}
@@ -202,7 +203,7 @@ function NavItem({ to, label, icon: Icon, collapsed, badge = 0 }: NavItemProps) 
               <span
                 data-testid="cairn-reflection-pending"
                 aria-label={`${badge} trades awaiting reflection`}
-                className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-accent-a ring-2 ring-[hsl(var(--surface))]"
+                className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-info ring-2 ring-[hsl(var(--surface))]"
               />
             )}
           </div>
@@ -226,7 +227,7 @@ function NavItem({ to, label, icon: Icon, collapsed, badge = 0 }: NavItemProps) 
             <span
               data-testid="cairn-reflection-pending"
               aria-label={`${badge} trades awaiting reflection`}
-              className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-accent-a/15 px-1.5 text-micro font-semibold text-accent-a"
+              className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-info/15 px-1.5 text-micro font-semibold text-info"
             >
               {badge}
             </span>

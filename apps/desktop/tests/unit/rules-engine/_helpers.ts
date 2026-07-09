@@ -39,6 +39,7 @@ export function makeAccount(overrides: Partial<Account> = {}): Account {
     peakEquityCents: 5_000_000,
     currentEquityCents: 5_000_000,
     notes: null,
+    phases: [],
     createdAt: Date.UTC(2026, 0, 1),
     updatedAt: Date.UTC(2026, 0, 1),
     deletedAt: null,
@@ -189,6 +190,7 @@ export function makeContext(overrides: Partial<RuleContext> = {}): RuleContext {
     activeCooldowns: overrides.activeCooldowns ?? [],
     killzones: overrides.killzones ?? makeKillzones(),
     tradingDaysCount: overrides.tradingDaysCount,
+    dailyLock: overrides.dailyLock,
   }
 }
 

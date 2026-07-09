@@ -31,6 +31,7 @@ import {
   tradingDayKey,
   tradingDayStart,
 } from '../time/trading-day'
+import { parseRuleConfig } from './guardrail'
 import { findEnclosingKillzone } from './helpers'
 import type { KillzoneRecord } from './types'
 import type { TradeDirection } from '../../../shared/types/index'
@@ -146,11 +147,7 @@ export function detectCloseViolations(db: CairnDb, tradeId: string): DetectedVio
   const config = (key: string): Record<string, unknown> | null => {
     const r = ruleByKey.get(key)
     if (!r) return null
-    try {
-      return JSON.parse(r.value) as Record<string, unknown>
-    } catch {
-      return null
-    }
+    return parseRuleConfig<Record<string, unknown>>(r.value, key, 'close-detection')
   }
 
   // Recorded modifications for this trade → latest proposed value per field.

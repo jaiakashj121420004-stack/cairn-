@@ -81,6 +81,22 @@ export interface CooldownRecord {
   acknowledgmentText: string | null
 }
 
+/**
+ * A persisted daily-loss circuit-breaker lock (migration 0017, `daily_locks`
+ * table). Present on {@link RuleContext} for the account's current trading day
+ * when `engine.ts#checkAndLockSession` has written one — independent of
+ * whether a `sessions` row exists for that day. Its presence hard-blocks every
+ * subsequent pre-trade evaluation (engine.ts#evaluateAll) and folds into the
+ * session-locked state (session-state.ts#deriveSessionState).
+ */
+export interface DailyLockRecord {
+  id: string
+  accountId: string
+  tradingDay: string
+  reason: string
+  createdAt: number
+}
+
 export interface KillzoneRecord {
   id: string
   name: string
@@ -141,6 +157,9 @@ export interface RuleContext {
   activeCooldowns: CooldownRecord[]
   killzones: KillzoneRecord[]
   tradingDaysCount?: number | undefined
+  /** A persisted circuit-breaker lock for the account's current trading day
+   *  (`daily_locks`), or null when today is unlocked. See {@link DailyLockRecord}. */
+  dailyLock?: DailyLockRecord | null | undefined
 }
 
 export interface RuleEvaluation {

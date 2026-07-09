@@ -133,11 +133,18 @@ export function Pricing(): JSX.Element {
                 </ul>
                 <div className="mt-6">
                   {isPro ? (
-                    <Button onClick={() => void onUpgrade()} disabled={busy} data-testid="upgrade-pro">
+                    <Button
+                      onClick={() => void onUpgrade()}
+                      disabled={busy}
+                      data-testid="upgrade-pro"
+                    >
                       {busy ? 'Redirecting…' : 'Start 14-day trial'}
                     </Button>
                   ) : (
-                    <Button variant="ghost" onClick={() => window.location.assign('https://cairn.app/download')}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => window.location.assign('https://cairn.app/download')}
+                    >
                       Download desktop app
                     </Button>
                   )}

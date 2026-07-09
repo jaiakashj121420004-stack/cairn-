@@ -214,6 +214,50 @@ describe('buildContext', () => {
     expect(ctx.tradesToday.length).toBe(1)
   })
 
+  it('excludes planned drafts from tradesToday (a draft is a plan, not a placed trade)', () => {
+    const { db, ids } = bundle
+    const ts = Date.UTC(2026, 3, 20, 8, 0)
+    const base = {
+      accountId: ids.accountId,
+      sessionId: ids.sessionId,
+      pairId: ids.pairId,
+      setupId: ids.setupId,
+      killzoneId: ids.killzoneId,
+      mode: 'live',
+      direction: 'long',
+      entryPrice: 108000,
+      stopLossPrice: 107900,
+      takeProfitPrice: 108200,
+      slPips: 100,
+      rrRatio: 200,
+      lotSize: 50,
+      riskAmountCents: 10000,
+      riskPctBps: 100,
+      plannedInvalidation: 'x',
+      mssConfirmed: 1,
+      htfBiasAligned: 1,
+      dxyAligned: null,
+      smtConfirmed: null,
+      correlatedPairUsed: null,
+      preCalmScore: 5,
+      preUrgencyScore: 5,
+      preNeedScore: 5,
+      createdAt: ts,
+      updatedAt: ts,
+      deletedAt: null,
+    }
+    db.insert(schema.trades)
+      .values({ ...base, id: uuidv7(), status: 'planned' } as typeof schema.trades.$inferInsert)
+      .run()
+    db.insert(schema.trades)
+      .values({ ...base, id: uuidv7(), status: 'open' } as typeof schema.trades.$inferInsert)
+      .run()
+
+    const ctx = buildContext(db, ids.accountId, { now: ts + 60 * 60_000 })
+    expect(ctx.tradesToday.length).toBe(1)
+    expect(ctx.tradesToday[0]?.status).toBe('open')
+  })
+
   it('loads currentSession when one exists for today', () => {
     const { db, ids } = bundle
     const ctx = buildContext(db, ids.accountId, { now: Date.UTC(2026, 3, 20, 12, 0) })

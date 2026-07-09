@@ -56,8 +56,12 @@ module.exports = {
     'no-restricted-imports': [
       'error',
       {
-        paths: [{ name: 'lodash', message: 'Use lodash-es (tree-shakeable ESM) instead of lodash.' }],
-        patterns: [{ group: ['lodash/*'], message: 'Use lodash-es (tree-shakeable ESM) instead of lodash.' }],
+        paths: [
+          { name: 'lodash', message: 'Use lodash-es (tree-shakeable ESM) instead of lodash.' },
+        ],
+        patterns: [
+          { group: ['lodash/*'], message: 'Use lodash-es (tree-shakeable ESM) instead of lodash.' },
+        ],
       },
     ],
     // React 18 doesn't need React in scope.

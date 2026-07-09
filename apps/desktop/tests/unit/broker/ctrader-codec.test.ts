@@ -11,7 +11,11 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import * as protobuf from 'protobufjs'
-import { buildCtraderCodec, PROTO_FILES } from '../../../electron/services/broker/ctrader/codec'
+import {
+  buildCtraderCodec,
+  getLastCodecBuildError,
+  PROTO_FILES,
+} from '../../../electron/services/broker/ctrader/codec'
 import { mapExecutionEvent } from '../../../electron/services/broker/ctrader/mapper'
 import {
   PAYLOAD,
@@ -23,7 +27,13 @@ import type { CtraderSymbolInfo } from '../../../electron/services/broker/ctrade
 const PROTO_DIR = join(__dirname, '../../../resources/ctrader-proto')
 
 interface Fixture {
-  meta: { ctidTraderAccountId: number; positionId: number; symbolId: number; lotSize: number; t0: number }
+  meta: {
+    ctidTraderAccountId: number
+    positionId: number
+    symbolId: number
+    lotSize: number
+    t0: number
+  }
   accountAuthRes: { payloadType: number; base64: string }
   symbolsListRes: { payloadType: number; base64: string }
   executions: Array<{ label: string; payloadType: number; base64: string }>
@@ -33,8 +43,13 @@ const FIXTURE = JSON.parse(
   readFileSync(join(__dirname, '../../fixtures/broker/ctrader/execution-stream.json'), 'utf-8'),
 ) as Fixture
 
-const { lotSize: LOT, t0: T0, symbolId: SYMBOL_ID, positionId: POSITION_ID, ctidTraderAccountId: CTID } =
-  FIXTURE.meta
+const {
+  lotSize: LOT,
+  t0: T0,
+  symbolId: SYMBOL_ID,
+  positionId: POSITION_ID,
+  ctidTraderAccountId: CTID,
+} = FIXTURE.meta
 
 /** A resolver that knows EURUSD's lot size (the adapter learns this from the symbol list). */
 function resolveSymbol(id: number): CtraderSymbolInfo | null {
@@ -173,5 +188,25 @@ describe('cTrader codec — round-trip encode/decode (heartbeat + auth)', () => 
       accessToken: string
     }
     expect(body).toMatchObject({ ctidTraderAccountId: CTID, accessToken: 'access-token' })
+  })
+})
+
+describe('cTrader codec — build failure is never silent (guardrail hardening)', () => {
+  it('records the failure reason instead of a bare null on a bad proto directory', () => {
+    const built = buildCtraderCodec(protobuf, '/definitely/does/not/exist')
+    expect(built).toBeNull()
+    const reason = getLastCodecBuildError()
+    expect(reason).toBeTypeOf('string')
+    expect(reason).not.toBe('')
+  })
+
+  it('clears the recorded error on a subsequent successful build', () => {
+    const failed = buildCtraderCodec(protobuf, '/definitely/does/not/exist')
+    expect(failed).toBeNull()
+    expect(getLastCodecBuildError()).not.toBeNull()
+
+    const succeeded = buildCtraderCodec(protobuf, PROTO_DIR)
+    expect(succeeded).not.toBeNull()
+    expect(getLastCodecBuildError()).toBeNull()
   })
 })

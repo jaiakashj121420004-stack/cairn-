@@ -57,7 +57,10 @@ function makeNonce(): string {
 function setCountryCookie(headers: Headers, request: Request): void {
   const country = request.headers.get('CF-IPCountry')?.toUpperCase()
   if (country !== undefined && /^[A-Z]{2}$/.test(country) && country !== 'XX' && country !== 'T1') {
-    headers.append('Set-Cookie', `cf-country=${country}; Path=/; SameSite=Strict; Secure; Max-Age=86400`)
+    headers.append(
+      'Set-Cookie',
+      `cf-country=${country}; Path=/; SameSite=Strict; Secure; Max-Age=86400`,
+    )
   }
 }
 

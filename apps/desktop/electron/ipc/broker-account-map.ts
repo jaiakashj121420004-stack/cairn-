@@ -55,21 +55,18 @@ export function registerBrokerAccountMapHandlers(): void {
 
   // ── broker:setAccountMap ─────────────────────────────────────────────────────
   // Bind a broker account to a Cairn account; replays any buffered fills on success.
-  ipcMain.handle(
-    'broker:setAccountMap',
-    (_e, raw: unknown): IpcResponse<BrokerAccountMapEntry> => {
-      const parsed = SetAccountMapSchema.safeParse(raw)
-      if (!parsed.success) {
-        return { ok: false, error: { code: 'VALIDATION_ERROR', message: parsed.error.message } }
-      }
-      try {
-        const { broker, brokerAccountId, cairnAccountId } = parsed.data
-        return { ok: true, data: setBrokerAccountBinding(broker, brokerAccountId, cairnAccountId) }
-      } catch (err) {
-        return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
-      }
-    },
-  )
+  ipcMain.handle('broker:setAccountMap', (_e, raw: unknown): IpcResponse<BrokerAccountMapEntry> => {
+    const parsed = SetAccountMapSchema.safeParse(raw)
+    if (!parsed.success) {
+      return { ok: false, error: { code: 'VALIDATION_ERROR', message: parsed.error.message } }
+    }
+    try {
+      const { broker, brokerAccountId, cairnAccountId } = parsed.data
+      return { ok: true, data: setBrokerAccountBinding(broker, brokerAccountId, cairnAccountId) }
+    } catch (err) {
+      return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
+    }
+  })
 
   // ── broker:deleteAccountMap ──────────────────────────────────────────────────
   ipcMain.handle('broker:deleteAccountMap', (_e, raw: unknown): IpcResponse<void> => {

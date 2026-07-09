@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll } from 'vitest'
 import { ensureSqlJs, makeTestDb, seedAnalyticsFixtures } from './_fixtures'
+import * as schema from '../../../electron/db/schema'
 import {
   getAccountLadder,
   getPhaseTrend,
@@ -31,6 +32,57 @@ describe('phases.getPhaseTrend', () => {
     const { db } = makeTestDb()
     const pts = getPhaseTrend(db)
     expect(pts.length).toBeGreaterThan(0)
+  })
+
+  it('a "passed" account counts toward phase-1, phase-2, and funded rates', () => {
+    // The status enum is active|passed|failed|paused|retired — 'passed' is the
+    // completed-the-ladder terminal state. The prior code compared against a
+    // nonexistent 'funded' status, which pinned every rate to 0. This account
+    // sits alone in its own month bucket so all three rates must be 100%.
+    const { db, ids } = makeTestDb()
+    const ts = Date.UTC(2026, 0, 1)
+    db.insert(schema.accounts)
+      .values({
+        id: 'passed-acct-1',
+        displayName: 'Passed',
+        templateId: null,
+        propFirmId: ids.propFirmId,
+        stepCount: 2,
+        currentPhase: 1, // proves status alone drives the rate, not currentPhase
+        accountSizeCents: 5_000_000,
+        leverage: 30,
+        dailyTradeLimit: null,
+        dailyDrawdownType: 'percent_of_balance',
+        dailyDrawdownValue: 400,
+        totalDrawdownType: 'percent_of_balance',
+        totalDrawdownValue: 800,
+        drawdownBasis: 'initial_balance',
+        profitTargetPct: 800,
+        minTradingDays: null,
+        maxTradingDays: null,
+        weekendHoldingAllowed: 0,
+        newsTradingAllowed: 0,
+        consistencyRulePct: null,
+        challengeCostCents: 30000,
+        startDate: Date.UTC(2026, 7, 1), // 2026-08 — its own month bucket
+        status: 'passed',
+        endDate: null,
+        endReason: null,
+        peakEquityCents: 5_000_000,
+        currentEquityCents: 5_400_000,
+        notes: null,
+        createdAt: ts,
+        updatedAt: ts,
+        deletedAt: null,
+      })
+      .run()
+
+    const aug = getPhaseTrend(db).find((p) => p.month === '2026-08')
+    if (!aug) throw new Error('test: expected a 2026-08 trend bucket')
+    expect(aug.sampleSize).toBe(1)
+    expect(aug.fundedRate).toBe(10000)
+    expect(aug.phase1PassRate).toBe(10000)
+    expect(aug.phase2PassRate).toBe(10000)
   })
 })
 

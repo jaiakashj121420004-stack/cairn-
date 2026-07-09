@@ -48,7 +48,11 @@ export interface HttpCoreOptions {
 interface ServerEnvelope {
   readonly ok: boolean
   readonly data?: unknown
-  readonly error?: { readonly code?: unknown; readonly message?: unknown; readonly details?: unknown }
+  readonly error?: {
+    readonly code?: unknown
+    readonly message?: unknown
+    readonly details?: unknown
+  }
 }
 
 export class HttpCore {

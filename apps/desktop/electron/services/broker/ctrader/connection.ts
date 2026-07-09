@@ -17,7 +17,7 @@ import { join } from 'path'
 import { connect as tlsConnect } from 'tls'
 import { err, ok } from '@cairn/shared-types'
 import { FrameDecoder } from '../mt5/frame'
-import { buildCtraderCodec } from './codec'
+import { buildCtraderCodec, getLastCodecBuildError } from './codec'
 import type { ProtobufModule } from './codec'
 import type { Result } from '@cairn/shared-types'
 import type { TLSSocket } from 'tls'
@@ -163,27 +163,50 @@ function resolveProtoDir(): string {
 }
 
 /**
+ * The most recent {@link loadProtobufCodec} failure reason, or null after a
+ * successful load (or before any load has been attempted). Populates
+ * `broker:diagnostics.ctrader.codecError` (`services/broker/index.ts`) so a
+ * missing dependency or a broken vendored schema is always visible, never a
+ * bare silent `null`.
+ */
+let lastCodecError: string | null = null
+
+/** The reason the last {@link loadProtobufCodec} call returned `null`, or null. */
+export function getLastCtraderCodecError(): string | null {
+  return lastCodecError
+}
+
+/**
  * Construct the production protobuf codec from the vendored Open API schema
  * (`resources/ctrader-proto/`, compiled at runtime with protobufjs — see
  * `codec.ts`). The library and the bundled `.proto` files are both treated as
  * optional: this returns `null` when either is unavailable so the adapter reports
  * an `error` status with a clear code rather than crashing, exactly as the keychain
- * and MT5 bridge degrade.
+ * and MT5 bridge degrade. The failure reason (never swallowed) is recorded and
+ * readable via {@link getLastCtraderCodecError}.
  */
 export async function loadProtobufCodec(): Promise<CtraderCodec | null> {
+  lastCodecError = null
   try {
     // Non-literal specifier so neither tsc nor the bundler hard-requires the
     // dependency; a missing module degrades to null instead of throwing on import.
     const moduleName = 'protobufjs'
-    const mod = (await import(/* @vite-ignore */ moduleName).catch(() => null)) as
-      | ProtobufModule
-      | { default: ProtobufModule }
-      | null
+    const mod = (await import(/* @vite-ignore */ moduleName).catch((e: unknown) => {
+      lastCodecError = `protobufjs unavailable: ${e instanceof Error ? e.message : String(e)}`
+      return null
+    })) as ProtobufModule | { default: ProtobufModule } | null
     if (!mod) return null
     // protobufjs is CJS; under some interop it arrives under `.default`.
     const pb = 'loadSync' in mod ? mod : mod.default
-    return buildCtraderCodec(pb, resolveProtoDir())
-  } catch {
+    const codec = buildCtraderCodec(pb, resolveProtoDir())
+    if (!codec) {
+      lastCodecError =
+        getLastCodecBuildError() ?? 'failed to build cTrader codec from vendored schema'
+      return null
+    }
+    return codec
+  } catch (e) {
+    lastCodecError = e instanceof Error ? e.message : String(e)
     return null
   }
 }

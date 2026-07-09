@@ -15,6 +15,8 @@ import type {
   UpdateAccountTemplateInput,
   CreateAccountInput,
   UpdateAccountInput,
+  AdvancePhaseInput,
+  UpdateAccountPhasesInput,
   DraftTradeInput,
   EvaluateModificationInput,
   OverrideInputDTO,
@@ -83,6 +85,7 @@ import type {
   PublicSession,
   SignupResult,
   BrokerAccountMapEntry,
+  BrokerDiagnostics,
   BrokerKind,
   BrokerStatus,
   Mt5BridgeConfig,
@@ -127,6 +130,8 @@ declare global {
         update: (input: UpdateAccountInput) => Promise<IpcResponse<Account>>
         stats: () => Promise<IpcResponse<AccountStats[]>>
         delete: (id: string) => Promise<IpcResponse<{ ok: true }>>
+        advancePhase: (input: AdvancePhaseInput) => Promise<IpcResponse<Account>>
+        updatePhases: (input: UpdateAccountPhasesInput) => Promise<IpcResponse<Account>>
       }
       pairs: {
         list: () => Promise<IpcResponse<Pair[]>>
@@ -307,6 +312,7 @@ declare global {
           broker: BrokerKind
           brokerAccountId: string
         }) => Promise<IpcResponse<void>>
+        diagnostics: () => Promise<IpcResponse<BrokerDiagnostics>>
       }
       billing: {
         status: () => Promise<IpcResponse<BillingStatusOutput>>
@@ -370,6 +376,10 @@ export const ipc = {
     stats: (): Promise<IpcResponse<AccountStats[]>> => transport.call('accounts:stats', undefined),
     delete: (id: string): Promise<IpcResponse<{ ok: true }>> =>
       transport.call('accounts:delete', { id }),
+    advancePhase: (input: AdvancePhaseInput): Promise<IpcResponse<Account>> =>
+      transport.call('accounts:advancePhase', input),
+    updatePhases: (input: UpdateAccountPhasesInput): Promise<IpcResponse<Account>> =>
+      transport.call('accounts:updatePhases', input),
   },
 
   pairs: {
@@ -640,6 +650,8 @@ export const ipc = {
       broker: BrokerKind
       brokerAccountId: string
     }): Promise<IpcResponse<void>> => transport.call('broker:deleteAccountMap', input),
+    diagnostics: (): Promise<IpcResponse<BrokerDiagnostics>> =>
+      transport.call('broker:diagnostics', undefined),
   },
 
   backup: {

@@ -19,7 +19,8 @@ const CreateAccountTemplateSchema = z.object({
   propFirmId: z.string().uuid(),
   stepCount: z.number().int().min(1).max(5),
   accountSizeCents: z.number().int().positive(),
-  leverage: z.number().int().min(1).max(2000),
+  // Aligned with accounts (create + update): max leverage 3000 everywhere.
+  leverage: z.number().int().min(1).max(3000),
   dailyDrawdownType: DrawdownTypeSchema,
   dailyDrawdownValue: z.number().int().positive(),
   totalDrawdownType: DrawdownTypeSchema,
@@ -41,6 +42,24 @@ const UpdateAccountTemplateSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   isArchived: z.boolean().optional(),
   notes: z.string().max(1000).nullable().optional(),
+  // Numeric config is editable from Settings → Templates. Templates keep the
+  // flat phase-1..3 target columns + a single drawdown set — accounts (and
+  // their account_phases rows) are the source of truth; templates are a
+  // convenience for prefilling.
+  stepCount: z.number().int().min(1).max(5).optional(),
+  accountSizeCents: z.number().int().positive().optional(),
+  leverage: z.number().int().min(1).max(3000).optional(),
+  dailyDrawdownType: DrawdownTypeSchema.optional(),
+  dailyDrawdownValue: z.number().int().positive().optional(),
+  totalDrawdownType: DrawdownTypeSchema.optional(),
+  totalDrawdownValue: z.number().int().positive().optional(),
+  drawdownBasis: DrawdownBasisSchema.optional(),
+  profitTargetPhase1Pct: z.number().int().positive().optional(),
+  profitTargetPhase2Pct: z.number().int().positive().nullable().optional(),
+  profitTargetPhase3Pct: z.number().int().positive().nullable().optional(),
+  minTradingDays: z.number().int().min(0).nullable().optional(),
+  maxTradingDays: z.number().int().min(0).nullable().optional(),
+  consistencyRulePct: z.number().int().min(0).nullable().optional(),
 })
 
 export function registerAccountTemplateHandlers(): void {
@@ -121,6 +140,29 @@ export function registerAccountTemplateHandlers(): void {
         if (fields.name !== undefined) updateData.name = fields.name
         if (fields.isArchived !== undefined) updateData.isArchived = fields.isArchived ? 1 : 0
         if ('notes' in fields) updateData.notes = fields.notes ?? null
+        if (fields.stepCount !== undefined) updateData.stepCount = fields.stepCount
+        if (fields.accountSizeCents !== undefined)
+          updateData.accountSizeCents = fields.accountSizeCents
+        if (fields.leverage !== undefined) updateData.leverage = fields.leverage
+        if (fields.dailyDrawdownType !== undefined)
+          updateData.dailyDrawdownType = fields.dailyDrawdownType
+        if (fields.dailyDrawdownValue !== undefined)
+          updateData.dailyDrawdownValue = fields.dailyDrawdownValue
+        if (fields.totalDrawdownType !== undefined)
+          updateData.totalDrawdownType = fields.totalDrawdownType
+        if (fields.totalDrawdownValue !== undefined)
+          updateData.totalDrawdownValue = fields.totalDrawdownValue
+        if (fields.drawdownBasis !== undefined) updateData.drawdownBasis = fields.drawdownBasis
+        if (fields.profitTargetPhase1Pct !== undefined)
+          updateData.profitTargetPhase1Pct = fields.profitTargetPhase1Pct
+        if ('profitTargetPhase2Pct' in fields)
+          updateData.profitTargetPhase2Pct = fields.profitTargetPhase2Pct ?? null
+        if ('profitTargetPhase3Pct' in fields)
+          updateData.profitTargetPhase3Pct = fields.profitTargetPhase3Pct ?? null
+        if ('minTradingDays' in fields) updateData.minTradingDays = fields.minTradingDays ?? null
+        if ('maxTradingDays' in fields) updateData.maxTradingDays = fields.maxTradingDays ?? null
+        if ('consistencyRulePct' in fields)
+          updateData.consistencyRulePct = fields.consistencyRulePct ?? null
         db.update(schema.accountTemplates)
           .set(updateData)
           .where(eq(schema.accountTemplates.id, id))

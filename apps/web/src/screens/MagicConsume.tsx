@@ -1,7 +1,16 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useShallow } from 'zustand/react/shallow'
-import { Button, Card, ErrorText, Field, Heading, Input, MutedLink, Screen } from '@web/components/ui'
+import {
+  Button,
+  Card,
+  ErrorText,
+  Field,
+  Heading,
+  Input,
+  MutedLink,
+  Screen,
+} from '@web/components/ui'
 import { useSession } from '@web/lib/session'
 
 /**
@@ -53,7 +62,9 @@ export function MagicConsume(): JSX.Element {
   return (
     <Screen>
       <Card>
-        <Heading sub="No password needed — we'll email you a one-time link.">Email sign-in link</Heading>
+        <Heading sub="No password needed — we'll email you a one-time link.">
+          Email sign-in link
+        </Heading>
         {sent ? (
           <p className="text-sm text-white/60" data-testid="magic-sent">
             If that email is registered, a sign-in link is on its way.

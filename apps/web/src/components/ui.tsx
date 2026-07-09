@@ -16,7 +16,9 @@ export function Card({ children }: { children: ReactNode }): JSX.Element {
 
 export function Screen({ children }: { children: ReactNode }): JSX.Element {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background p-6">{children}</main>
+    <main className="flex min-h-screen items-center justify-center bg-background p-6">
+      {children}
+    </main>
   )
 }
 
@@ -29,13 +31,7 @@ export function Heading({ children, sub }: { children: ReactNode; sub?: ReactNod
   )
 }
 
-export function Field({
-  label,
-  children,
-}: {
-  label: string
-  children: ReactNode
-}): JSX.Element {
+export function Field({ label, children }: { label: string; children: ReactNode }): JSX.Element {
   return (
     <label className="mb-4 block">
       <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-white/50">
@@ -80,7 +76,10 @@ export function ErrorText({ children }: { children: ReactNode }): JSX.Element | 
 
 export function MutedLink({ to, children }: { to: string; children: ReactNode }): JSX.Element {
   return (
-    <a href={to} className="text-sm text-white/50 underline-offset-4 hover:text-white/80 hover:underline">
+    <a
+      href={to}
+      className="text-sm text-white/50 underline-offset-4 hover:text-white/80 hover:underline"
+    >
       {children}
     </a>
   )

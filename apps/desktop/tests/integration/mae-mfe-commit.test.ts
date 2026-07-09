@@ -29,6 +29,9 @@ const MIGRATIONS = [
   '0011_sync',
   '0012_sync_merge',
   '0013_sync_clocks',
+  '0014_live_detection_outcome',
+  '0015_broker_account_map',
+  '0016_account_phases',
 ].map((t) => readFileSync(join(__dirname, `../../electron/db/migrations/${t}.sql`), 'utf-8'))
 
 const PROP_FIRM_ID = '00000000-0000-0000-0000-000000000001'

@@ -165,6 +165,30 @@ export interface AccountTemplate {
   updatedAt: number
 }
 
+/**
+ * One phase of an account's prop-firm ladder (`account_phases`, migration 0016).
+ * All money/percent values are integer basis points (§2.5). `profitTargetPct`
+ * is null for a phase with no target (a funded phase). The account row's single
+ * columns always mirror the ACTIVE phase (denormalization contract) — the rules
+ * engine reads the account row, never this table.
+ */
+export interface AccountPhase {
+  id: string
+  accountId: string
+  phaseNumber: number
+  profitTargetPct: number | null
+  dailyDrawdownType: DrawdownType
+  dailyDrawdownValue: number
+  totalDrawdownType: DrawdownType
+  totalDrawdownValue: number
+  minTradingDays: number | null
+  maxTradingDays: number | null
+  consistencyRulePct: number | null
+  createdAt: number
+  updatedAt: number
+  deletedAt: number | null
+}
+
 export interface Account {
   id: string
   displayName: string
@@ -179,6 +203,7 @@ export interface Account {
   totalDrawdownType: DrawdownType
   totalDrawdownValue: number
   drawdownBasis: DrawdownBasis
+  /** ACTIVE phase's target in basis points. 0 = no target (funded phase). */
   profitTargetPct: number
   minTradingDays: number | null
   maxTradingDays: number | null
@@ -193,6 +218,8 @@ export interface Account {
   peakEquityCents: number
   currentEquityCents: number
   notes: string | null
+  /** Full per-phase ladder, ordered by phaseNumber (active rows only). */
+  phases: AccountPhase[]
   createdAt: number
   updatedAt: number
   deletedAt: number | null
@@ -239,6 +266,36 @@ export interface UpdateAccountTemplateInput {
   name?: string
   isArchived?: boolean
   notes?: string | null
+  stepCount?: number
+  accountSizeCents?: number
+  leverage?: number
+  dailyDrawdownType?: DrawdownType
+  dailyDrawdownValue?: number
+  totalDrawdownType?: DrawdownType
+  totalDrawdownValue?: number
+  drawdownBasis?: DrawdownBasis
+  profitTargetPhase1Pct?: number
+  profitTargetPhase2Pct?: number | null
+  profitTargetPhase3Pct?: number | null
+  minTradingDays?: number | null
+  maxTradingDays?: number | null
+  consistencyRulePct?: number | null
+}
+
+/**
+ * One phase's configuration as supplied by the client (create / updatePhases).
+ * Values in integer basis points. `profitTargetPct: null` = no target (funded).
+ */
+export interface CreateAccountPhaseInput {
+  phaseNumber: number
+  profitTargetPct: number | null
+  dailyDrawdownType: DrawdownType
+  dailyDrawdownValue: number
+  totalDrawdownType: DrawdownType
+  totalDrawdownValue: number
+  minTradingDays?: number | null
+  maxTradingDays?: number | null
+  consistencyRulePct?: number | null
 }
 
 export interface CreateAccountInput {
@@ -254,6 +311,7 @@ export interface CreateAccountInput {
   totalDrawdownType: DrawdownType
   totalDrawdownValue: number
   drawdownBasis: DrawdownBasis
+  /** ACTIVE phase's target in basis points. 0 = no target. */
   profitTargetPct: number
   minTradingDays?: number
   maxTradingDays?: number
@@ -263,6 +321,27 @@ export interface CreateAccountInput {
   challengeCostCents: number
   startDate: number
   notes?: string
+  /**
+   * Per-phase ladder (exactly stepCount entries, phaseNumber 1..n). Optional:
+   * when absent the handler synthesizes one phase per step from the single
+   * values above (same rule as the 0016 migration backfill).
+   */
+  phases?: CreateAccountPhaseInput[]
+}
+
+/** Input for `accounts:advancePhase`. */
+export interface AdvancePhaseInput {
+  accountId: string
+}
+
+/**
+ * Input for `accounts:updatePhases` — replaces the account's per-phase config.
+ * The array length becomes the account's stepCount; removed phases are
+ * soft-deleted; the active phase's values are re-denormalized onto the account.
+ */
+export interface UpdateAccountPhasesInput {
+  accountId: string
+  phases: CreateAccountPhaseInput[]
 }
 
 export interface UpdateAccountInput {
@@ -485,6 +564,8 @@ export interface Trade {
   // Two-phase logging: 0 = deferred reflection (Phase 2) still owed, 1 = captured.
   phase2Complete: number
   // Timestamps
+  /** When a planned trade was activated into an open position (null if never activated). */
+  openedAt: number | null
   createdAt: number
   updatedAt: number
   deletedAt: number | null
@@ -753,6 +834,7 @@ export interface DashboardStats {
   weekAdherence: WeekDayStats[]
   ddUsedBps: number
   totalPnlCents: number
+  advancedMetrics: AdvancedMetrics
 }
 
 // ─── Account Stats ────────────────────────────────────────────────────────────
@@ -1034,6 +1116,45 @@ export interface AccountsPhaseStats {
   insights: PatternInsight[]
 }
 
+// ── Advanced performance metrics (Sharpe/Sortino/drawdown/Kelly/SQN/etc.) ──
+// electron/services/analytics/advanced-metrics.ts is the source of truth for
+// how each of these is computed. Every metric follows the same contract:
+//   - `sufficient` gates on the metric's minimum sample size.
+//   - `value` is null whenever `sufficient` is false, and may independently
+//     be null when the sample is large enough but the ratio is
+//     mathematically undefined (e.g. zero variance, zero losses). Both cases
+//     render the same way in the UI ("—" + an explanatory tooltip).
+export interface MetricResult<T> {
+  value: T | null
+  sufficient: boolean
+}
+
+export interface DrawdownMetric {
+  peakToTroughCents: number // non-negative
+  pctOfPeakBps: number // % of (starting balance + peak-at-the-time), 0-10000
+  durationDays: number // peak date -> trough date, non-negative
+}
+
+export interface ExtremeTrade {
+  cents: number
+  r: number // R × 100
+}
+
+export interface AdvancedMetrics {
+  sharpeRatioX100: MetricResult<number> // annualized, ×100 (185 = 1.85)
+  sortinoRatioX100: MetricResult<number> // annualized, ×100
+  maxDrawdown: MetricResult<DrawdownMetric>
+  recoveryFactorX100: MetricResult<number> // net profit / max drawdown, ×100
+  kellyPctBps: MetricResult<number> // clamped to [-10000, 10000]
+  sqnX100: MetricResult<number> // System Quality Number, ×100
+  dayConsistencyBps: MetricResult<number> // 0-10000; higher = more evenly spread
+  largestWin: MetricResult<ExtremeTrade>
+  largestLoss: MetricResult<ExtremeTrade>
+  stddevRX100: MetricResult<number> // spread of R outcomes, always >= 0
+  avgHoldMinutesWinners: MetricResult<number>
+  avgHoldMinutesLosers: MetricResult<number>
+}
+
 // ── Derived analytics (Wave 2 item 2)
 export interface DowSummaryRow {
   dow: number // 0 = Sunday
@@ -1057,6 +1178,7 @@ export interface DerivedStats {
   dowSummary: DowSummaryRow[]
   timeOfDayHeatmap: HourDayCell[] // reuses existing type
   rDistribution: RDistributionBucket[] // reuses existing type
+  advancedMetrics: AdvancedMetrics
 }
 
 // ── Local insight engine (Wave 2 item 3)

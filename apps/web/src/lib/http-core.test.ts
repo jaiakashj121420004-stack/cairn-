@@ -52,18 +52,20 @@ describe('HttpCore.refresh coalescing', () => {
   it('sends the CSRF token on refresh and the new bearer on retry', async () => {
     const authHeaders: (string | null)[] = []
     let csrfOnRefresh: string | null = null
-    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-      const url = String(input)
-      const headers = new Headers(init?.headers)
-      if (url.endsWith('/auth/refresh')) {
-        csrfOnRefresh = headers.get('x-csrf-token')
-        return jsonResponse(200, { ok: true, data: { accessToken: 'newtoken' } })
-      }
-      authHeaders.push(headers.get('authorization'))
-      return authHeaders.length === 1
-        ? jsonResponse(401, { ok: false, error: { code: 'UNAUTHENTICATED', message: 'x' } })
-        : jsonResponse(200, { ok: true, data: { done: true } })
-    }) as unknown as FetchImpl
+    const fetchImpl = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        const url = String(input)
+        const headers = new Headers(init?.headers)
+        if (url.endsWith('/auth/refresh')) {
+          csrfOnRefresh = headers.get('x-csrf-token')
+          return jsonResponse(200, { ok: true, data: { accessToken: 'newtoken' } })
+        }
+        authHeaders.push(headers.get('authorization'))
+        return authHeaders.length === 1
+          ? jsonResponse(401, { ok: false, error: { code: 'UNAUTHENTICATED', message: 'x' } })
+          : jsonResponse(200, { ok: true, data: { done: true } })
+      },
+    ) as unknown as FetchImpl
 
     const core = new HttpCore({ baseUrl: BASE, fetchImpl, readCsrfToken: () => 'the-csrf' })
     core.setAccessToken('old')
@@ -79,7 +81,8 @@ describe('HttpCore.refresh coalescing', () => {
     const onAuthLost = vi.fn()
     const fetchImpl = vi.fn(async (input: RequestInfo | URL): Promise<Response> => {
       const url = String(input)
-      if (url.endsWith('/auth/refresh')) return jsonResponse(401, { ok: false, error: { code: 'INVALID_TOKEN', message: 'reuse' } })
+      if (url.endsWith('/auth/refresh'))
+        return jsonResponse(401, { ok: false, error: { code: 'INVALID_TOKEN', message: 'reuse' } })
       return jsonResponse(401, { ok: false, error: { code: 'UNAUTHENTICATED', message: 'x' } })
     }) as unknown as FetchImpl
 
@@ -114,7 +117,8 @@ describe('HttpCore.refresh coalescing', () => {
 
 describe('HttpCore.mapResponse', () => {
   it('maps a success envelope to ok(data)', async () => {
-    const fetchImpl = (async () => jsonResponse(200, { ok: true, data: { x: 1 } })) as unknown as FetchImpl
+    const fetchImpl = (async () =>
+      jsonResponse(200, { ok: true, data: { x: 1 } })) as unknown as FetchImpl
     const core = new HttpCore({ baseUrl: BASE, fetchImpl })
     const r = await core.call<{ x: number }>('GET', '/health')
     expect(r).toEqual({ ok: true, data: { x: 1 } })
@@ -122,7 +126,10 @@ describe('HttpCore.mapResponse', () => {
 
   it('maps an error envelope preserving the code', async () => {
     const fetchImpl = (async () =>
-      jsonResponse(400, { ok: false, error: { code: 'VALIDATION_FAILED', message: 'bad' } })) as unknown as FetchImpl
+      jsonResponse(400, {
+        ok: false,
+        error: { code: 'VALIDATION_FAILED', message: 'bad' },
+      })) as unknown as FetchImpl
     const core = new HttpCore({ baseUrl: BASE, fetchImpl })
     const r = await core.call('POST', '/vault/push', {})
     expect(r.ok).toBe(false)

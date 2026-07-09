@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
-import { scaleIn } from '../../../lib/motion'
+import { CheckCircle2 } from 'lucide-react'
+import { scaleIn, springBouncy } from '../../../lib/motion'
 import { OnboardingCard } from '../OnboardingCard'
 
 interface Props {
@@ -20,12 +21,20 @@ export function StepDone({ step, totalSteps, onFinish }: Props) {
     >
       <motion.div
         variants={scaleIn}
-        initial="hidden"
-        animate="visible"
+        initial="initial"
+        animate="animate"
+        transition={springBouncy}
         className="flex items-center justify-center py-4"
       >
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent-a/10">
-          <div className="h-8 w-8 rounded-full bg-accent-a" />
+        <div
+          className="flex h-16 w-16 items-center justify-center rounded-full"
+          style={{
+            background: 'hsl(var(--accent-a) / 0.12)',
+            border: '1px solid hsl(var(--accent-a) / 0.4)',
+            boxShadow: '0 0 30px hsl(var(--accent-a) / 0.35)',
+          }}
+        >
+          <CheckCircle2 className="h-8 w-8 text-accent-a" strokeWidth={2} />
         </div>
       </motion.div>
     </OnboardingCard>

@@ -18,6 +18,15 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | null>(null)
 
+const variantStyle: Record<ToastVariant, string> = {
+  success:
+    'border-accent-a/35 shadow-[0_8px_24px_rgba(0,0,0,0.45),0_0_20px_hsl(var(--accent-a)/0.14)]',
+  error: 'border-danger/35 shadow-[0_8px_24px_rgba(0,0,0,0.45),0_0_20px_hsl(var(--danger)/0.16)]',
+  warning:
+    'border-warning/35 shadow-[0_8px_24px_rgba(0,0,0,0.45),0_0_20px_hsl(var(--warning)/0.14)]',
+  info: 'border-info/35 shadow-[0_8px_24px_rgba(0,0,0,0.45),0_0_20px_hsl(var(--info)/0.14)]',
+}
+
 const variantIcon: Record<ToastVariant, React.FC<{ className?: string }>> = {
   success: ({ className }) => (
     <CheckCircle className={cn('h-4 w-4 shrink-0 text-accent-a', className)} strokeWidth={1.5} />
@@ -64,7 +73,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 animate="animate"
                 exit="exit"
                 transition={springDefault}
-                className="flex min-w-[280px] max-w-sm items-start gap-3 rounded-[10px] border border-border bg-surface-elevated px-4 py-3 shadow-lg"
+                className={cn(
+                  'flex min-w-[280px] max-w-sm items-start gap-3 rounded-[10px] border bg-surface-elevated px-4 py-3',
+                  variantStyle[t.variant],
+                )}
               >
                 <Icon />
                 <p className="flex-1 text-body-sm text-text-primary">{t.message}</p>

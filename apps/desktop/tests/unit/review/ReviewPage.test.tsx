@@ -152,6 +152,7 @@ const MOCK_ACCOUNT: Account = {
   peakEquityCents: 1_000_000,
   currentEquityCents: 1_000_000,
   notes: null,
+  phases: [],
   createdAt: 1700000000000,
   updatedAt: 1700000000000,
   deletedAt: null,

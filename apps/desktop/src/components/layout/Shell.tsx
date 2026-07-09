@@ -19,17 +19,20 @@ export function Shell() {
         aria-hidden="true"
       />
 
-      {/* ── Atmospheric depth — aurora mist + grain ── */}
+      {/* ── Atmospheric depth — HUD grid + aurora nebula + grain ── */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        {/* Aurora mist layer — soft drifting gradients */}
+        {/* Static HUD grid — ultra-subtle deep-space lattice */}
+        <div className="hud-grid absolute inset-0" />
+
+        {/* Aurora mist layer — soft drifting nebula gradients */}
         <div className="aurora-mist absolute inset-0" />
 
-        {/* Sharper accent orbs on top of mist */}
+        {/* Sharper neon accent orbs on top of mist */}
         <div
           className="absolute -left-24 -top-24 h-[640px] w-[640px] rounded-full"
           style={{
             background:
-              'radial-gradient(circle, hsl(74,74%,59%,0.10) 0%, hsl(74,74%,59%,0.02) 50%, transparent 75%)',
+              'radial-gradient(circle, hsl(188,86%,53%,0.1) 0%, hsl(188,86%,53%,0.02) 50%, transparent 75%)',
             filter: 'blur(56px)',
           }}
         />
@@ -37,14 +40,14 @@ export function Shell() {
           className="absolute -bottom-32 -right-20 h-[580px] w-[580px] rounded-full"
           style={{
             background:
-              'radial-gradient(circle, hsl(36,52%,57%,0.10) 0%, hsl(36,52%,57%,0.02) 50%, transparent 75%)',
+              'radial-gradient(circle, hsl(258,90%,66%,0.09) 0%, hsl(258,90%,66%,0.02) 50%, transparent 75%)',
             filter: 'blur(60px)',
           }}
         />
         <div
           className="absolute right-0 top-1/4 h-[420px] w-[420px] rounded-full"
           style={{
-            background: 'radial-gradient(circle, hsl(220,100%,71%,0.06) 0%, transparent 70%)',
+            background: 'radial-gradient(circle, hsl(213,94%,68%,0.06) 0%, transparent 70%)',
             filter: 'blur(64px)',
           }}
         />

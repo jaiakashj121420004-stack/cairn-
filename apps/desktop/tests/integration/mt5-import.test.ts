@@ -47,6 +47,9 @@ const MIGRATIONS = [
   '0011_sync',
   '0012_sync_merge',
   '0013_sync_clocks',
+  '0014_live_detection_outcome',
+  '0015_broker_account_map',
+  '0016_account_phases',
 ].map((t) => readFileSync(join(__dirname, `../../electron/db/migrations/${t}.sql`), 'utf-8'))
 
 const FIXTURE_HTML = readFileSync(join(__dirname, '../fixtures/mt5-statement.html'), 'utf-8')

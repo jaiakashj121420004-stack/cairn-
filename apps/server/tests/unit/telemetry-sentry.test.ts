@@ -16,9 +16,7 @@ describe('scrubEvent', () => {
       user: { id: 'u1', email: 'trader@example.com' },
       contexts: { device: { dataKey: 'rawkey', name: 'desktop' } },
       extra: { token: 'abc.def', note: 'fine' },
-      breadcrumbs: [
-        { category: 'http', data: { password: 'p', url: '/x' } } satisfies Breadcrumb,
-      ],
+      breadcrumbs: [{ category: 'http', data: { password: 'p', url: '/x' } } satisfies Breadcrumb],
     }
 
     const scrubbed = scrubEvent(event, HINT)

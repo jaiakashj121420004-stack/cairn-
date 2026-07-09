@@ -19,9 +19,9 @@ export function ProGate(): JSX.Element {
         <Heading sub={`Your plan: ${entitlement}`}>Cairn Pro is required on the web</Heading>
         <div className="space-y-4 text-sm text-white/70" data-testid="pro-gate">
           <p>
-            The web app and cloud sync are part of <strong className="text-white">Cairn Pro</strong>.
-            Your data is end-to-end encrypted — the server stores ciphertext only and can never read
-            it.
+            The web app and cloud sync are part of <strong className="text-white">Cairn Pro</strong>
+            . Your data is end-to-end encrypted — the server stores ciphertext only and can never
+            read it.
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-lg border border-border bg-black/20 p-3">

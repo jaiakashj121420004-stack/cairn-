@@ -9,6 +9,7 @@ import {
 } from '../time/trading-day'
 import { buildContext } from './context-builder'
 import { insertCooldown } from './cooldowns'
+import { parseRuleConfig } from './guardrail'
 import { listRules, getRule } from './registry'
 import { deriveSessionState } from './session-state'
 import {
@@ -30,7 +31,38 @@ const SEVERITY_RANK: Record<RuleEvaluation['severity'], number> = {
   info: 2,
 }
 
+/**
+ * Synthetic rule key for a persisted daily-loss circuit-breaker lock
+ * (`daily_locks`, migration 0017). Not a registered {@link Rule} — it is a
+ * system-level lock produced by {@link checkAndLockSession}, not a
+ * user-configurable account rule, so it is never listed by `rules:listAvailable`
+ * and never subject to per-account enable/disable.
+ */
+export const DAILY_LOCK_RULE_KEY = 'daily_loss_circuit_breaker'
+
 export function evaluateAll(ctx: RuleContext): RuleEvaluation[] {
+  // A persisted circuit-breaker lock for today is definitive: the trading day
+  // is over regardless of which account-rules are currently enabled or what a
+  // fresh sum of today's trades would say. Short-circuits everything else,
+  // exactly like a hard lock, and can never be overridden (§14 #13).
+  if (ctx.dailyLock) {
+    return [
+      {
+        ruleKey: DAILY_LOCK_RULE_KEY,
+        ruleLabel: 'Daily Loss Circuit Breaker',
+        passed: false,
+        severity: 'blocking',
+        message: `Trading is locked for the rest of today: ${ctx.dailyLock.reason}`,
+        canOverride: false,
+        contextSnapshot: {
+          trigger: 'daily_lock',
+          reason: ctx.dailyLock.reason,
+          lockedAt: ctx.dailyLock.createdAt,
+        },
+      },
+    ]
+  }
+
   const evaluations: RuleEvaluation[] = []
   const enabledByKey = new Map(ctx.accountRules.map((ar) => [ar.ruleKey, ar]))
 
@@ -81,15 +113,22 @@ function runRule(r: Rule, ctx: RuleContext, rawConfig: string): RuleEvaluation {
   }
 }
 
+/**
+ * Full pre-trade rule evaluation. Used both by the live pre-trade panel gate
+ * (no `tradeId` — the trade does not exist yet) and by draft activation
+ * (`trades:setOpen` passes the draft's `tradeId` so any recorded violation is
+ * linked to the trade being activated). One code path, one rule set.
+ */
 export function evaluatePreTrade(
   db: CairnDb,
   accountId: string,
   draft: DraftTrade,
   now?: number,
+  tradeId: string | null = null,
 ): RuleEvaluation[] {
   const ctx = buildContext(db, accountId, { draft, now })
   const evaluations = evaluateAll(ctx)
-  recordEvaluations(db, accountId, null, evaluations, 'blocked')
+  recordEvaluations(db, accountId, tradeId, evaluations, 'blocked')
   return evaluations
 }
 
@@ -158,16 +197,18 @@ export function onTradeClosed(db: CairnDb, tradeId: string, now?: number): void 
       )
       .get()
     if (cfgRow && cfgRow.enabled === 1) {
-      try {
-        const parsed = JSON.parse(cfgRow.value) as { minutes?: number }
+      const parsed = parseRuleConfig<{ minutes?: number }>(
+        cfgRow.value,
+        'cooldown_after_loss_minutes',
+        'onTradeClosed',
+      )
+      if (parsed) {
         const minutes = parsed.minutes ?? 30
         if (minutes > 0) {
           db.transaction(() => {
             insertCooldown(db, trade.accountId, 'post_loss', minutes * 60_000, ts)
           })
         }
-      } catch {
-        // malformed config — skip cooldown creation
       }
     }
   }
@@ -223,40 +264,70 @@ function checkAndLockSession(db: CairnDb, accountId: string, ts: number): void {
   if (lossCents === 0) return
 
   let shouldLock = false
+  let lockReason = 'daily loss limit reached'
 
   if (hasPct && pctCfg) {
-    try {
-      const cfg = JSON.parse(pctCfg.value) as { maxPct?: number }
-      if (cfg.maxPct && cfg.maxPct > 0) {
-        const account = db
-          .select()
-          .from(schema.accounts)
-          .where(eq(schema.accounts.id, accountId))
-          .get()
-        if (account) {
-          const limitCents = Math.floor((account.accountSizeCents * cfg.maxPct) / 10_000)
-          if (lossCents >= limitCents) shouldLock = true
+    const cfg = parseRuleConfig<{ maxPct?: number }>(
+      pctCfg.value,
+      'max_daily_loss_pct',
+      'checkAndLockSession',
+    )
+    if (cfg?.maxPct && cfg.maxPct > 0) {
+      const account = db
+        .select()
+        .from(schema.accounts)
+        .where(eq(schema.accounts.id, accountId))
+        .get()
+      if (account) {
+        const limitCents = Math.floor((account.accountSizeCents * cfg.maxPct) / 10_000)
+        if (lossCents >= limitCents) {
+          shouldLock = true
+          lockReason = `max daily loss % breached (${lossCents}¢ >= ${limitCents}¢ limit)`
         }
       }
-    } catch {
-      /* malformed config */
     }
   }
 
   if (!shouldLock && hasFixed && fixedCfg) {
-    try {
-      const cfg = JSON.parse(fixedCfg.value) as { maxLossCents?: number }
-      if (cfg.maxLossCents && cfg.maxLossCents > 0 && lossCents >= cfg.maxLossCents) {
-        shouldLock = true
-      }
-    } catch {
-      /* malformed config */
+    const cfg = parseRuleConfig<{ maxLossCents?: number }>(
+      fixedCfg.value,
+      'max_daily_loss_fixed',
+      'checkAndLockSession',
+    )
+    if (cfg?.maxLossCents && cfg.maxLossCents > 0 && lossCents >= cfg.maxLossCents) {
+      shouldLock = true
+      lockReason = `max daily loss $ breached (${lossCents}¢ >= ${cfg.maxLossCents}¢ limit)`
     }
   }
 
   if (!shouldLock) return
 
   const todayDateStr = tradingDayKey(ts, timeZone)
+
+  // Persist the lock of record independent of whether a `sessions` row exists
+  // (migration 0017 `daily_locks`) — `sessions.daily_bias` and its siblings are
+  // NOT NULL with no default, so a bare lock cannot always be expressed as a
+  // session row (the trader may never have logged today's bias). The rules
+  // engine consults this table on every subsequent pre-trade evaluation this
+  // trading day (context-builder.ts -> RuleContext.dailyLock,
+  // engine.ts#evaluateAll) and session-state.ts folds it into the
+  // session-locked UI state. onConflictDoNothing: the lock is a fact about the
+  // FIRST breach — a later trade close the same locked day must not move its
+  // reason/timestamp.
+  db.insert(schema.dailyLocks)
+    .values({
+      id: uuidv7(),
+      accountId,
+      tradingDay: todayDateStr,
+      reason: lockReason,
+      createdAt: ts,
+    })
+    .onConflictDoNothing({ target: [schema.dailyLocks.accountId, schema.dailyLocks.tradingDay] })
+    .run()
+
+  // Existing behavior, preserved: when a session row already exists for today
+  // and isn't locked yet, stamp it too (drives the Dashboard / SessionBiasModal
+  // "session locked" UI, which reads sessions.locked_at directly).
   const session = db
     .select()
     .from(schema.sessions)

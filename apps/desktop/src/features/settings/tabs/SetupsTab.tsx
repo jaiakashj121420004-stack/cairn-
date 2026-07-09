@@ -9,7 +9,8 @@ const BLANK: CreateSetupInput = {
   name: '',
   category: 'ICT',
   description: '',
-  color: '#D4A24C',
+  // Neon Cockpit HUD default swatch — matches --accent-b (violet).
+  color: '#8B5CF6',
 }
 
 export function SetupsTab() {

@@ -1,6 +1,15 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Card, ErrorText, Field, Heading, Input, MutedLink, Screen } from '@web/components/ui'
+import {
+  Button,
+  Card,
+  ErrorText,
+  Field,
+  Heading,
+  Input,
+  MutedLink,
+  Screen,
+} from '@web/components/ui'
 import { useSession } from '@web/lib/session'
 
 export function Login(): JSX.Element {
@@ -18,7 +27,10 @@ export function Login(): JSX.Element {
     const res = await login(email, password)
     setBusy(false)
     if (res.ok) void navigate('/')
-    else setError(res.error.code === 'INVALID_CREDENTIALS' ? 'Wrong email or password.' : res.error.message)
+    else
+      setError(
+        res.error.code === 'INVALID_CREDENTIALS' ? 'Wrong email or password.' : res.error.message,
+      )
   }
 
   return (

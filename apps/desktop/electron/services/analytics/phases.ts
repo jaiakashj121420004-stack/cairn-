@@ -57,9 +57,12 @@ export function getPhaseTrend(db: CairnDb): PhaseTrendPoint[] {
     .select({
       month: sql<string>`strftime('%Y-%m', ${accounts.startDate}/1000, 'unixepoch')`,
       total: sql<number>`COUNT(*)`,
-      phase1Passed: sql<number>`SUM(CASE WHEN ${accounts.currentPhase} >= 2 OR ${accounts.status} = 'funded' THEN 1 ELSE 0 END)`,
-      phase2Passed: sql<number>`SUM(CASE WHEN ${accounts.status} = 'funded' THEN 1 ELSE 0 END)`,
-      funded: sql<number>`SUM(CASE WHEN ${accounts.status} = 'funded' THEN 1 ELSE 0 END)`,
+      // The status enum is active|passed|failed|paused|retired — 'passed' is the
+      // "completed the ladder / funded" terminal state. The previous comparison
+      // against a nonexistent 'funded' status made every pass rate 0.
+      phase1Passed: sql<number>`SUM(CASE WHEN ${accounts.currentPhase} >= 2 OR ${accounts.status} = 'passed' THEN 1 ELSE 0 END)`,
+      phase2Passed: sql<number>`SUM(CASE WHEN ${accounts.currentPhase} >= 3 OR ${accounts.status} = 'passed' THEN 1 ELSE 0 END)`,
+      funded: sql<number>`SUM(CASE WHEN ${accounts.status} = 'passed' THEN 1 ELSE 0 END)`,
     })
     .from(accounts)
     .where(isNull(accounts.deletedAt))

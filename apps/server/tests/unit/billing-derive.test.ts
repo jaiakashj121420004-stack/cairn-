@@ -32,7 +32,9 @@ describe('deriveSubscription', () => {
   })
 
   it('active grants pro regardless of a passed period end (rolls until a webhook says otherwise)', () => {
-    expect(deriveSubscription(row({ status: 'active', currentPeriodEnd: past }), NOW)).toMatchObject({
+    expect(
+      deriveSubscription(row({ status: 'active', currentPeriodEnd: past }), NOW),
+    ).toMatchObject({
       plan: 'pro',
       state: 'active',
     })
@@ -48,9 +50,10 @@ describe('deriveSubscription', () => {
   })
 
   it('past_due keeps pro through the grace window, then decays to free', () => {
-    expect(
-      deriveSubscription(row({ status: 'past_due', graceUntil: future }), NOW),
-    ).toMatchObject({ plan: 'pro', state: 'past_due' })
+    expect(deriveSubscription(row({ status: 'past_due', graceUntil: future }), NOW)).toMatchObject({
+      plan: 'pro',
+      state: 'past_due',
+    })
     expect(deriveSubscription(row({ status: 'past_due', graceUntil: past }), NOW)).toMatchObject({
       plan: 'free',
       entitlement: 'free',

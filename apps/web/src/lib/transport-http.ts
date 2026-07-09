@@ -28,7 +28,8 @@ import { WebVault } from './web-vault'
  *    numbers — honesty over a fake green (CLAUDE.md §2.12).
  */
 
-const API_ORIGIN = (import.meta.env['VITE_API_ORIGIN'] as string | undefined) ?? 'http://localhost:8787'
+const API_ORIGIN =
+  (import.meta.env['VITE_API_ORIGIN'] as string | undefined) ?? 'http://localhost:8787'
 
 export const core = new HttpCore({
   baseUrl: API_ORIGIN,
@@ -61,7 +62,10 @@ async function route(name: keyof Procedures & string, input: unknown): Promise<R
       return ok('pong')
 
     case 'vault:status': {
-      const status: VaultStatus = { unlocked: vault.isUnlocked(), needsPassword: !vault.isUnlocked() }
+      const status: VaultStatus = {
+        unlocked: vault.isUnlocked(),
+        needsPassword: !vault.isUnlocked(),
+      }
       return ok(status)
     }
     case 'vault:unlock': {

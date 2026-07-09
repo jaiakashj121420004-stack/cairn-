@@ -9,7 +9,8 @@ const BLANK: CreateKillzoneInput = {
   name: '',
   startTimeUtc: '00:00',
   endTimeUtc: '05:00',
-  color: '#6B9FFF',
+  // Neon Cockpit HUD default swatch — matches --info (electric cyan).
+  color: '#22D3EE',
 }
 
 export function KillzonesTab() {

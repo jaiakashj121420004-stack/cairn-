@@ -5,6 +5,7 @@ import { SyncToasts } from './features/auth/SyncToasts'
 import { SyncUpgradePrompt } from './features/auth/SyncUpgradePrompt'
 import { OnboardingFlow } from './features/onboarding/OnboardingFlow'
 import { ConflictResolver } from './features/sync/ConflictResolver'
+import { GuardrailBanner } from './features/system/GuardrailBanner'
 import { ipc } from './lib/ipc'
 import { Router } from './router'
 
@@ -38,6 +39,7 @@ export default function App() {
           <>
             <Router />
             <ConflictResolver />
+            <GuardrailBanner />
           </>
         )}
       </ToastProvider>
