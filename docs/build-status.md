@@ -254,6 +254,42 @@ been exercised on a real tag (would currently produce unsigned artifacts). Five 
 not re-run for this change (no application code paths touched — config/docs/workflow
 only).
 
+## Functional round + Neon HUD (2026-07-09) — COMMITTED `c87d209` on `feat/rules-engine`
+
+This round's work (previously uncommitted across the parallel-agent build) was verified and committed on **2026-07-10** as **`c87d209`** (156 files, +12837 −728), and the installer `Cairn Setup 0.2.0.exe` was rebuilt.
+
+**Feature work landed:**
+- **Per-phase prop-firm accounts** — migration 0016 `account_phases` (+per-account backfill), `accounts:advancePhase` / `accounts:updatePhases` IPC, per-phase onboarding (shared `PhaseRulesFields`), AccountsPage per-phase edit/advance/add-remove, `'funded'`→`'passed'` fix. Denormalization contract: the single account columns mirror the ACTIVE phase, so the rules engine keeps reading the account row unchanged.
+- **Draft-trade lifecycle fixes (D1–D8)** — drafts (status `planned`) excluded from daily-trade limit / dup-guard / dashboard count; Save-draft in fast mode; `trades:setOpen` re-runs the full rules gate on activation and re-links the draft to today's session; `openedAt` exposed.
+- **Advanced metrics** — `electron/services/analytics/advanced-metrics.ts` (decimal.js: Sharpe, Sortino, max drawdown, recovery factor, Kelly, SQN, day-consistency, hold times) on the Dashboard grid + Metrics tab via shared `advanced-metrics-display.ts`.
+- **Guardrail hardening** — `guardrail.ts` sink + `guardrail.degraded` event + `GuardrailBanner`; migration 0017 `daily_locks` (persisted circuit-breaker lock that works with no `sessions` row — the honesty boundary §2.3 forbids fabricating a bias just to hold a lock); hard-lock rules fail CLOSED on invalid config; broker `resolveAccount` falls back to a system "Unclassified" setup; `broker:diagnostics` IPC + Connection-health card.
+- **Neon Cockpit HUD v2.1** — `docs/design-system.md` v2.1 section, CLAUDE.md §14 #10 amendment (glassmorphism override → neon cockpit HUD), dev gallery, consistency fixes.
+
+**Gate-fix pass (2026-07-10) — the parallel-agent edits left the gates red; fixed here (part of `c87d209`):**
+- **Test-DB migration lists lagged the journal (the "0003-omission class").** `0017_daily_locks.sql` was correctly listed in `meta/_journal.json` (production applies it), but several tests build their sql.js DB from *hardcoded* migration arrays that stopped at 0016 (analytics `_fixtures.ts` was even further behind, at 0013), so `daily_locks` never existed in those DBs → `no such table: daily_locks` in `draft-activation`, `performance`, and a mismatch in the `migrations.test` guard. Fixed by adding `0017_daily_locks` to `draft-activation.test.ts`, `tests/unit/analytics/_fixtures.ts`, and the `migrations.test.ts` expected array. **Known debt:** ~13 other test files carry the same hardcoded lists but pass today (they never query `daily_locks`) — the durable fix is a shared journal-driven test-DB helper (like `migrations.test`'s `orderedTags()`) instead of copies, so this omission class can't recur.
+- **Typecheck (3)** — `accounts.ts`: `denormFromPhase` return type `Partial<insert>` → concrete `Pick<...>` (so `dailyDrawdownType` reads as required at the insert), and its optional params widened to accept `undefined` under `exactOptionalPropertyTypes`. `context-builder.ts`: the raw `schema.accounts` row lacks the new `phases` field, and the rules engine only reads the denormalized columns, so it casts the row (`account as unknown as Account`).
+- **Lint (4)** — import order (`trades.ts`, `GuardrailBanner.tsx`), `consistent-return` (`PhaseRulesFields.tsx`), unused var (`advanced-metrics.test.ts`).
+- **Prettier** — `prettier --write` across the previously-unformatted tree (the bulk of the 156-file commit).
+
+**Five desktop gates — GREEN on the Windows host (`run-host-gates.ps1`, 2026-07-10):**
+
+| Gate | Status |
+|---|---|
+| `pnpm typecheck` | PASS |
+| `pnpm lint` (`--max-warnings 0`) | PASS |
+| `pnpm test:unit` | PASS (108/109 files; the Electron-dependent `ctrader-oauth` suite needed the host fix below) |
+| `pnpm build` | PASS |
+| `pnpm test:e2e` (smoke) | PASS |
+
+**Backend gates still RED — environment, not code.** `postgres up + host-side reachable`, `@cairn/server run test` (7 suites, all `ECONNREFUSED …:15432`), and `docs routes smoke` fail because Windows WinNAT/Hyper-V reserves every candidate Postgres port (all `OS-excluded`), so Docker can't bind. Fix from an **elevated** shell: `net stop winnat; netsh int ipv4 set dynamicport tcp start=49152 num=16384; net start winnat`, then restart Docker Desktop. These are the deferred v2.0 backend (server go-live intentionally deferred).
+
+**Host-environment gotchas hit this round (documented so they don't recur):**
+- **Electron binary install.** After a fresh `pnpm install`, `test:unit` (`ctrader-oauth`) + `test:e2e` fail with "Electron failed to install correctly". NOT the skip flag (`ELECTRON_SKIP_BINARY_DOWNLOAD` confirmed unset in env / npm / pnpm / `~/.npmrc`). Root cause (via `$env:DEBUG="@electron/get:*"`): `@electron/get` downloads + caches the zip fine, but electron's `install.js` silently does not extract it, so `node_modules/electron/path.txt` and `dist/` are never written. A pre-existing corrupt cached zip also causes a false "Cache hit". **Fix:** purge `%LOCALAPPDATA%\electron\Cache`, `pnpm install` (recreates the symlink), `node .\node_modules\electron\install.js` (re-downloads), then manually `tar -xf <cached zip> -C <pkg>\dist` and `Set-Content <pkg>\path.txt "electron.exe"`. Electron pinned at 33.4.11.
+
+**Installer:** `apps/desktop/dist/Cairn Setup 0.2.0.exe` rebuilt 2026-07-10 (unsigned — signing inert until certs exist; SmartScreen "unrecognized app" is expected).
+
+**Next:** MT5 on-chart pre-trade gate (`plan.md`). Open follow-ups: web `/auth/me` session-restore fix, broader E2E journeys, first-run demo mode, web read-only dashboard, release-workflow dry-run tag, and the shared journal-driven test-DB helper noted above.
+
 ---
 
 ## Neon HUD redesign (2026-07-09)
