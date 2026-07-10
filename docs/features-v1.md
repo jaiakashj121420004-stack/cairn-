@@ -1,5 +1,10 @@
 > Split from CLAUDE.md — Section 7: V1 FEATURES — FULL SPEC
 
+> **Design note (2026-07-10):** where this spec says "JetBrains Mono" (numbers) or "Inter", read
+> the current fonts — **IBM Plex Mono** for figures, **Spectral** for body, **Fraunces** for
+> display — per Nvexis "The Almanac" (`docs/design-system.md § v3.0`, `DESIGN-GUIDELINES.md`).
+> Behaviour/feature specs below are unchanged.
+
 ## 7. V1 FEATURES — FULL SPEC
 
 ### 7.1 Onboarding (First Launch)

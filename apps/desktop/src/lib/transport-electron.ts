@@ -155,6 +155,8 @@ const dispatch: Dispatch = {
 
   'broker:status': () => window.api.broker.status(),
   'broker:getMt5Config': () => window.api.broker.getMt5Config(),
+  'broker:installMt5Ea': () => window.api.broker.installMt5Ea(),
+  'broker:revealMt5Experts': (input) => window.api.broker.revealMt5Experts(input.path),
   'broker:getCtraderConfig': () => window.api.broker.getCtraderConfig(),
   'broker:ctraderConnect': () => window.api.broker.ctraderConnect(),
   'broker:ctraderDisconnect': () => window.api.broker.ctraderDisconnect(),

@@ -94,7 +94,7 @@ export function DisciplineRing({ score, window: win, ruleBreakdown, shake = fals
     <motion.div
       variants={shakeVariants}
       animate={shake ? 'shake' : 'idle'}
-      className="summit-halo relative flex flex-col items-center"
+      className="relative flex flex-col items-center"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -177,7 +177,7 @@ export function DisciplineRing({ score, window: win, ruleBreakdown, shake = fals
           dominantBaseline="middle"
           fontSize={38}
           fontWeight={700}
-          fontFamily="'JetBrains Mono', monospace"
+          fontFamily="'IBM Plex Mono', monospace"
           fill="hsl(var(--text-primary))"
         >
           {displayScore}
@@ -190,8 +190,8 @@ export function DisciplineRing({ score, window: win, ruleBreakdown, shake = fals
           fontSize={11}
           fontWeight={500}
           fill={color}
-          fontFamily="Inter, sans-serif"
-          letterSpacing="0.05em"
+          fontFamily="'IBM Plex Mono', monospace"
+          letterSpacing="0.22em"
         >
           {tierLabel(score).toUpperCase()}
         </text>
@@ -202,7 +202,7 @@ export function DisciplineRing({ score, window: win, ruleBreakdown, shake = fals
           dominantBaseline="middle"
           fontSize={10}
           fill="hsl(var(--text-muted))"
-          fontFamily="Inter, sans-serif"
+          fontFamily="'Spectral', Georgia, serif"
         >
           last {win} trades
         </text>

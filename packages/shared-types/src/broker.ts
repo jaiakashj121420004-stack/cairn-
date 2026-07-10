@@ -159,6 +159,25 @@ export interface Mt5BridgeConfig {
   readonly expertsHint: string
 }
 
+/**
+ * Outcome of the one-click "Install Cairn EA" action (`broker:installMt5Ea`).
+ *
+ * The bundled `CairnBridge.mq5` (plus its compiled `CairnBridge.ex5` when a build
+ * ships one) is copied into every discovered `MQL5/Experts` folder. Partial
+ * success is reported field-by-field — a per-folder copy failure never throws and
+ * never aborts the other folders. The action only fails outright when it cannot
+ * start at all (bundled EA missing, or no terminal detected), surfaced as a
+ * `Result` error before this shape is ever produced.
+ */
+export interface Mt5EaInstallResult {
+  /** Experts folders the EA was successfully copied into. */
+  readonly installedPaths: readonly string[]
+  /** Folders that could not be written, each with the failure reason. */
+  readonly failures: readonly { readonly path: string; readonly error: string }[]
+  /** Filenames copied into each folder (e.g. `CairnBridge.mq5`, `CairnBridge.ex5`). */
+  readonly copiedFiles: readonly string[]
+}
+
 // ── cTrader Open API (docs/broker-integration.md §2.2) ──────────────────────────
 //
 // Unlike the on-device MT5 bridge, cTrader is a cloud transport: execution events

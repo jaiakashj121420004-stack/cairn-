@@ -12,17 +12,17 @@ const SESSION_CONFIG: Record<SessionState, { label: string; dotClass: string; pu
   idle: { label: 'Idle', dotClass: 'bg-text-muted/60', pulse: false },
   active: {
     label: 'Session Active',
-    dotClass: 'bg-accent-a shadow-[0_0_8px_hsl(var(--accent-a)/0.75)]',
+    dotClass: 'bg-accent-a',
     pulse: true,
   },
   paused: {
     label: 'Paused',
-    dotClass: 'bg-warning shadow-[0_0_8px_hsl(var(--warning)/0.7)]',
+    dotClass: 'bg-warning',
     pulse: false,
   },
   locked: {
     label: 'Session Locked',
-    dotClass: 'bg-danger shadow-[0_0_8px_hsl(var(--danger)/0.75)]',
+    dotClass: 'bg-danger',
     pulse: false,
   },
 }
@@ -66,9 +66,7 @@ export function TopBar() {
     <header
       className="flex h-11 shrink-0 items-center justify-between px-4"
       style={{
-        background: 'var(--glass-sidebar-bg)',
-        backdropFilter: 'blur(20px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+        background: 'hsl(var(--surface))',
         borderBottom: '1px solid var(--glass-border)',
       }}
     >
@@ -79,8 +77,8 @@ export function TopBar() {
           onClick={() => setAccountOpen((o) => !o)}
           className={cn(
             'flex items-center gap-2 rounded-[8px] px-2.5 py-1.5 transition-colors duration-150',
-            'hover:bg-white/[0.06] text-text-secondary hover:text-text-primary',
-            accountOpen && 'bg-white/[0.06] text-text-primary',
+            'hover:bg-[hsl(var(--ink)/0.06)] text-text-secondary hover:text-text-primary',
+            accountOpen && 'bg-[hsl(var(--ink)/0.06)] text-text-primary',
           )}
         >
           <Wallet className="h-3.5 w-3.5 text-text-muted" strokeWidth={1.5} />
@@ -100,11 +98,9 @@ export function TopBar() {
           <div
             className="absolute top-full left-0 z-50 mt-1.5 w-64 rounded-[10px] p-2"
             style={{
-              background: 'var(--glass-modal-bg)',
-              backdropFilter: 'blur(24px) saturate(200%)',
-              WebkitBackdropFilter: 'blur(24px) saturate(200%)',
-              border: '1px solid var(--glass-border)',
-              boxShadow: '0 12px 40px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.20)',
+              background: 'hsl(var(--surface))',
+              border: '1px solid hsl(var(--border-strong))',
+              boxShadow: '0 8px 28px hsl(0 0% 0% / 0.22)',
             }}
           >
             {accounts.length === 0 ? (
@@ -128,7 +124,7 @@ export function TopBar() {
                       setSelectedAccountId(a.id)
                       setAccountOpen(false)
                     }}
-                    className="flex w-full items-center justify-between rounded-[8px] px-2.5 py-1.5 text-left transition-colors hover:bg-white/[0.06]"
+                    className="flex w-full items-center justify-between rounded-[8px] px-2.5 py-1.5 text-left transition-colors hover:bg-[hsl(var(--ink)/0.06)]"
                   >
                     <div>
                       <p className="text-body-sm font-medium text-text-primary">{a.displayName}</p>

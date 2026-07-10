@@ -89,6 +89,7 @@ import type {
   BrokerKind,
   BrokerStatus,
   Mt5BridgeConfig,
+  Mt5EaInstallResult,
   CtraderEnvironment,
   CtraderRuntimeConfig,
   UnmappedBrokerAccount,
@@ -297,6 +298,8 @@ declare global {
       broker: {
         status: () => Promise<IpcResponse<BrokerStatus>>
         getMt5Config: () => Promise<IpcResponse<Mt5BridgeConfig>>
+        installMt5Ea: () => Promise<IpcResponse<Mt5EaInstallResult>>
+        revealMt5Experts: (path: string) => Promise<IpcResponse<void>>
         getCtraderConfig: () => Promise<IpcResponse<CtraderRuntimeConfig>>
         ctraderConnect: () => Promise<IpcResponse<void>>
         ctraderDisconnect: () => Promise<IpcResponse<void>>
@@ -628,6 +631,10 @@ export const ipc = {
     status: (): Promise<IpcResponse<BrokerStatus>> => transport.call('broker:status', undefined),
     getMt5Config: (): Promise<IpcResponse<Mt5BridgeConfig>> =>
       transport.call('broker:getMt5Config', undefined),
+    installMt5Ea: (): Promise<IpcResponse<Mt5EaInstallResult>> =>
+      transport.call('broker:installMt5Ea', undefined),
+    revealMt5Experts: (path: string): Promise<IpcResponse<void>> =>
+      transport.call('broker:revealMt5Experts', { path }),
     getCtraderConfig: (): Promise<IpcResponse<CtraderRuntimeConfig>> =>
       transport.call('broker:getCtraderConfig', undefined),
     ctraderConnect: (): Promise<IpcResponse<void>> =>

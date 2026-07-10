@@ -192,11 +192,9 @@ export function CommandPalette() {
             transition={respectReducedMotion(springDefault)}
             className="fixed left-1/2 top-[18%] z-[61] w-full max-w-[560px] -translate-x-1/2 overflow-hidden rounded-[14px]"
             style={{
-              background: 'var(--glass-modal-bg)',
-              backdropFilter: 'blur(28px) saturate(200%)',
-              WebkitBackdropFilter: 'blur(28px) saturate(200%)',
-              border: '1px solid var(--glass-border)',
-              boxShadow: '0 24px 64px rgba(0,0,0,0.45), 0 8px 24px rgba(0,0,0,0.25)',
+              background: 'hsl(var(--surface))',
+              border: '1px solid hsl(var(--border-strong))',
+              boxShadow: '0 16px 40px hsl(0 0% 0% / 0.24)',
             }}
           >
             {/* Search input */}
@@ -253,7 +251,7 @@ export function CommandPalette() {
                       'flex cursor-pointer items-center justify-between px-4 py-2.5 transition-colors',
                       i === safeIndex
                         ? 'bg-accent-a/10 text-accent-a'
-                        : 'text-text-primary hover:bg-white/[0.04]',
+                        : 'text-text-primary hover:bg-[hsl(var(--ink)/0.04)]',
                     )}
                   >
                     <span className="text-body-sm">{cmd.label}</span>

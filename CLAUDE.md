@@ -77,7 +77,7 @@ The user will add v2 features (broker adapters), v2.0 cloud sync, and future sub
 The trader should trade **through** Cairn — lot size calculator, rule-checker, target validator — not log in Cairn **after** trading elsewhere.
 
 ### 2.8 Aesthetic is Functional
-Good design is a feature, not a polish layer. A calm, beautiful, deliberate UI reinforces the discipline the app is teaching. Cairn uses a **glassmorphism + depth** design language: frosted glass surfaces, layered depth, subtle glow accents, and smooth physics-based animations. A cluttered or flat UI undermines the discipline the app is teaching.
+Good design is a feature, not a polish layer. A calm, beautiful, deliberate UI reinforces the discipline the app is teaching. **As of 2026-07-10 Cairn's visual language is Nvexis "The Almanac"** (brand bible: `DESIGN-GUIDELINES.md`; app spec: `docs/design-system.md § v3.0`): two inks on aged paper — **oxblood on parchment**, set in Fraunces/Spectral/IBM Plex Mono on a disciplined editorial grid. It is **flat**: no neon, glass, gradients, glow, or blur — character comes from the type and the rules (hairlines, masthead double-rules, oxblood eyebrows, folios). **Day (parchment) is the default; Night (ink) is its pair.** P&L follows the ledger convention (gains = ink "in the black", losses = signal red, brand/emphasis = oxblood). *(This supersedes the earlier glassmorphism and v2.1 Neon Cockpit HUD directions, retained in `docs/design-system.md` for history.)*
 
 ### 2.9 Never Mention Specific Prop Firms in UI
 The app is prop-firm-agnostic. Prop firms are configured as generic "firms" with configurable rule sets. No firm name is hardcoded or referenced in user-visible text.
@@ -152,7 +152,7 @@ The codebase is designed from day one so that turning subscriptions on is a conf
 | Crypto (client) | libsodium-wrappers / @stablelib | Argon2id KDF + XChaCha20-Poly1305 AEAD |
 | OS keychain | keytar | Cache unwrapped data key at rest |
 | Icons | Lucide React | Clean, consistent |
-| Fonts | Inter (UI), JetBrains Mono (numbers) | Pro-trader convention for numbers |
+| Fonts | Fraunces (display), Spectral (body), IBM Plex Mono (numbers) | Nvexis "The Almanac" — serif signature; mono for every figure |
 | Packaging | electron-builder | NSIS installer, DMG, AppImage, signed + notarized |
 
 #### 3.1b Backend API (v2.0 — NEW)
@@ -213,7 +213,7 @@ cairn/
 ├── CLAUDE.md
 ├── docs/
 │   ├── philosophy.md
-│   ├── design-system.md          # v1.1: glassmorphism design language
+│   ├── design-system.md          # v3.0: Nvexis "The Almanac" (oxblood on parchment); see DESIGN-GUIDELINES.md
 │   ├── data-model.md             # v1.1: leverage, partial close, screenshot
 │   ├── features-v1.md            # v1.1: risk calculator, draft activation, pairs list
 │   ├── features-v2.md
@@ -334,7 +334,7 @@ Load sub-files only as needed. Each is self-contained. Files marked **[v1.1 upda
 | File | Contents |
 |---|---|
 | `docs/philosophy.md` | §1 full text — why Cairn exists, design philosophy, three jobs, voice & tone. |
-| `docs/design-system.md` | Colors, typography, spacing, motion, component aesthetics, Discipline Ring. **[v1.1 updated]** — glassmorphism design language, dark/light palettes, text contrast requirements, animation spec. |
+| `docs/design-system.md` | Colors, typography, spacing, motion, component aesthetics, Discipline Ring. **[v3.0 — 2026-07-10]** — Nvexis "The Almanac": oxblood-on-parchment, Fraunces/Spectral/IBM Plex Mono, flat paper (no neon/glass/glow), Day default + Night, ledger P&L convention, responsive-modal law. Brand bible: `DESIGN-GUIDELINES.md`. Earlier glassmorphism + v2.1 Neon HUD retained for history. |
 | `docs/data-model.md` | All SQLite tables, columns, types, indexes, migration strategy, seed data. **[v1.1 updated]** — leverage column, partial_closes table, screenshot_path column, trade duration fix. **[v2.0]** — sync columns (UUIDv7, updated_at, deleted_at, device_id, version, dirty), vault_meta, sync_queue tables. |
 | `docs/rules-engine.md` | Rule/RuleContext/RuleEvaluation interfaces, all built-in rules, evaluation flow, cooldown system, override system, hard locks, session lock state. **[v1.1 updated]** — daily trade limit, max daily loss circuit breaker. |
 | `docs/features-v1.md` | Full feature specs: onboarding, dashboard, session bias, new trade panel, post-trade log, trade log, accounts, settings, playbook. **[v1.1 updated]** — risk calculator, draft activation, partial close, screenshot, win/loss streak, keyboard shortcuts, PDF export, trade duration fix. |
@@ -377,8 +377,8 @@ The following decisions are **locked** and should not be revisited without expli
 7. No user-history references in UI (founding document context only).
 8. App name: **Cairn**.
 9. Attribution: "Designed & built by Jai Akash" in sidebar bottom-left, nowhere else.
-10. **Design language: Neon Cockpit HUD** — dark "deep-space cockpit" (default) / light "daylight cockpit". _Amended 2026-07-09: user-approved override of the original "Glassmorphism dark / Glassmorphism light, zero purple/cyan" decision._ The purple/cyan ban is **lifted** — electric cyan (`--info`/`--primary`/`--ring`) is the primary/active brand hue and violet (`--accent-b`) is the secondary accent; profit/clean = neon green (`--accent-a`), loss/violation = rose (`--danger`), caution = amber (`--warning`). Numbers stay JetBrains Mono and WCAG-AA legible — the design is loud, the data stays calm. Token names were preserved so the whole app re-skinned through the token layer. Full spec + token table: `docs/design-system.md` § "v2.1 Neon Cockpit HUD (2026-07-09)".
-11. Fonts: Inter + JetBrains Mono.
+10. **Design language: Nvexis "The Almanac"** — **Day (parchment) default / Night (ink) available**. _Amended 2026-07-10: user-directed adoption of the Nvexis brand bible (`DESIGN-GUIDELINES.md`), superseding the 2026-07-09 Neon Cockpit HUD, which had itself overridden the original glassmorphism decision._ Two inks on aged paper — **oxblood (`--info`/`--primary`/`--ring`/`--ox`) on parchment**; flat editorial paper with **no neon, glass, gradient, glow, or blur**. Ledger P&L semantics: gains/clean = ink (`--accent-a`, "in the black"), loss/violation = signal red (`--danger`), caution = gilt (`--warning`), secondary data = umber (`--accent-b`). Numbers stay mono (IBM Plex Mono) and WCAG-AA legible. Token names were preserved so the whole app re-skinned through the token layer. Full spec + token table: `docs/design-system.md` § "v3.0 Nvexis 'The Almanac' (2026-07-10)".
+11. Fonts: Fraunces (display) + Spectral (body) + IBM Plex Mono (numbers). _(Amended 2026-07-10; was Inter + JetBrains Mono.)_
 12. v1 feature scope as listed in §7 (plus v1.1 additions in §17). v2 additions in §11. v2.0 cloud/sync/billing scope in §18.
 13. Rule-gating is blocking by default; overrides require typed acknowledgment; hard locks cannot be overridden.
 14. Prevention over detection is the app's north star.
@@ -437,7 +437,7 @@ Moved to [`docs/end-state.md`](docs/end-state.md). Contains the full "v1.1 done"
 
 Shipped in v1.1. Full detail in the `## v1.1 Additions` section at the bottom of each relevant doc file.
 
-- **Design:** glassmorphism design language across all surfaces (`docs/design-system.md § v1.1`); WCAG-AA text contrast; Framer Motion animations on card/modal/state transitions.
+- **Design:** Nvexis "The Almanac" visual language across all surfaces (`docs/design-system.md § v3.0`, brand bible `DESIGN-GUIDELINES.md`) — oxblood on parchment, Fraunces/Spectral/IBM Plex Mono, flat paper, Day default + Night; WCAG-AA text contrast; responsive modals (cap to viewport + scroll body); Framer Motion retained but flourishes de-glowed. *(Supersedes the earlier glassmorphism and v2.1 Neon Cockpit HUD.)*
 - **Bug fixes:** discipline score updates in real time after each trade; dashboard account card shows current balance; P&L uses actual exit × lot × pip value × leverage; trade duration shows correct elapsed time.
 - **New features:** risk calculator (risk $/% → auto lot size); per-account leverage used in all math; draft activation from trade log; partial close (% + partial exit); optional screenshot attachment; 19-instrument default pairs; daily-trade-limit rule; max-daily-loss circuit breaker; R-target alerts; win/loss streak on dashboard; PDF trade-review export; configurable keyboard shortcuts; timezone setting (default America/New_York). See `docs/features-v1.md`, `docs/rules-engine.md`, `docs/customization.md` (§ v1.1 each).
 

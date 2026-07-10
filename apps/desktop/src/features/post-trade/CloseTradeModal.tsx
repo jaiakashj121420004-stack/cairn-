@@ -950,7 +950,7 @@ export function CloseTradeModal({ open, trade, onClose, onClosed }: Props) {
                         alt={`Screenshot ${i + 1}`}
                         className="w-full h-28 object-cover"
                       />
-                      <div className="absolute inset-x-0 bottom-0 bg-background/80 backdrop-blur-sm p-2 flex items-center gap-2">
+                      <div className="absolute inset-x-0 bottom-0 bg-background/90 p-2 flex items-center gap-2">
                         <select
                           value={ss.kind}
                           onChange={(e) => {

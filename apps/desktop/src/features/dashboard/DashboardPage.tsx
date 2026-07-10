@@ -125,9 +125,9 @@ interface StatCardProps {
   value: string
   sub?: string | undefined
   subPositive?: boolean | undefined
-  colorVar: string // e.g. 'hsl(var(--accent-a))'
-  colorHsl: string // valid CSS hsl e.g. 'hsl(158,64%,52%)' — for SVG stroke/fill
-  colorRgb: string // RGB triplet e.g. '52,211,153' — for rgba() in style props
+  colorVar: string // token var, e.g. 'hsl(var(--accent-a))'
+  colorHsl: string // token var used for SVG stroke/fill + card top-rule
+  colorRgb: string // deprecated (Almanac uses color-mix on colorHsl); kept for call-site compat
   icon: React.ElementType
   sparkData?: number[] | undefined
   delay?: number | undefined
@@ -140,7 +140,6 @@ function StatCard({
   sub,
   subPositive,
   colorHsl,
-  colorRgb,
   icon: Icon,
   sparkData,
   delay = 0,
@@ -151,32 +150,13 @@ function StatCard({
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.36, ease: [0.22, 1, 0.36, 1], delay }}
-      className={cn('relative overflow-hidden rounded-[18px] flex flex-col', className)}
+      className={cn('relative overflow-hidden rounded-[4px] flex flex-col', className)}
       style={{
-        background:
-          'linear-gradient(160deg, rgba(160,200,255,0.05) 0%, rgba(160,200,255,0.018) 100%)',
-        backdropFilter: 'blur(24px) saturate(200%)',
-        WebkitBackdropFilter: 'blur(24px) saturate(200%)',
-        border: `1px solid rgba(${colorRgb},0.32)`,
-        boxShadow: `inset 0 1px 0 rgba(180,220,255,0.08), 0 0 30px rgba(${colorRgb},0.13), 0 8px 32px rgba(0,0,0,0.45)`,
+        background: 'hsl(var(--surface))',
+        border: '1px solid hsl(var(--border))',
+        borderTop: `2px solid ${colorHsl}`,
       }}
     >
-      {/* Color wash — top gradient tint */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background: `radial-gradient(ellipse at 20% 10%, rgba(${colorRgb},0.10) 0%, transparent 60%)`,
-        }}
-      />
-
-      {/* Crown line */}
-      <div
-        className="absolute top-0 left-[12%] right-[12%] h-[1.5px]"
-        style={{
-          background: `linear-gradient(90deg, transparent, rgba(${colorRgb},1), rgba(${colorRgb},0.5), transparent)`,
-        }}
-      />
-
       {/* Top content */}
       <div className="relative z-10 flex flex-1 flex-col gap-2.5 px-5 pt-5 pb-3">
         {/* Icon + label row */}
@@ -185,9 +165,8 @@ function StatCard({
             <span
               className="flex h-8 w-8 items-center justify-center rounded-full"
               style={{
-                background: `rgba(${colorRgb},0.15)`,
-                border: `1px solid rgba(${colorRgb},0.30)`,
-                boxShadow: `0 0 12px rgba(${colorRgb},0.20)`,
+                background: `color-mix(in srgb, ${colorHsl} 12%, transparent)`,
+                border: `1px solid color-mix(in srgb, ${colorHsl} 30%, transparent)`,
               }}
             >
               <Icon className="h-3.5 w-3.5" style={{ color: colorHsl }} strokeWidth={1.75} />
@@ -216,8 +195,7 @@ function StatCard({
           style={{
             fontSize: 'clamp(22px, 2.8vw, 30px)',
             color: 'hsl(var(--text-primary))',
-            letterSpacing: '-0.025em',
-            textShadow: `0 0 24px rgba(${colorRgb},0.22)`,
+            letterSpacing: '0',
           }}
         >
           {value}
@@ -316,10 +294,14 @@ const COMPOSITE_PARTS: {
 function CompositeReadout({ composite }: { composite: DashboardStats['compositeScore'] }) {
   const { score, components, sufficient, sampleSize } = composite
   const tone =
-    score >= 70 ? 'hsl(158,64%,52%)' : score >= 40 ? 'hsl(43,96%,56%)' : 'hsl(351,95%,71%)'
+    score >= 70
+      ? 'hsl(var(--accent-a))'
+      : score >= 40
+        ? 'hsl(var(--warning))'
+        : 'hsl(var(--danger))'
   return (
     <div className="mt-4 w-full px-5">
-      <div className="h-px w-full bg-white/[0.06]" />
+      <div className="h-px w-full bg-[hsl(var(--ink)/0.06)]" />
       <div className="mt-3 flex items-center justify-between">
         <span className="text-micro font-semibold uppercase tracking-[0.10em] text-text-muted/70">
           Performance
@@ -347,10 +329,10 @@ function CompositeReadout({ composite }: { composite: DashboardStats['compositeS
                     width: `${components[p.key]}%`,
                     background:
                       components[p.key] >= 70
-                        ? 'hsl(158,64%,52%)'
+                        ? 'hsl(var(--accent-a))'
                         : components[p.key] >= 40
-                          ? 'hsl(43,96%,56%)'
-                          : 'hsl(351,95%,71%)',
+                          ? 'hsl(var(--warning))'
+                          : 'hsl(var(--danger))',
                   }}
                 />
               </div>
@@ -532,12 +514,13 @@ export function DashboardPage() {
     day: 'numeric',
   })
 
-  /* Colour tokens for stat cards — Neon Cockpit HUD.
-     `hsl`/`rgb` mirror the CSS token values for SVG strokes and rgba() props. */
-  const GREEN = { var: 'hsl(var(--accent-a))', hsl: 'hsl(158,64%,52%)', rgb: '52,211,153' }
-  const VIOLET = { var: 'hsl(var(--accent-b))', hsl: 'hsl(258,90%,66%)', rgb: '139,92,246' }
-  const CYAN = { var: 'hsl(var(--info))', hsl: 'hsl(188,86%,53%)', rgb: '34,211,238' }
-  const ROSE = { var: 'hsl(var(--danger))', hsl: 'hsl(351,95%,71%)', rgb: '251,113,133' }
+  /* Colour tokens for stat cards — Nvexis Almanac. All are token vars so they
+     adapt to Day/Night. GREEN = gains (ink), ROSE = loss (signal), CYAN =
+     neutral/brand (oxblood), VIOLET = secondary (umber). Names kept for brevity. */
+  const GREEN = { var: 'hsl(var(--accent-a))', hsl: 'hsl(var(--accent-a))', rgb: '' }
+  const VIOLET = { var: 'hsl(var(--accent-b))', hsl: 'hsl(var(--accent-b))', rgb: '' }
+  const CYAN = { var: 'hsl(var(--info))', hsl: 'hsl(var(--info))', rgb: '' }
+  const ROSE = { var: 'hsl(var(--danger))', hsl: 'hsl(var(--danger))', rgb: '' }
 
   const pnlColor = dailyPnl === null ? CYAN : dailyPnl > 0 ? GREEN : dailyPnl < 0 ? ROSE : CYAN
   const exColor = expectancy === null ? CYAN : expectancy >= 0 ? GREEN : ROSE
@@ -609,37 +592,14 @@ export function DashboardPage() {
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.36, ease: [0.22, 1, 0.36, 1], delay: 0 }}
-            className="col-span-1 relative overflow-hidden rounded-[18px] flex flex-col items-center justify-center py-6 shimmer-inner"
+            className="col-span-1 relative overflow-hidden rounded-[4px] flex flex-col items-center justify-center py-6"
             style={{
-              background:
-                'linear-gradient(160deg, hsl(188,86%,53%,0.09) 0%, rgba(180,220,255,0.02) 60%, hsl(188,86%,53%,0.05) 100%)',
-              backdropFilter: 'blur(24px) saturate(200%)',
-              WebkitBackdropFilter: 'blur(24px) saturate(200%)',
-              border: '1px solid hsl(188,86%,53%,0.28)',
-              boxShadow:
-                'inset 0 1px 0 rgba(180,220,255,0.08), 0 0 34px hsl(188,86%,53%,0.1), 0 8px 32px rgba(0,0,0,0.45)',
+              background: 'hsl(var(--surface))',
+              border: '1px solid hsl(var(--border))',
+              borderTop: '2px solid hsl(var(--ox))',
             }}
           >
-            {/* Crown */}
-            <div
-              className="pointer-events-none absolute top-0 left-[12%] right-[12%] h-[1.5px]"
-              style={{
-                background:
-                  'linear-gradient(90deg, transparent, hsl(188,86%,53%), hsl(188,86%,53%,0.5), transparent)',
-              }}
-            />
-            {/* Top-right glow orb */}
-            <div
-              className="pointer-events-none absolute -top-8 -right-8 h-32 w-32 rounded-full"
-              style={{
-                background: 'radial-gradient(circle, hsl(188,86%,53%,0.15) 0%, transparent 70%)',
-                filter: 'blur(16px)',
-              }}
-            />
-
-            <p className="mb-3 text-micro font-semibold uppercase tracking-[0.10em] text-text-muted/70">
-              Discipline Score
-            </p>
+            <p className="eyebrow mb-3">Discipline Score</p>
             {stats ? (
               <>
                 <DisciplineRing
@@ -941,7 +901,7 @@ export function DashboardPage() {
               {drafts.map((d) => (
                 <div
                   key={d.id}
-                  className="flex items-center gap-3 px-5 py-3 hover:bg-white/[0.025] transition-colors"
+                  className="flex items-center gap-3 px-5 py-3 hover:bg-[hsl(var(--ink)/0.025)] transition-colors"
                   style={{ borderBottom: '1px solid var(--glass-border)' }}
                 >
                   <span className="font-mono text-body-sm font-bold text-text-primary w-20">
@@ -1002,7 +962,7 @@ export function DashboardPage() {
                         initial={{ opacity: 0, x: -6 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.2, delay: 0.54 + i * 0.035, ease: 'easeOut' }}
-                        className="border-b border-white/[0.03] last:border-0 hover:bg-white/[0.03] transition-colors"
+                        className="border-b border-white/[0.03] last:border-0 hover:bg-[hsl(var(--ink)/0.03)] transition-colors"
                       >
                         <td className="px-4 py-2.5">
                           <span className="font-mono text-body-sm font-bold text-text-primary">

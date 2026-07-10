@@ -49,7 +49,7 @@ export function StepTheme({ step, totalSteps, onBack, onNext }: Props) {
               className={[
                 'h-4 w-4 rounded-full border-2 transition-colors',
                 themePreference === opt.value
-                  ? 'border-info bg-info shadow-[0_0_8px_hsl(var(--info)/0.6)]'
+                  ? 'border-info bg-info'
                   : 'border-border bg-transparent',
               ].join(' ')}
             />

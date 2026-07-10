@@ -46,8 +46,8 @@ function heatColor(r: number): string {
   const intensity = Math.abs(clamped) / 200
   const alpha = 0.15 + intensity * 0.65
   return clamped > 0
-    ? `hsl(158,64%,52%,${alpha.toFixed(2)})`
-    : `hsl(351,95%,71%,${alpha.toFixed(2)})`
+    ? `hsl(var(--accent-a) / ${alpha.toFixed(2)})`
+    : `hsl(var(--danger) / ${alpha.toFixed(2)})`
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────

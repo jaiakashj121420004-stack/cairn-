@@ -4,6 +4,12 @@
 
 **Author:** Designed & built by Jai Akash.
 
+> **Design note (2026-07-10):** the visual standards quoted inside older prompts below
+> ("glassmorphism", "frosted glass", "Inter", "JetBrains Mono") are **historical**. The active
+> design language is **Nvexis "The Almanac"** — oxblood on parchment, Fraunces/Spectral/IBM Plex
+> Mono, flat paper. Any new UI prompt should follow `DESIGN-GUIDELINES.md` and
+> `docs/design-system.md § v3.0`, not the visual wording in the historical prompts.
+
 ---
 
 ## 0. HOW TO USE THIS DOCUMENT

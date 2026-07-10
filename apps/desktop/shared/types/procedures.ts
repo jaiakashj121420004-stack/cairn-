@@ -89,6 +89,7 @@ import type {
   BrokerKind,
   BrokerStatus,
   Mt5BridgeConfig,
+  Mt5EaInstallResult,
   CtraderEnvironment,
   CtraderRuntimeConfig,
   UnmappedBrokerAccount,
@@ -321,6 +322,8 @@ export interface Procedures {
 
   'broker:status': { input: void; output: BrokerStatus }
   'broker:getMt5Config': { input: void; output: Mt5BridgeConfig }
+  'broker:installMt5Ea': { input: void; output: Mt5EaInstallResult }
+  'broker:revealMt5Experts': { input: { path: string }; output: void }
   'broker:getCtraderConfig': { input: void; output: CtraderRuntimeConfig }
   'broker:ctraderConnect': { input: void; output: void }
   'broker:ctraderDisconnect': { input: void; output: void }
@@ -464,6 +467,8 @@ export const PROCEDURE_NAMES = [
   'vault:lock',
   'broker:status',
   'broker:getMt5Config',
+  'broker:installMt5Ea',
+  'broker:revealMt5Experts',
   'broker:getCtraderConfig',
   'broker:ctraderConnect',
   'broker:ctraderDisconnect',

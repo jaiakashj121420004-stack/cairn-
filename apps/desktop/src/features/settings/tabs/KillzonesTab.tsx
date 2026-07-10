@@ -9,8 +9,8 @@ const BLANK: CreateKillzoneInput = {
   name: '',
   startTimeUtc: '00:00',
   endTimeUtc: '05:00',
-  // Neon Cockpit HUD default swatch — matches --info (electric cyan).
-  color: '#22D3EE',
+  // Nvexis Almanac default swatch — oxblood (--ox).
+  color: '#7A2A26',
 }
 
 export function KillzonesTab() {

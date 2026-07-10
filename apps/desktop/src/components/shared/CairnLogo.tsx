@@ -1,11 +1,15 @@
-import { motion } from 'framer-motion'
-
 /**
- * Cairn brand mark — three stacked stones.
- * The summit stone breathes with a slow lime glow pulse.
+ * Cairn brand mark — three stacked stones with an oxblood summit.
+ * Nvexis "The Almanac": flat, two inks on paper. No glow, no neon.
+ * Stones are drawn in the current ink colour; the summit stone is oxblood.
  */
 export function CairnLogo({ size = 28, animated = true }: { size?: number; animated?: boolean }) {
-  const stoneStroke = 'rgba(255,255,255,0.22)'
+  // `animated` kept for API compatibility; the Almanac mark is intentionally still.
+  void animated
+
+  const stoneFill = 'hsl(var(--ink) / 0.14)'
+  const stoneStroke = 'hsl(var(--ink) / 0.42)'
+  const summit = 'hsl(var(--ox))'
 
   return (
     <svg
@@ -15,35 +19,15 @@ export function CairnLogo({ size = 28, animated = true }: { size?: number; anima
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       style={{ overflow: 'visible' }}
+      aria-hidden="true"
     >
-      <defs>
-        {/* Stone gradient — graphite to graphite-light */}
-        <linearGradient id="stone-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgba(255,255,255,0.18)" />
-          <stop offset="100%" stopColor="rgba(255,255,255,0.04)" />
-        </linearGradient>
-        {/* Summit stone gradient — lime accent */}
-        <linearGradient id="summit-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="hsl(74,74%,72%)" />
-          <stop offset="100%" stopColor="hsl(74,74%,54%)" />
-        </linearGradient>
-        {/* Glow filter */}
-        <filter id="summit-glow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="1.6" result="b" />
-          <feMerge>
-            <feMergeNode in="b" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
-
       {/* Bottom stone — wide, low */}
       <ellipse
         cx="16"
         cy="25"
         rx="10"
         ry="3.2"
-        fill="url(#stone-grad)"
+        fill={stoneFill}
         stroke={stoneStroke}
         strokeWidth="0.75"
       />
@@ -53,7 +37,7 @@ export function CairnLogo({ size = 28, animated = true }: { size?: number; anima
         cy="19"
         rx="7.5"
         ry="2.6"
-        fill="url(#stone-grad)"
+        fill={stoneFill}
         stroke={stoneStroke}
         strokeWidth="0.75"
       />
@@ -63,31 +47,14 @@ export function CairnLogo({ size = 28, animated = true }: { size?: number; anima
         cy="13.5"
         rx="5.5"
         ry="2.1"
-        fill="url(#stone-grad)"
+        fill={stoneFill}
         stroke={stoneStroke}
         strokeWidth="0.75"
       />
-      {/* Summit stone — lime, glowing */}
-      <motion.ellipse
-        cx="15.5"
-        cy="8.5"
-        rx="3.6"
-        ry="1.6"
-        fill="url(#summit-grad)"
-        filter="url(#summit-glow)"
-        animate={animated ? { opacity: [1, 0.78, 1] } : { opacity: 1 }}
-        transition={animated ? { duration: 3.6, ease: 'easeInOut', repeat: Infinity } : {}}
-      />
-      {/* Summit beacon spark */}
-      <motion.circle
-        cx="15.5"
-        cy="4.5"
-        r="0.9"
-        fill="hsl(74,74%,75%)"
-        filter="url(#summit-glow)"
-        animate={animated ? { opacity: [0.6, 1, 0.6], r: [0.9, 1.1, 0.9] } : { opacity: 0.6 }}
-        transition={animated ? { duration: 2.4, ease: 'easeInOut', repeat: Infinity } : {}}
-      />
+      {/* Summit stone — oxblood, the single accent */}
+      <ellipse cx="15.5" cy="8.5" rx="3.6" ry="1.6" fill={summit} />
+      {/* Summit cap — small oxblood point (the "vertex") */}
+      <circle cx="15.5" cy="4.6" r="0.95" fill={summit} />
     </svg>
   )
 }

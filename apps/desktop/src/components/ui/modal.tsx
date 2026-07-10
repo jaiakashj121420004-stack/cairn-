@@ -107,7 +107,7 @@ export function Modal({
           aria-labelledby={title ? 'modal-title' : undefined}
         >
           <motion.div
-            className="absolute inset-0 bg-background/80 backdrop-blur-[12px]"
+            className="absolute inset-0 bg-background/80"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -117,11 +117,14 @@ export function Modal({
           />
           <motion.div
             ref={panelRef}
-            className={cn('relative w-full rounded-[16px] glass-strong', className)}
+            className={cn(
+              'relative flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden rounded-[4px] glass-strong',
+              className,
+            )}
             style={{
               maxWidth,
-              borderColor: 'hsl(var(--info) / 0.24)',
-              boxShadow: 'var(--glass-shadow), 0 0 48px hsl(var(--info) / 0.1)',
+              borderColor: 'hsl(var(--border-strong))',
+              boxShadow: '0 16px 40px hsl(0 0% 0% / 0.24)',
             }}
             variants={scaleIn}
             initial="initial"
@@ -129,7 +132,7 @@ export function Modal({
             exit="exit"
           >
             {title && (
-              <div className="flex items-center justify-between border-b border-border px-6 py-4">
+              <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
                 <h2 id="modal-title" className="text-h3 font-semibold text-text-primary">
                   {title}
                 </h2>
@@ -143,7 +146,7 @@ export function Modal({
                 </button>
               </div>
             )}
-            <div className="p-6">{children}</div>
+            <div className="flex-1 overflow-y-auto p-6">{children}</div>
           </motion.div>
         </div>
       )}

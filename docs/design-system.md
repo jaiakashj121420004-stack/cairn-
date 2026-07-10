@@ -1,11 +1,12 @@
 > Split from CLAUDE.md — Section 4: DESIGN SYSTEM
 
-> **Superseded —** as of **2026-07-09** the active visual language is **Neon Cockpit HUD**
-> (see the **v2.1 Neon Cockpit HUD (2026-07-09)** section at the end of this file). §4.1–4.12
-> below describe the earlier "Graphite & Citrus" / glassmorphism direction and are retained
-> for history only; the live token palette, HUD utilities, motion, and contrast rules are now
-> defined in the v2.1 section. Token *names* were preserved across the change, so the whole app
-> re-skinned through the token layer.
+> **Superseded —** as of **2026-07-10** the active visual language is **Nvexis "The Almanac"**
+> (see the **v3.0 Nvexis "The Almanac" (2026-07-10)** section at the end of this file, and the
+> brand bible `DESIGN-GUIDELINES.md` at the repo root). It replaces the **v2.1 Neon Cockpit HUD**
+> — oxblood on parchment, Fraunces/Spectral/IBM Plex Mono, flat aged paper, **no neon/glass/
+> gradient/glow/blur**. Everything below (§4.1–4.12) and the v2.1 section are retained for history
+> only. Token *names* were preserved across every change, so the whole app re-skins through the
+> token layer.
 
 ## 4. DESIGN SYSTEM
 
@@ -364,3 +365,129 @@ PreTradePanel (rule check reads as a pre-flight checklist — subtle pass rows, 
 blocking rows), Onboarding (cockpit backdrop, segmented HUD progress, "Cockpit ready" finish),
 shared Modal / toast / GuardrailBanner / ConflictResolver (glow border by severity), and the
 dev gallery `features/dev/ComponentsPage.tsx`.
+
+---
+
+## v3.0 Nvexis "The Almanac" (2026-07-10)
+
+> **This section supersedes the v2.1 Neon Cockpit HUD and every earlier §4 subsection.** On
+> 2026-07-10 the app creator (Jai Akash) directed Cairn to adopt the **Nvexis brand bible** —
+> `DESIGN-GUIDELINES.md` (repo root), *"The Almanac" (Editorial Authority), v4.0*. The app keeps
+> the name **Cairn**; only the skin changed. As before, **token names were preserved**, so the
+> whole app re-skinned through the token layer plus a sweep of the inline styles the tokens
+> couldn't reach.
+
+### Direction
+
+**Two inks, one paper.** A serious, century-old financial almanac — **oxblood on parchment**, set
+in a distinctive serif on a disciplined editorial grid. **Flat aged paper: no neon, no glass, no
+gradients, no glow, no blur, no drop-shadow soup.** Character comes from the type and the rules
+(hairlines, masthead double-rules, oxblood eyebrows, folios, fleurons), never from effects. The
+copy stays mentor-calm; the numbers stay unmissable in mono.
+
+### Two modes (a designed pair)
+
+**Day (parchment) is the hero and the default**; **Night (ink)** is its lamplit pair and stays a
+first-class mode. Default is set in `index.html` (no-flicker boot script defaults `data-theme` to
+`light`; a saved preference or `system` can still choose Night). Theme switches via the
+`data-theme` attribute on `<html>`, keyed by Tailwind's `darkMode` selector and the
+`:root`/`[data-theme='dark']` blocks in `globals.css`.
+
+### Token palette (`apps/desktop/src/styles/globals.css`)
+
+HSL triplets consumed through Tailwind as `hsl(var(--token))`. WCAG-AA audited both modes.
+
+**Day — parchment (default, `:root` / `[data-theme='light']`)**
+
+| Token | HSL | Hex ≈ | Role |
+|---|---|---|---|
+| `--background` | 38 37% 88% | `#ECE4D6` | parchment page |
+| `--surface` | 40 45% 92% | `#F4EEE2` | card |
+| `--surface-elevated` | 40 52% 94% | `#F8F3E9` | raised |
+| `--border` | 37 27% 73% | `#CDBFA8` | hairline |
+| `--border-strong` | 39 23% 64% | `#B8A98E` | stronger divider |
+| `--text-primary` | 26 26% 11% | `#221A14` | ink — body/headings (13.6:1) |
+| `--text-secondary` | 29 17% 25% | `#4A3F35` | body long-form (8.1:1) |
+| `--text-muted` | 32 15% 32% | `#5E5346` | umber — captions/folios (5.9:1) |
+| `--info` = `--primary` = `--ring` = `--ox` | 3 53% 31% | `#7A2A26` | **oxblood** — brand/active/links/emphasis |
+| `--accent-a` | 26 26% 11% | `#221A14` | ink — gains / clean / positive ("in the black") |
+| `--accent-b` | 32 15% 32% | `#5E5346` | umber — secondary / neutral data |
+| `--warning` | 39 50% 36% | `#8A6A2E` | gilt — caution (decorative/large only) |
+| `--danger` = `--destructive` | 5 59% 44% | `#B23A2E` | signal — genuine loss / risk / violation |
+| `--on-ox` | 39 52% 94% | `#F7F1E6` | label on oxblood fill |
+
+**Night — ink (`[data-theme='dark']`)** — same roles, lifted for a dark page.
+
+| Token | HSL | Hex ≈ | Role |
+|---|---|---|---|
+| `--background` | 15 20% 8% | `#181210` | ink page |
+| `--surface` | 12 18% 11% | `#211917` | card |
+| `--text-primary` | 37 41% 87% | `#ECE2D2` | bone (14.5:1) |
+| `--info` = `--ox` | 5 52% 51% | `#C24A40` | oxblood, lifted for dark |
+| `--primary` (button fill) | 4 52% 37% | `#8E332D` | deepened so `--on-ox` keeps ≥5.9:1 |
+| `--accent-a` | 37 41% 87% | `#ECE2D2` | bone — gains / positive |
+| `--accent-b` | 30 13% 56% | `#9E9082` | umber — secondary |
+| `--warning` | 42 52% 54% | `#C7A24E` | gilt |
+| `--danger` | 11 65% 57% | `#D8634A` | signal |
+| `--ox-bright` | 6 57% 59% | `#D2675C` | small oxblood text/links on dark |
+
+**Ledger P&L convention** (this is the semantic law for a trading journal): gains/clean/positive =
+**ink** (`--accent-a`, "in the black"); loss/risk/violation = **signal red** (`--danger`);
+brand/active/links/emphasis = **oxblood** (`--info`/`--primary`); caution = **gilt**
+(`--warning`); secondary/neutral data = **umber** (`--accent-b`). Charts read these via
+`components/analytics/chart-theme.ts`; the categorical/pie palette (`AccountsPhasesTab`) is a
+restrained earth-tone set (oxblood, gilt, umber, tan, signal, dark-ink) — no neon.
+
+### Typography (`tailwind.config.ts` + `@fontsource`)
+
+- **Fraunces** (900; italic for pull-quotes) — display/headlines/wordmark. `font-display`; base
+  `h1–h4` use it. The signature.
+- **Spectral** (400/500/600, 400 italic) — all reading text/body. `font-sans` and `font-serif`
+  both map to Spectral, so default UI text is the serif.
+- **IBM Plex Mono** (500/600) — every number that matters (prices, %, R, folios, eyebrows).
+  `font-mono`, tabular lining figures.
+- Bundled offline via `@fontsource-variable/fraunces`, `@fontsource/spectral`,
+  `@fontsource/ibm-plex-mono` (imported at the top of `globals.css`; deps in
+  `apps/desktop/package.json`). **Inter/JetBrains are retired** (packages left installed, unused).
+- Radius: **2px** buttons/pills, **4px** cards (`--radius`/`--radius-btn`; Tailwind `sm`/`DEFAULT`).
+
+### Editorial utilities (`globals.css`)
+
+New: `.eyebrow` (tiny uppercase oxblood mono), `.fleuron` (oxblood mark between two hairlines —
+section break), `.folio` (small mono page/issue marker). The old HUD utility **class names are
+kept but redefined as flat paper** so components didn't break: `.glass`/`.glass-hero`/
+`.glass-strong` = surface + hairline (hero gets an oxblood top double-rule); `.card-glow-*` and
+`.crown-*` = flat accent hairline / top rule; `.text-glow-*` and `.text-gradient-*` = flat single
+ink; `.aurora-ribbon` = flat oxblood rule; `.aurora-mist`/`.prismatic-edge`/`.summit-halo`/
+`.hud-corners`/`.shimmer-inner` = neutralised (no effect); `.hud-grid` = faint hairline baseline
+grid. `boxShadow`/glow tokens in the Tailwind config are flattened to `none`/subtle drops.
+
+### The inline-neon sweep (beyond the token layer)
+
+Effects that lived in inline styles / Tailwind arbitrary values were removed by hand: Shell's
+cyan/violet blur orbs + grain → an oxblood masthead double-rule; Sidebar active-nav cyan glow/
+gradient → flat oxblood; TopBar/CommandPalette/StatCards `backdrop-filter: blur()` → solid
+surface; the Dashboard neon hero + discipline thresholds → flat tokens (`color-mix` on token vars
+so accents adapt Day/Night); Onboarding blur orbs → masthead rule; every `shadow-[0_0_…]` /
+`drop-shadow-[0_0_…]` glow stripped app-wide; all `bg-white/[x]` overlays → `bg-[hsl(var(--ink)/x)]`
+(the white overlays were invisible on parchment). CairnLogo is now three stones with an oxblood
+summit, no glow. The dev gallery `features/dev/ComponentsPage.tsx` still name-checks old classes
+but renders flat (optional cleanup).
+
+### Responsive / clipping law (2026-07-10)
+
+Because the serif fonts make content taller, modals that exceeded the viewport were clipping top
+and bottom. The shared **`Modal`** now caps at `max-h-[calc(100vh-2rem)]`, is a flex column with a
+`shrink-0` header and a `flex-1 overflow-y-auto` body — so any modal scrolls instead of clipping.
+The backdrop is a flat scrim (no blur). Onboarding (`OnboardingCard`) uses an `h-screen
+overflow-y-auto` scroll container with a `min-h-full` centering wrapper, so tall steps scroll
+without clipping. Side drawers (TradeDetailModal, PreTradePanel) were already full-height with a
+scrolling body; page/tab shells (Settings, Analytics, Review, Notebook, Trade Log, Accounts) use
+`flex h-full flex-col` + `flex-1 overflow-y-auto`. **Any new modal/panel must follow this pattern:
+cap height to the viewport and scroll the body.**
+
+### Host build note
+
+`globals.css` imports the three font packages, so **`pnpm install` must run on the host before a
+build** (the sandbox mount can't run pnpm). Then `pnpm --filter @cairn/desktop dev` (hot reload)
+or `… dist:local` (installer). Verify: bash reads in the sandbox lag; use host Read/Grep as truth.

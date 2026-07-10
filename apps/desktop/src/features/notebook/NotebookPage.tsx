@@ -202,7 +202,7 @@ export function NotebookPage() {
                     key={t.id}
                     type="button"
                     onClick={() => void createEntry(t.id)}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-caption text-text-secondary hover:bg-white/[0.04]"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-caption text-text-secondary hover:bg-[hsl(var(--ink)/0.04)]"
                   >
                     <FileText className="h-3.5 w-3.5 text-text-muted" strokeWidth={1.5} />
                     {t.label}
@@ -252,7 +252,7 @@ export function NotebookPage() {
                 type="button"
                 onClick={() => void selectEntry(item.id)}
                 className={cn(
-                  'group block w-full border-b px-4 py-3 text-left transition-colors hover:bg-white/[0.03]',
+                  'group block w-full border-b px-4 py-3 text-left transition-colors hover:bg-[hsl(var(--ink)/0.03)]',
                   selectedId === item.id && 'bg-accent-a/[0.06]',
                 )}
                 style={{ borderColor: 'var(--glass-border)' }}

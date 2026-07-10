@@ -9,8 +9,8 @@ const BLANK: CreateSetupInput = {
   name: '',
   category: 'ICT',
   description: '',
-  // Neon Cockpit HUD default swatch — matches --accent-b (violet).
-  color: '#8B5CF6',
+  // Nvexis Almanac default swatch — gilt (--gilt), a rare decorative accent.
+  color: '#8A6A2E',
 }
 
 export function SetupsTab() {

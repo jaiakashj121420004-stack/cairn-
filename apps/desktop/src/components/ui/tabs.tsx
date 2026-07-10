@@ -42,7 +42,7 @@ export function Tabs({ tabs, activeId, onChange, className }: TabsProps) {
             {isActive && (
               <motion.div
                 layoutId="tab-indicator"
-                className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-info shadow-[0_0_8px_hsl(var(--info)/0.6)]"
+                className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-info"
                 transition={springDefault}
               />
             )}

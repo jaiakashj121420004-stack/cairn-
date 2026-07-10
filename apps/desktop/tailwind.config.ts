@@ -7,8 +7,11 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter Variable', 'Inter', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono Variable', 'JetBrains Mono', 'ui-monospace', 'monospace'],
+        // Nvexis "The Almanac": Fraunces (display) + Spectral (body) + IBM Plex Mono (figures)
+        display: ['Fraunces Variable', 'Fraunces', 'Georgia', 'serif'],
+        serif: ['Spectral', 'Georgia', 'serif'],
+        sans: ['Spectral', 'Georgia', 'serif'],
+        mono: ['IBM Plex Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       colors: {
         background: 'hsl(var(--background))',
@@ -61,28 +64,30 @@ const config: Config = {
         ring: 'hsl(var(--ring))',
       },
       borderRadius: {
-        DEFAULT: '12px',
-        sm: '8px',
-        lg: '12px',
-        xl: '16px',
-        '2xl': '20px',
-        badge: '6px',
+        // Nvexis: 2px buttons/pills, 4px cards. Flat editorial corners.
+        DEFAULT: '4px',
+        sm: '2px',
+        lg: '4px',
+        xl: '4px',
+        '2xl': '6px',
+        badge: '2px',
         full: '9999px',
       },
       boxShadow: {
-        sm: '0 1px 2px rgba(0,0,0,0.28), 0 1px 3px rgba(0,0,0,0.22)',
-        md: '0 4px 8px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.22)',
-        lg: '0 12px 24px rgba(0,0,0,0.4), 0 4px 8px rgba(0,0,0,0.28)',
-        xl: '0 24px 48px rgba(0,0,0,0.5), 0 8px 16px rgba(0,0,0,0.34)',
-        glass: 'var(--glass-shadow)',
-        focus: '0 0 0 2px hsl(var(--info) / 0.35)',
-        'glow-cyan': '0 0 20px hsl(var(--info) / 0.35)',
-        'glow-green': '0 0 20px hsl(var(--accent-a) / 0.35)',
-        'glow-rose': '0 0 20px hsl(var(--danger) / 0.35)',
-        'glow-amber': '0 0 20px hsl(var(--warning) / 0.35)',
-        'btn-primary': 'var(--btn-primary-shadow)',
-        'btn-secondary': 'var(--btn-secondary-shadow)',
-        'btn-destructive': 'var(--btn-destructive-shadow)',
+        // Flat paper — restrained lift only, no glow, no shadow-soup
+        sm: '0 1px 2px hsl(0 0% 0% / 0.10)',
+        md: '0 2px 6px hsl(0 0% 0% / 0.12)',
+        lg: '0 8px 24px hsl(0 0% 0% / 0.16)',
+        xl: '0 16px 40px hsl(0 0% 0% / 0.20)',
+        glass: 'none',
+        focus: '0 0 0 2px hsl(var(--ox) / 0.45)',
+        'glow-cyan': 'none',
+        'glow-green': 'none',
+        'glow-rose': 'none',
+        'glow-amber': 'none',
+        'btn-primary': 'none',
+        'btn-secondary': 'none',
+        'btn-destructive': 'none',
       },
       fontSize: {
         'display-xl': ['56px', { lineHeight: '64px', letterSpacing: '-0.02em' }],

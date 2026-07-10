@@ -132,7 +132,7 @@ export function TradeDetailModal({ tradeId, onClose, onTradeUpdated }: Props) {
       {open && (
         <>
           <motion.div
-            className="fixed inset-0 z-50 bg-background/60 backdrop-blur-[4px]"
+            className="fixed inset-0 z-50 bg-background/70"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

@@ -84,11 +84,10 @@ export function Sidebar() {
                 Cairn
               </span>
               <span
-                className="block text-[9.5px] font-semibold uppercase leading-none mt-1"
+                className="block font-mono text-[9.5px] font-semibold uppercase leading-none mt-1"
                 style={{
-                  color: 'hsl(188,80%,48%)',
-                  letterSpacing: '0.18em',
-                  textShadow: '0 0 10px hsl(188,86%,53%,0.4)',
+                  color: 'hsl(var(--ox))',
+                  letterSpacing: '0.22em',
                 }}
               >
                 Discipline · Logged
@@ -101,7 +100,7 @@ export function Sidebar() {
             type="button"
             onClick={() => setSidebarCollapsed(true)}
             aria-label="Collapse sidebar"
-            className="ml-auto rounded-[8px] p-1.5 text-text-muted transition-colors duration-150 hover:bg-white/[0.06] hover:text-text-primary"
+            className="ml-auto rounded-[8px] p-1.5 text-text-muted transition-colors duration-150 hover:bg-[hsl(var(--ink)/0.06)] hover:text-text-primary"
           >
             <PanelLeftClose className="h-4 w-4" strokeWidth={1.5} />
           </button>
@@ -113,7 +112,7 @@ export function Sidebar() {
           type="button"
           onClick={() => setSidebarCollapsed(false)}
           aria-label="Expand sidebar"
-          className="mx-auto mb-1 rounded-[8px] p-1.5 text-text-muted transition-colors duration-150 hover:bg-white/[0.06] hover:text-text-primary"
+          className="mx-auto mb-1 rounded-[8px] p-1.5 text-text-muted transition-colors duration-150 hover:bg-[hsl(var(--ink)/0.06)] hover:text-text-primary"
         >
           <PanelLeftOpen className="h-4 w-4" strokeWidth={1.5} />
         </button>
@@ -182,9 +181,7 @@ function NavItem({ to, label, icon: Icon, collapsed, badge = 0 }: NavItemProps) 
           style={
             isActive
               ? {
-                  background:
-                    'linear-gradient(90deg, hsl(188,86%,53%,0.12) 0%, hsl(188,86%,53%,0.02) 100%)',
-                  boxShadow: 'inset 0 1px 0 rgba(180,220,255,0.06)',
+                  background: 'hsl(var(--ox) / 0.08)',
                 }
               : undefined
           }
@@ -193,7 +190,7 @@ function NavItem({ to, label, icon: Icon, collapsed, badge = 0 }: NavItemProps) 
             <Icon
               className={cn(
                 'h-[18px] w-[18px] transition-all duration-200',
-                isActive && 'text-info drop-shadow-[0_0_8px_hsl(188,86%,53%,0.65)]',
+                isActive && 'text-info',
                 !isActive && 'group-hover:scale-[1.05]',
               )}
               strokeWidth={isActive ? 2 : 1.5}

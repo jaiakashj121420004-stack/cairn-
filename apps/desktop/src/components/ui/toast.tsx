@@ -19,12 +19,10 @@ interface ToastContextValue {
 const ToastContext = createContext<ToastContextValue | null>(null)
 
 const variantStyle: Record<ToastVariant, string> = {
-  success:
-    'border-accent-a/35 shadow-[0_8px_24px_rgba(0,0,0,0.45),0_0_20px_hsl(var(--accent-a)/0.14)]',
-  error: 'border-danger/35 shadow-[0_8px_24px_rgba(0,0,0,0.45),0_0_20px_hsl(var(--danger)/0.16)]',
-  warning:
-    'border-warning/35 shadow-[0_8px_24px_rgba(0,0,0,0.45),0_0_20px_hsl(var(--warning)/0.14)]',
-  info: 'border-info/35 shadow-[0_8px_24px_rgba(0,0,0,0.45),0_0_20px_hsl(var(--info)/0.14)]',
+  success: 'border-accent-a/35 shadow-[0_8px_24px_hsl(0_0%_0%/0.18)]',
+  error: 'border-danger/35 shadow-[0_8px_24px_hsl(0_0%_0%/0.18)]',
+  warning: 'border-warning/35 shadow-[0_8px_24px_hsl(0_0%_0%/0.18)]',
+  info: 'border-info/35 shadow-[0_8px_24px_hsl(0_0%_0%/0.18)]',
 }
 
 const variantIcon: Record<ToastVariant, React.FC<{ className?: string }>> = {

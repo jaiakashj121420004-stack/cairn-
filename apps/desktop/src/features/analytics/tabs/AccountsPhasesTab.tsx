@@ -24,7 +24,8 @@ import { cn } from '../../../lib/cn'
 import { formatCents, formatPercent } from '../../../lib/formatters'
 import { ipc } from '../../../lib/ipc'
 
-const PIE_COLORS = ['#e11d48', '#f59e0b', '#7c3aed', '#0ea5e9', '#84cc16', '#f43f5e']
+// Nvexis Almanac categorical palette — restrained earth/ink tones, no neon.
+const PIE_COLORS = ['#7A2A26', '#8A6A2E', '#5E5346', '#B23A2E', '#B8A98E', '#3E2E2A']
 
 function ruleLabel(key: string): string {
   return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())

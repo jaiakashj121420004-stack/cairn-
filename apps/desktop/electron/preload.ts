@@ -90,6 +90,7 @@ import type {
   BrokerKind,
   BrokerStatus,
   Mt5BridgeConfig,
+  Mt5EaInstallResult,
   CtraderEnvironment,
   CtraderRuntimeConfig,
   UnmappedBrokerAccount,
@@ -398,6 +399,10 @@ const api = {
     status: (): Promise<IpcResponse<BrokerStatus>> => ipcRenderer.invoke('broker:status'),
     getMt5Config: (): Promise<IpcResponse<Mt5BridgeConfig>> =>
       ipcRenderer.invoke('broker:getMt5Config'),
+    installMt5Ea: (): Promise<IpcResponse<Mt5EaInstallResult>> =>
+      ipcRenderer.invoke('broker:installMt5Ea'),
+    revealMt5Experts: (path: string): Promise<IpcResponse<void>> =>
+      ipcRenderer.invoke('broker:revealMt5Experts', { path }),
     getCtraderConfig: (): Promise<IpcResponse<CtraderRuntimeConfig>> =>
       ipcRenderer.invoke('broker:getCtraderConfig'),
     ctraderConnect: (): Promise<IpcResponse<void>> => ipcRenderer.invoke('broker:ctraderConnect'),

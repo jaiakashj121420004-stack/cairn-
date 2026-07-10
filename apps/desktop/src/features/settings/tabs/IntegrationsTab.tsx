@@ -11,7 +11,7 @@ import {
   type Mt5BridgeConfig,
   type UnmappedBrokerAccount,
 } from '@cairn/shared-types'
-import { Check, Copy } from 'lucide-react'
+import { Check, Copy, Download, FolderOpen } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import type { Account } from '@shared/types/index'
 import { Button, Select } from '../../../components/ui'
@@ -254,6 +254,7 @@ function Mt5BridgePanel() {
   const [status, setStatus] = useState<BrokerStatus | null>(null)
   const [now, setNow] = useState<number>(() => Date.now())
   const [copied, setCopied] = useState(false)
+  const [installing, setInstalling] = useState(false)
   const toast = useToast()
 
   useEffect(() => {
@@ -287,6 +288,41 @@ function Mt5BridgePanel() {
     } catch {
       toast('Could not copy to clipboard', 'error')
     }
+  }
+
+  async function installEa() {
+    setInstalling(true)
+    try {
+      const res = await ipc.broker.installMt5Ea()
+      if (!res.ok) {
+        toast(res.error.message, 'error')
+        return
+      }
+      const { installedPaths, failures, copiedFiles } = res.data
+      if (installedPaths.length > 0) {
+        const n = installedPaths.length
+        toast(
+          `Installed ${copiedFiles.join(' + ')} into ${n} Experts folder${n > 1 ? 's' : ''}`,
+          'success',
+        )
+        // Refresh discovered paths, then reveal the first folder so the file is visible.
+        const cfg = await ipc.broker.getMt5Config()
+        if (cfg.ok) setConfig(cfg.data)
+        const first = installedPaths[0]
+        if (first) void ipc.broker.revealMt5Experts(first)
+      }
+      if (failures.length > 0) {
+        const n = failures.length
+        toast(`Could not write to ${n} folder${n > 1 ? 's' : ''} — is MetaTrader open?`, 'error')
+      }
+    } finally {
+      setInstalling(false)
+    }
+  }
+
+  async function openExperts(path: string) {
+    const res = await ipc.broker.revealMt5Experts(path)
+    if (!res.ok) toast(res.error.message, 'error')
   }
 
   const live = deriveLiveState(status, now)
@@ -345,20 +381,38 @@ function Mt5BridgePanel() {
         </code>
       </div>
 
-      {/* Experts folder */}
-      <div className="space-y-1.5">
+      {/* Experts folder + one-click install */}
+      <div className="space-y-2">
         <label className="text-caption font-medium text-text-secondary">
           Install the EA into MQL5 / Experts
         </label>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={() => void installEa()} disabled={installing}>
+            <Download className="h-4 w-4" />
+            <span className="ml-1.5">{installing ? 'Installing…' : 'Install Cairn EA'}</span>
+          </Button>
+          {config && config.expertsPaths.length === 0 && (
+            <span className="text-caption text-text-muted">
+              No MetaTrader 5 terminal detected yet
+            </span>
+          )}
+        </div>
+
         {config && config.expertsPaths.length > 0 ? (
           <ul className="space-y-1">
             {config.expertsPaths.map((p) => (
-              <li
-                key={p}
-                className="truncate rounded-[8px] border border-border bg-surface px-3 py-2 font-mono text-caption text-text-primary"
-                title={p}
-              >
-                {p}
+              <li key={p} className="flex items-center gap-2">
+                <code
+                  className="flex-1 truncate rounded-[8px] border border-border bg-surface px-3 py-2 font-mono text-caption text-text-primary"
+                  title={p}
+                >
+                  {p}
+                </code>
+                <Button variant="secondary" onClick={() => void openExperts(p)}>
+                  <FolderOpen className="h-4 w-4" />
+                  <span className="ml-1.5">Open</span>
+                </Button>
               </li>
             ))}
           </ul>
@@ -367,11 +421,13 @@ function Mt5BridgePanel() {
             {config?.expertsHint ?? '…'}
           </p>
         )}
+
         <p className="text-caption text-text-muted leading-relaxed">
-          Copy <span className="font-mono">CairnBridge.mq5</span> there, compile it in MetaEditor,
-          attach it to any chart, and allow <span className="font-mono">127.0.0.1</span> in Tools →
-          Options → Expert Advisors. See the bundled <span className="font-mono">INSTALL.md</span>{' '}
-          for the full walkthrough.
+          <span className="font-medium text-text-secondary">Install Cairn EA</span> copies{' '}
+          <span className="font-mono">CairnBridge.mq5</span> into your terminal automatically. Then
+          compile it in MetaEditor (F7), attach it to any chart, and allow{' '}
+          <span className="font-mono">127.0.0.1</span> in Tools → Options → Expert Advisors. See the
+          bundled <span className="font-mono">INSTALL.md</span> for the full walkthrough.
         </p>
       </div>
     </section>

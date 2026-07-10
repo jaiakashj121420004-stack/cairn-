@@ -6,7 +6,7 @@
 
 v1.1 is complete when all v1.0 criteria are met PLUS:
 
-16. Design is glassmorphism — frosted glass cards, depth layers, smooth animations. Text contrast passes WCAG AA in both dark and light modes.
+16. Design is Nvexis "The Almanac" — oxblood on parchment, Fraunces/Spectral/IBM Plex Mono, flat editorial paper (no neon/glass/gradient/glow/blur), Day default + Night. Modals/panels cap to the viewport and scroll (no top/bottom clipping). Text contrast passes WCAG AA in both modes. _(Amended 2026-07-10; was glassmorphism → briefly Neon Cockpit HUD. See `docs/design-system.md § v3.0` and `DESIGN-GUIDELINES.md`.)_
 17. Dashboard shows correct discipline score, current account balance, and today's P&L after every trade.
 18. P&L calculates correctly in trade log, dashboard, and analytics using actual exit price, lot size, leverage, and pip value.
 19. Trade entry panel includes risk calculator: user inputs risk $ or risk %, lot size auto-calculates from account size, leverage, entry, and SL.

@@ -22,6 +22,12 @@ asar: true
 extraResources:
   - from: resources/ctrader-proto
     to: ctrader-proto
+  # Read-only MT5 bridge EA + install guide (docs/broker-integration.md §2.1).
+  # Copied beside the asar as plain files so the "Install Cairn EA" action
+  # (services/broker/mt5/installer.ts#resolveMt5BridgeDir) can read CairnBridge.mq5
+  # from <resources>/mt5-bridge when packaged and copy it into MQL5/Experts.
+  - from: resources/mt5-bridge
+    to: mt5-bridge
 
 mac:
   target:

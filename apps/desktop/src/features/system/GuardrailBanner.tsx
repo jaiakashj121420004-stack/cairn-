@@ -58,9 +58,9 @@ export function GuardrailBanner() {
         return (
           <div
             key={`${d.ruleKey}-${d.seenAt}`}
-            className="mx-auto flex w-full max-w-2xl items-start gap-3 rounded-[10px] border border-warning/45 bg-surface-elevated px-4 py-3 shadow-[0_8px_28px_rgba(0,0,0,0.5),0_0_24px_hsl(var(--warning)/0.16)]"
+            className="mx-auto flex w-full max-w-2xl items-start gap-3 rounded-[10px] border border-warning/45 bg-surface-elevated px-4 py-3 shadow-[0_8px_28px_hsl(0_0%_0%/0.18)]"
           >
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning drop-shadow-[0_0_6px_hsl(var(--warning)/0.6)]" />
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
             <p className="flex-1 text-body-sm text-text-primary">
               Safety rule &apos;{name}&apos; has invalid configuration and is not being enforced.
               Review it in Settings.

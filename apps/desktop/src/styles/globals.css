@@ -1,5 +1,12 @@
-@import '@fontsource-variable/inter';
-@import '@fontsource-variable/jetbrains-mono';
+/* Fraunces (display) + Spectral (body) + IBM Plex Mono (figures) — the Nvexis system */
+@import '@fontsource-variable/fraunces';
+@import '@fontsource-variable/fraunces/wght-italic.css';
+@import '@fontsource/spectral/400.css';
+@import '@fontsource/spectral/500.css';
+@import '@fontsource/spectral/600.css';
+@import '@fontsource/spectral/400-italic.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+@import '@fontsource/ibm-plex-mono/600.css';
 
 @tailwind base;
 @tailwind components;
@@ -7,134 +14,149 @@
 
 @layer base {
   /* ────────────────────────────────────────────────────
-     Cairn Design System v2.1 — Neon Cockpit HUD
-     (supersedes v1.1 glassmorphism per user decision 2026-07-09)
-     Default (:root) = dark "deep-space cockpit", page is dark
-     before the no-flicker script runs in index.html.
-     Token NAMES are stable; only VALUES changed. accent-a drives
-     profit/clean (green); --info/--primary/--ring drive the
-     electric-cyan brand/active chrome; accent-b is secondary violet.
+     Cairn Design System v3.0 — Nvexis "The Almanac"
+     (supersedes v2.1 Neon Cockpit HUD per user decision 2026-07-10)
+
+     Two inks, one paper. Oxblood on parchment. Flat aged paper —
+     NO neon, glass, gradients, glow, or blur. Character comes from
+     the type (Fraunces + Spectral + IBM Plex Mono) and the grid.
+
+     DAY (parchment) is the hero and the default (:root). NIGHT (ink)
+     is its lamplit pair, applied via [data-theme='dark'].
+
+     Ledger convention for a trading journal:
+       • gains / clean / positive  → INK  ("in the black")   = --accent-a
+       • losses / risk / violation → SIGNAL red              = --danger
+       • brand / active / links    → OXBLOOD                 = --info/--primary/--ring
+       • caution                   → GILT                    = --warning
+       • secondary / neutral data  → UMBER                   = --accent-b
+
+     Token NAMES are stable so components don't break; only VALUES
+     changed. Glass/glow/gradient utility CLASS NAMES are kept but
+     redefined as flat paper (hairline + surface) — the effects are
+     removed, not the selectors.
      ──────────────────────────────────────────────────── */
 
+  /* ── DAY — parchment (hero, default) ───────────────── */
   :root,
-  [data-theme='dark'] {
-    /* Base layers — deep-space, faint blue undertone */
-    --background: 227 47% 4%; /* #05070E — page */
-    --foreground: 219 100% 95%; /* #E8F0FF */
-    --surface: 225 50% 8%; /* #0A0F1E — raised surface */
-    --surface-elevated: 220 43% 11%; /* #101828 — elevated */
-    --border: 221 32% 18%; /* cool hairline */
-    --border-strong: 220 28% 26%;
+  [data-theme='light'] {
+    /* Base layers — flat aged paper */
+    --background: 38 37% 88%; /* #ECE4D6 parchment page */
+    --foreground: 26 26% 11%; /* #221A14 ink */
+    --surface: 40 45% 92%; /* #F4EEE2 card surface */
+    --surface-elevated: 40 52% 94%; /* #F8F3E9 raised */
+    --border: 37 27% 73%; /* #CDBFA8 hairline */
+    --border-strong: 39 23% 64%; /* #B8A98E */
 
-    /* Text — WCAG-AA verified against the surfaces above */
-    --text-primary: 219 100% 95%; /* #E8F0FF */
-    --text-secondary: 221 29% 67%; /* #94A3C4  ≈7:1 on elevated */
-    --text-muted: 216 15% 53%; /* ≈4.6:1 on elevated (AA) */
+    /* Text — audited ≥ AA on parchment */
+    --text-primary: 26 26% 11%; /* #221A14 ink  13.6:1 */
+    --text-secondary: 29 17% 25%; /* #4A3F35 body 8.1:1 */
+    --text-muted: 32 15% 32%; /* #5E5346 umber 5.9:1 (captions/folios only) */
 
-    /* Neon accents — glow signals meaning */
-    --accent-a: 158 64% 52%; /* #34D399 — profit / clean / positive (GREEN) */
-    --accent-b: 258 90% 66%; /* #8B5CF6 — secondary / neutral-data (VIOLET, sparing) */
-    --warning: 43 96% 56%; /* #FBBF24 — warning (AMBER) */
-    --danger: 351 95% 71%; /* #FB7185 — loss / violation (ROSE) */
-    --info: 188 86% 53%; /* #22D3EE — primary / neutral-active brand (CYAN) */
+    /* Accents — two inks, one accent */
+    --accent-a: 26 26% 11%; /* ink — gains / clean / positive ("in the black") */
+    --accent-b: 32 15% 32%; /* umber — secondary / neutral data (quiet) */
+    --warning: 39 50% 36%; /* #8A6A2E gilt — caution */
+    --danger: 5 59% 44%; /* #B23A2E signal — genuine loss / risk / violation */
+    --info: 3 53% 31%; /* #7A2A26 oxblood — brand / active / links */
 
-    /* Glass / HUD-panel system */
-    --glass-bg: rgba(160, 200, 255, 0.035);
-    --glass-border: rgba(120, 190, 235, 0.11);
-    --glass-shadow:
-      inset 0 1px 0 rgba(180, 220, 255, 0.05), 0 10px 34px rgba(0, 0, 0, 0.55),
-      0 2px 8px rgba(0, 0, 0, 0.35);
-    --glass-modal-bg: rgba(8, 11, 22, 0.93);
-    --glass-modal-blur: blur(42px) saturate(190%);
-    --glass-sidebar-bg: rgba(6, 9, 18, 0.86);
-    --nav-active-glow: 0 0 14px hsl(var(--info) / 0.22), 0 0 0 1px hsl(var(--info) / 0.3);
+    /* Oxblood family (for utilities that reference it) */
+    --ox: 3 53% 31%; /* #7A2A26 */
+    --ox-bright: 4 50% 40%; /* #9B3A33 */
+    --on-ox: 39 52% 94%; /* #F7F1E6 label on oxblood */
+    --gilt: 39 50% 36%; /* #8A6A2E — decorative / large only */
+    --signal: 5 59% 44%; /* #B23A2E */
 
-    /* Button shadow system — physical depth + neon glow */
-    --btn-primary-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.24),
-      0 1px 3px rgba(0, 0, 0, 0.4), 0 4px 18px hsl(var(--primary) / 0.34);
-    --btn-secondary-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.18),
-      0 1px 3px rgba(0, 0, 0, 0.3);
-    --btn-destructive-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 -1px 0 rgba(0, 0, 0, 0.24),
-      0 1px 3px rgba(0, 0, 0, 0.4), 0 4px 18px hsl(var(--danger) / 0.32);
+    /* Flat "panel" system — hairline + surface, no glass */
+    --glass-bg: hsl(var(--surface));
+    --glass-border: hsl(var(--border));
+    --glass-shadow: none;
+    --glass-modal-bg: hsl(var(--surface));
+    --glass-modal-blur: none;
+    --glass-sidebar-bg: hsl(var(--background));
+    --nav-active-glow: none;
 
-    /* shadcn compatibility — primary/ring are the CYAN brand hue */
-    --card: 225 50% 8%;
-    --card-foreground: 219 100% 95%;
-    --popover: 220 43% 11%;
-    --popover-foreground: 219 100% 95%;
-    --primary: 188 86% 53%;
-    --primary-foreground: 227 47% 6%;
-    --secondary: 221 32% 18%;
-    --secondary-foreground: 219 100% 95%;
-    --muted: 221 32% 18%;
-    --muted-foreground: 216 15% 53%;
-    --accent: 221 32% 18%;
-    --accent-foreground: 219 100% 95%;
-    --destructive: 351 95% 71%;
-    --destructive-foreground: 227 47% 6%;
-    --input: 221 32% 18%;
-    --ring: 188 86% 53%;
-    --radius: 0.75rem;
+    /* Flat button system — no depth soup, no glow */
+    --btn-primary-shadow: none;
+    --btn-secondary-shadow: none;
+    --btn-destructive-shadow: none;
+
+    /* shadcn compatibility — oxblood is primary/ring */
+    --card: 40 45% 92%;
+    --card-foreground: 26 26% 11%;
+    --popover: 40 52% 94%;
+    --popover-foreground: 26 26% 11%;
+    --primary: 3 53% 31%; /* oxblood */
+    --primary-foreground: 39 52% 94%; /* #F7F1E6 */
+    --secondary: 37 27% 73%;
+    --secondary-foreground: 26 26% 11%;
+    --muted: 40 30% 86%;
+    --muted-foreground: 32 15% 32%;
+    --accent: 37 27% 73%;
+    --accent-foreground: 26 26% 11%;
+    --destructive: 5 59% 44%;
+    --destructive-foreground: 39 52% 94%;
+    --input: 37 27% 73%;
+    --ring: 3 53% 31%;
+    --radius: 0.25rem; /* 4px cards; buttons use 2px via --radius-btn */
+    --radius-btn: 2px;
   }
 
-  [data-theme='light'] {
-    /* "Daylight cockpit" — same instrument panel with the lights on.
-       Crisp 1px borders instead of glow; accent hues darkened for AA. */
-    --background: 218 57% 97%; /* #F4F7FC — cool near-white page */
-    --foreground: 222 47% 11%; /* #0F172A */
-    --surface: 0 0% 100%; /* white cards pop above the cool page */
-    --surface-elevated: 216 40% 98%;
-    --border: 216 24% 88%; /* crisp cool hairline */
-    --border-strong: 216 22% 80%;
-    --text-primary: 222 47% 11%; /* #0F172A  ≈15:1 */
-    --text-secondary: 215 25% 27%; /* #334155  ≈9:1 */
-    --text-muted: 216 16% 44%; /* ≈4.8:1 on white (AA) */
-    --accent-a: 163 94% 24%; /* #047857 — profit / clean (deep emerald) */
-    --accent-b: 262 83% 58%; /* #7C3AED — secondary (violet) */
-    --warning: 26 90% 37%; /* #B45309 — warning (amber) */
-    --danger: 347 77% 50%; /* #E11D48 — loss / violation (rose) */
-    --info: 193 82% 31%; /* #0E7490 — primary / active brand (deep cyan) */
+  /* ── NIGHT — ink (the same almanac by lamplight) ───── */
+  [data-theme='dark'] {
+    --background: 15 20% 8%; /* #181210 ink page */
+    --foreground: 37 41% 87%; /* #ECE2D2 bone */
+    --surface: 12 18% 11%; /* #211917 card */
+    --surface-elevated: 15 17% 14%; /* #2A211E raised */
+    --border: 11 19% 17%; /* #352724 hairline */
+    --border-strong: 11 19% 22%; /* #43322E */
 
-    --glass-bg: rgba(255, 255, 255, 0.78);
-    --glass-border: rgba(20, 40, 80, 0.1);
-    --glass-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(15, 30, 60, 0.06),
-      0 4px 14px rgba(15, 30, 60, 0.05);
-    --glass-modal-bg: rgba(248, 250, 253, 0.94);
-    --glass-modal-blur: blur(40px) saturate(180%);
-    --glass-sidebar-bg: rgba(238, 243, 250, 0.9);
-    --nav-active-glow: 0 0 0 1px hsl(var(--info) / 0.32);
+    --text-primary: 37 41% 87%; /* #ECE2D2 bone 14.5:1 */
+    --text-secondary: 34 21% 72%; /* #C7BAA9 body */
+    --text-muted: 30 13% 56%; /* #9E9082 umber */
 
-    --btn-primary-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.1),
-      0 1px 3px rgba(15, 30, 60, 0.16);
-    --btn-secondary-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.8), inset 0 -1px 0 rgba(0, 0, 0, 0.05),
-      0 1px 3px rgba(15, 30, 60, 0.1);
-    --btn-destructive-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -1px 0 rgba(0, 0, 0, 0.1),
-      0 1px 3px rgba(15, 30, 60, 0.16);
+    --accent-a: 37 41% 87%; /* bone — gains / clean / positive */
+    --accent-b: 30 13% 56%; /* umber — secondary / neutral data */
+    --warning: 42 52% 54%; /* #C7A24E gilt */
+    --danger: 11 65% 57%; /* #D8634A signal */
+    --info: 5 52% 51%; /* #C24A40 oxblood (lifted for dark) */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 193 82% 31%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 216 24% 88%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 216 30% 94%;
-    --muted-foreground: 216 16% 44%;
-    --accent: 216 24% 88%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 347 77% 50%;
-    --destructive-foreground: 0 0% 100%;
-    --input: 216 24% 88%;
-    --ring: 193 82% 31%;
-    --radius: 0.75rem;
+    --ox: 5 52% 51%; /* #C24A40 */
+    --ox-bright: 6 57% 59%; /* #D2675C small text/links on dark */
+    --on-ox: 39 52% 94%; /* #F7F1E6 label stays light on the deepened fill */
+    --gilt: 42 52% 54%; /* #C7A24E */
+    --signal: 11 65% 57%; /* #D8634A */
+
+    --glass-bg: hsl(var(--surface));
+    --glass-border: hsl(var(--border));
+    --glass-shadow: none;
+    --glass-modal-bg: hsl(var(--surface));
+    --glass-modal-blur: none;
+    --glass-sidebar-bg: hsl(var(--background));
+    --nav-active-glow: none;
+
+    --btn-primary-shadow: none;
+    --btn-secondary-shadow: none;
+    --btn-destructive-shadow: none;
+
+    --card: 12 18% 11%;
+    --card-foreground: 37 41% 87%;
+    --popover: 15 17% 14%;
+    --popover-foreground: 37 41% 87%;
+    --primary: 4 52% 37%; /* #8E332D — deepened fill so --on-ox keeps 5.9:1 */
+    --primary-foreground: 39 52% 94%;
+    --secondary: 11 19% 22%;
+    --secondary-foreground: 37 41% 87%;
+    --muted: 11 19% 17%;
+    --muted-foreground: 30 13% 56%;
+    --accent: 11 19% 22%;
+    --accent-foreground: 37 41% 87%;
+    --destructive: 11 65% 57%;
+    --destructive-foreground: 9 37% 7%;
+    --input: 11 19% 22%;
+    --ring: 5 52% 51%;
+    --radius: 0.25rem;
+    --radius-btn: 2px;
   }
 
   * {
@@ -143,266 +165,198 @@
   }
 
   html {
-    color-scheme: dark;
+    color-scheme: light;
   }
 
-  [data-theme='light'] html,
-  [data-theme='light'] {
-    color-scheme: light;
+  [data-theme='dark'] html,
+  [data-theme='dark'] {
+    color-scheme: dark;
   }
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Spectral', Georgia, 'Times New Roman', serif;
+    /* oldstyle figures inside prose; lining/tabular handled by .font-mono */
     font-feature-settings:
-      'rlig' 1,
+      'onum' 1,
+      'liga' 1,
       'calt' 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  .font-mono,
-  [data-numeric] {
-    font-variant-numeric: tabular-nums;
+  /* Display serif for headings — the signature */
+  h1,
+  h2,
+  h3,
+  h4,
+  .font-display {
+    font-family: 'Fraunces Variable', 'Fraunces', Georgia, serif;
+    font-weight: 900;
+    letter-spacing: -0.018em;
+    font-feature-settings: 'lnum' 1;
   }
 
+  /* Mono for every number that matters — lining, tabular */
+  .font-mono,
+  [data-numeric] {
+    font-family: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: 'lnum' 1;
+  }
+
+  /* Thin editorial scrollbar in oxblood */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: hsl(var(--info) / 0.32);
+    background: hsl(var(--ox) / 0.4);
     border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--info) / 0.55);
+    background: hsl(var(--ox) / 0.65);
   }
 
-  /* Cyan focus ring for keyboard nav across native + custom controls */
   :focus-visible {
     outline: none;
   }
 }
 
-/* ── Glass utilities ─────────────────────────── */
+/* ── Panel utilities — flat paper (glass class names kept, effects removed) ── */
 @layer utilities {
-  /* Standard frosted glass card */
+  /* Standard card — surface + hairline, radius 4px, flat */
   .glass {
-    background: var(--glass-bg);
-    backdrop-filter: blur(24px) saturate(200%);
-    -webkit-backdrop-filter: blur(24px) saturate(200%);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-shadow);
-    transition:
-      border-color 180ms ease,
-      box-shadow 180ms ease;
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius-card, 4px);
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    transition: border-color 160ms ease;
   }
   .glass:hover {
-    border-color: hsl(var(--info) / 0.22);
-  }
-  [data-theme='light'] .glass:hover {
-    border-color: rgba(20, 40, 80, 0.16);
+    border-color: hsl(var(--border-strong));
   }
 
-  /* Hero glass — HUD instrument panel for primary feature cards */
+  /* Hero panel — an "issue" masthead: surface + oxblood top double-rule */
   .glass-hero {
-    background: linear-gradient(
-      145deg,
-      hsl(var(--info) / 0.06) 0%,
-      rgba(160, 200, 255, 0.03) 55%,
-      hsl(var(--accent-b) / 0.05) 100%
-    );
-    backdrop-filter: blur(28px) saturate(200%);
-    -webkit-backdrop-filter: blur(28px) saturate(200%);
-    border: 1px solid hsl(var(--info) / 0.28);
-    box-shadow:
-      inset 0 1px 0 rgba(180, 220, 255, 0.09),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.12),
-      0 16px 52px rgba(0, 0, 0, 0.5),
-      0 0 34px hsl(var(--info) / 0.1);
-  }
-  [data-theme='light'] .glass-hero {
-    background: linear-gradient(
-      145deg,
-      rgba(255, 255, 255, 0.94) 0%,
-      rgba(255, 255, 255, 0.82) 100%
-    );
-    border: 1px solid hsl(var(--info) / 0.28);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 1),
-      0 6px 24px rgba(15, 30, 60, 0.08);
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--border));
+    border-top: 2px solid hsl(var(--ox));
+    border-radius: var(--radius-card, 4px);
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
-  /* Strong glass — modals, panels */
+  /* Modals / strong panels — solid surface, hairline, tiny lift shadow only */
   .glass-strong {
-    background: var(--glass-modal-bg);
-    backdrop-filter: var(--glass-modal-blur);
-    -webkit-backdrop-filter: var(--glass-modal-blur);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-shadow);
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--border-strong));
+    border-radius: var(--radius-card, 4px);
+    box-shadow: 0 8px 28px hsl(0 0% 0% / 0.22);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
-  /* Sidebar glass */
+  /* Sidebar — flat page colour, single hairline handled by layout */
   .glass-sidebar {
-    background: var(--glass-sidebar-bg);
-    backdrop-filter: blur(24px) saturate(200%);
-    -webkit-backdrop-filter: blur(24px) saturate(200%);
+    background: hsl(var(--background));
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   /* ── Typography helpers ── */
   .stat-number {
-    font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
-    font-variant-numeric: tabular-nums;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-variant-numeric: tabular-nums lining-nums;
     font-weight: 600;
     line-height: 1.05;
-    letter-spacing: -0.025em;
+    letter-spacing: 0;
   }
 
-  /* ── Text glow ── */
+  /* Eyebrow — tiny uppercase mono, the editorial polish */
+  .eyebrow {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-weight: 600;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: hsl(var(--ox));
+  }
+
+  /* ── "Glow" text helpers — now flat coloured ink (no text-shadow) ── */
   .text-glow-a {
-    text-shadow:
-      0 0 18px hsl(var(--accent-a) / 0.45),
-      0 0 36px hsl(var(--accent-a) / 0.18);
+    color: hsl(var(--accent-a));
+    text-shadow: none;
   }
   .text-glow-b {
-    text-shadow:
-      0 0 18px hsl(var(--accent-b) / 0.4),
-      0 0 36px hsl(var(--accent-b) / 0.16);
+    color: hsl(var(--accent-b));
+    text-shadow: none;
   }
   .text-glow-danger {
-    text-shadow:
-      0 0 18px hsl(var(--danger) / 0.45),
-      0 0 36px hsl(var(--danger) / 0.18);
+    color: hsl(var(--danger));
+    text-shadow: none;
   }
   .text-glow-info {
-    text-shadow:
-      0 0 18px hsl(var(--info) / 0.4),
-      0 0 36px hsl(var(--info) / 0.16);
+    color: hsl(var(--info));
+    text-shadow: none;
   }
 
-  /* ── Card crown highlight lines ── */
-  .crown-a::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 12%;
-    right: 12%;
-    height: 1.5px;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      hsl(var(--accent-a)) 45%,
-      hsl(var(--accent-a) / 0.55) 75%,
-      transparent 100%
-    );
-    pointer-events: none;
-    z-index: 1;
-  }
-  .crown-b::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 12%;
-    right: 12%;
-    height: 1.5px;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      hsl(var(--accent-b)) 45%,
-      hsl(var(--accent-b) / 0.55) 75%,
-      transparent 100%
-    );
-    pointer-events: none;
-    z-index: 1;
-  }
-  .crown-danger::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 12%;
-    right: 12%;
-    height: 1.5px;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      hsl(var(--danger)) 45%,
-      hsl(var(--danger) / 0.55) 75%,
-      transparent 100%
-    );
-    pointer-events: none;
-    z-index: 1;
-  }
-  .crown-info::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 12%;
-    right: 12%;
-    height: 1.5px;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      hsl(var(--info)) 45%,
-      hsl(var(--info) / 0.55) 75%,
-      transparent 100%
-    );
-    pointer-events: none;
-    z-index: 1;
-  }
+  /* ── Card "crown" lines — now a flat 2px top rule in the accent ink ── */
+  .crown-a::before,
+  .crown-b::before,
+  .crown-danger::before,
+  .crown-info::before,
   .crown-warning::before {
     content: '';
     position: absolute;
     top: 0;
-    left: 12%;
-    right: 12%;
-    height: 1.5px;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      hsl(var(--warning)) 45%,
-      hsl(var(--warning) / 0.55) 75%,
-      transparent 100%
-    );
+    left: 0;
+    right: 0;
+    height: 2px;
     pointer-events: none;
     z-index: 1;
   }
+  .crown-a::before {
+    background: hsl(var(--accent-a));
+  }
+  .crown-b::before {
+    background: hsl(var(--accent-b));
+  }
+  .crown-danger::before {
+    background: hsl(var(--danger));
+  }
+  .crown-info::before {
+    background: hsl(var(--info));
+  }
+  .crown-warning::before {
+    background: hsl(var(--warning));
+  }
 
-  /* ── Card outer glow — neon HUD halo (8–15% alpha) ── */
+  /* ── Card accent — hairline in the accent colour, no glow shadow ── */
   .card-glow-a {
-    box-shadow:
-      var(--glass-shadow),
-      0 0 32px hsl(var(--accent-a) / 0.13);
-    border-color: hsl(var(--accent-a) / 0.3);
+    border-color: hsl(var(--accent-a) / 0.4);
+    box-shadow: none;
   }
   .card-glow-b {
-    box-shadow:
-      var(--glass-shadow),
-      0 0 32px hsl(var(--accent-b) / 0.13);
-    border-color: hsl(var(--accent-b) / 0.3);
+    border-color: hsl(var(--accent-b) / 0.4);
+    box-shadow: none;
   }
   .card-glow-danger {
-    box-shadow:
-      var(--glass-shadow),
-      0 0 32px hsl(var(--danger) / 0.15);
-    border-color: hsl(var(--danger) / 0.32);
+    border-color: hsl(var(--danger) / 0.55);
+    box-shadow: none;
   }
   .card-glow-info {
-    box-shadow:
-      var(--glass-shadow),
-      0 0 32px hsl(var(--info) / 0.13);
-    border-color: hsl(var(--info) / 0.3);
-  }
-  /* Light "daylight cockpit" — crisp accent borders, no glow shadow */
-  [data-theme='light'] .card-glow-a,
-  [data-theme='light'] .card-glow-b,
-  [data-theme='light'] .card-glow-danger,
-  [data-theme='light'] .card-glow-info {
-    box-shadow: var(--glass-shadow);
+    border-color: hsl(var(--info) / 0.5);
+    box-shadow: none;
   }
 
-  /* ── Sidebar nav item left accent ── */
+  /* ── Sidebar nav item — oxblood left rule when active ── */
   .nav-active-accent {
     position: relative;
   }
@@ -412,49 +366,52 @@
     left: -8px;
     top: 50%;
     transform: translateY(-50%);
-    width: 3px;
-    height: 16px;
-    border-radius: 0 2px 2px 0;
-    background: hsl(var(--info));
-    box-shadow: 0 0 8px hsl(var(--info) / 0.6);
+    width: 2px;
+    height: 18px;
+    border-radius: 0;
+    background: hsl(var(--ox));
+    box-shadow: none;
   }
 
-  /* ── Subtle inner shimmer on featured cards ── */
+  /* Shimmer removed — flat paper doesn't shimmer */
   .shimmer-inner {
     position: relative;
     overflow: hidden;
   }
   .shimmer-inner::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      105deg,
-      transparent 40%,
-      rgba(255, 255, 255, 0.035) 50%,
-      transparent 60%
-    );
-    background-size: 200% 100%;
-    animation: shimmer 4s linear infinite;
-    pointer-events: none;
+    content: none;
   }
 
-  /* ── Session state dot pulse ── */
   .dot-pulse {
     animation: dot-pulse 2s ease-in-out infinite;
   }
+
+  /* Fleuron — the oxblood facet/star between two hairlines, section break */
+  .fleuron {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: hsl(var(--ox));
+  }
+  .fleuron::before,
+  .fleuron::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: hsl(var(--border));
+  }
+
+  /* Folio — small mono page/issue marker */
+  .folio {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: hsl(var(--text-muted));
+  }
 }
 
-/* ── Keyframes ─────────────────────────────── */
-@keyframes shimmer {
-  0% {
-    background-position: 200% center;
-  }
-  100% {
-    background-position: -200% center;
-  }
-}
-
+/* ── Keyframes — only the calm ones survive ─────────── */
 @keyframes dot-pulse {
   0%,
   100% {
@@ -470,167 +427,64 @@
 @keyframes glow-pulse {
   0%,
   100% {
-    opacity: 0.5;
+    opacity: 0.7;
   }
   50% {
     opacity: 1;
   }
 }
 
-@keyframes aurora-flow {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-@keyframes aurora-drift {
-  0% {
-    transform: translateX(0%) translateY(0%);
-  }
-  50% {
-    transform: translateX(2%) translateY(-1%);
-  }
-  100% {
-    transform: translateX(0%) translateY(0%);
-  }
-}
-
-@keyframes prismatic-rotate {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes summit-breathe {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.82;
-  }
-}
-
-/* ── Brand-defining utilities ───────────────────── */
+/* ── Brand utilities — reworked to flat editorial (names kept) ────── */
 @layer utilities {
-  /* Aurora ribbon — page-top neon accent strip */
+  /* Aurora ribbon → a flat oxblood masthead rule */
   .aurora-ribbon {
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      hsl(188, 86%, 53%) 18%,
-      hsl(258, 90%, 66%) 38%,
-      hsl(213, 94%, 68%) 54%,
-      hsl(158, 64%, 52%) 72%,
-      hsl(188, 86%, 53%) 88%,
-      transparent 100%
-    );
-    background-size: 220% 100%;
-    animation: aurora-flow 14s linear infinite;
-    filter: blur(0.4px);
+    background: hsl(var(--ox));
+    filter: none;
+    animation: none;
   }
 
-  /* Aurora atmospheric mist — deep-space nebula glow layer */
+  /* Aurora mist → nothing. Flat paper has no nebula. */
   .aurora-mist {
-    background:
-      radial-gradient(ellipse 60% 40% at 18% 12%, hsl(188, 86%, 53%, 0.12), transparent 60%),
-      radial-gradient(ellipse 50% 35% at 82% 18%, hsl(258, 90%, 66%, 0.1), transparent 60%),
-      radial-gradient(ellipse 70% 50% at 50% 90%, hsl(213, 94%, 68%, 0.08), transparent 60%),
-      radial-gradient(ellipse 40% 30% at 12% 88%, hsl(158, 64%, 52%, 0.06), transparent 60%);
-    animation: aurora-drift 24s ease-in-out infinite;
+    background: none;
+    animation: none;
   }
 
-  /* Gradient summit text — for hero numerals (cyan → neon green) */
+  /* Gradient text helpers → flat single-ink (no clip gradients) */
+  .text-gradient-summit,
+  .text-gradient-aurora,
+  .text-gradient-info {
+    background: none;
+    -webkit-background-clip: initial;
+    background-clip: initial;
+    color: hsl(var(--ink, var(--foreground)));
+    -webkit-text-fill-color: currentColor;
+  }
   .text-gradient-summit {
-    background: linear-gradient(
-      180deg,
-      hsl(188, 90%, 66%) 0%,
-      hsl(174, 72%, 52%) 55%,
-      hsl(158, 64%, 50%) 100%
-    );
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    -webkit-text-fill-color: transparent;
-  }
-  .text-gradient-aurora {
-    background: linear-gradient(
-      135deg,
-      hsl(188, 86%, 62%) 0%,
-      hsl(213, 94%, 72%) 50%,
-      hsl(258, 90%, 72%) 100%
-    );
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    -webkit-text-fill-color: transparent;
-  }
-  .text-gradient-danger {
-    background: linear-gradient(180deg, hsl(351, 95%, 78%) 0%, hsl(351, 85%, 62%) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    -webkit-text-fill-color: transparent;
-  }
-  .text-gradient-amber {
-    background: linear-gradient(180deg, hsl(43, 96%, 66%) 0%, hsl(38, 92%, 52%) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    -webkit-text-fill-color: transparent;
+    color: hsl(var(--accent-a));
   }
   .text-gradient-info {
-    background: linear-gradient(180deg, hsl(188, 90%, 68%) 0%, hsl(196, 86%, 54%) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    -webkit-text-fill-color: transparent;
+    color: hsl(var(--info));
+  }
+  .text-gradient-danger {
+    background: none;
+    -webkit-text-fill-color: currentColor;
+    color: hsl(var(--danger));
+  }
+  .text-gradient-amber {
+    background: none;
+    -webkit-text-fill-color: currentColor;
+    color: hsl(var(--warning));
   }
 
-  /* Prismatic refractive edge — for hero cards */
+  /* Prismatic edge → removed (flat paper) */
   .prismatic-edge {
     position: relative;
   }
   .prismatic-edge::after {
-    content: '';
-    position: absolute;
-    inset: -1px;
-    border-radius: inherit;
-    padding: 1px;
-    background: conic-gradient(
-      from 0deg,
-      hsl(188, 86%, 53%, 0) 0%,
-      hsl(188, 86%, 53%, 0.5) 10%,
-      hsl(213, 94%, 68%, 0.42) 32%,
-      hsl(258, 90%, 66%, 0.38) 52%,
-      hsl(158, 64%, 52%, 0.36) 72%,
-      hsl(188, 86%, 53%, 0.5) 90%,
-      hsl(188, 86%, 53%, 0) 100%
-    );
-    -webkit-mask:
-      linear-gradient(#000 0 0) content-box,
-      linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 320ms ease;
-    animation: prismatic-rotate 12s linear infinite;
-  }
-  .prismatic-edge:hover::after {
-    opacity: 1;
+    content: none;
   }
 
-  /* Trail line — vertical line connecting sidebar nav waypoints */
+  /* Trail line — thin hairline connecting sidebar waypoints (kept, quieted) */
   .trail-line {
     position: relative;
   }
@@ -641,17 +495,11 @@
     top: 12px;
     bottom: 12px;
     width: 1px;
-    background: linear-gradient(
-      to bottom,
-      transparent 0%,
-      rgba(255, 255, 255, 0.06) 12%,
-      rgba(255, 255, 255, 0.06) 88%,
-      transparent 100%
-    );
+    background: hsl(var(--border));
     pointer-events: none;
   }
 
-  /* Waypoint dot — active nav item */
+  /* Waypoint dot — oxblood, flat (no halo) */
   .waypoint-active {
     position: relative;
   }
@@ -663,75 +511,37 @@
     width: 7px;
     height: 7px;
     border-radius: 9999px;
-    background: hsl(var(--info));
+    background: hsl(var(--ox));
     transform: translateY(-50%);
-    box-shadow:
-      0 0 0 2px hsl(var(--background)),
-      0 0 0 3px hsl(var(--info) / 0.45),
-      0 0 12px hsl(var(--info) / 0.75);
+    box-shadow: 0 0 0 2px hsl(var(--background));
     z-index: 1;
   }
 
-  /* Summit halo — soft cyan aura behind the discipline gauge */
+  /* Summit halo → removed */
   .summit-halo {
     position: relative;
   }
   .summit-halo::before {
-    content: '';
-    position: absolute;
-    inset: -40%;
-    background: radial-gradient(circle, hsl(var(--info) / 0.12) 0%, transparent 55%);
-    pointer-events: none;
-    z-index: 0;
-    animation: summit-breathe 6s ease-in-out infinite;
+    content: none;
   }
 
-  /* Brushed metal border — premium texture for primary buttons / CTAs */
+  /* Brushed metal edge → removed */
   .brushed-edge {
-    background-image: linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.1) 0%,
-      transparent 40%,
-      rgba(255, 255, 255, 0.08) 100%
-    );
+    background-image: none;
   }
 
-  /* ── HUD background grid — ultra-subtle, static (1px lines ~3% alpha) ── */
+  /* HUD grid → a faint editorial baseline grid in hairline ink */
   .hud-grid {
     background-image:
-      linear-gradient(to right, hsl(var(--info) / 0.03) 1px, transparent 1px),
-      linear-gradient(to bottom, hsl(var(--info) / 0.03) 1px, transparent 1px);
-    background-size: 44px 44px;
-  }
-  [data-theme='light'] .hud-grid {
-    background-image:
-      linear-gradient(to right, hsl(var(--info) / 0.05) 1px, transparent 1px),
-      linear-gradient(to bottom, hsl(var(--info) / 0.05) 1px, transparent 1px);
+      linear-gradient(to right, hsl(var(--border) / 0.35) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / 0.35) 1px, transparent 1px);
+    background-size: 48px 48px;
   }
 
-  /* ── Corner-bracket accents — HUD framing for hero cards ── */
+  /* HUD corner brackets → removed (no HUD framing) */
   .hud-corners::before,
   .hud-corners::after {
-    content: '';
-    position: absolute;
-    width: 14px;
-    height: 14px;
-    pointer-events: none;
-    z-index: 2;
-    border-color: hsl(var(--info) / 0.55);
-    border-style: solid;
-  }
-  .hud-corners::before {
-    top: 8px;
-    left: 8px;
-    border-width: 1.5px 0 0 1.5px;
-    border-top-left-radius: 4px;
-  }
-  .hud-corners::after {
-    bottom: 8px;
-    right: 8px;
-    border-width: 0 1.5px 1.5px 0;
-    border-bottom-right-radius: 4px;
+    content: none;
   }
 }
 

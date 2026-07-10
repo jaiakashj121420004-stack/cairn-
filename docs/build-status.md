@@ -6,6 +6,24 @@ Update this file at the end of every wave. -->
 
 Tracks what is actually built/verified vs planned. Last reviewed **2026-05-31** (Wave 1.5 remediation: all §17.6 issues resolved, five gates green; re-verified same date with Wave 2 event-bus work in working tree — all gates still green, 258 tests). Update at the end of every wave.
 
+### Design round — Nvexis "The Almanac" (2026-07-10, working tree)
+
+Full re-skin from the v2.1 Neon Cockpit HUD to the **Nvexis "The Almanac"** brand bible
+(`DESIGN-GUIDELINES.md`, spec `docs/design-system.md § v3.0`): oxblood on parchment,
+Fraunces/Spectral/IBM Plex Mono, flat paper (no neon/glass/gradient/glow/blur), **Day
+(parchment) default + Night (ink)** available; app name stays **Cairn**. Rewrote
+`globals.css` (v3.0 tokens; HUD utility class names kept but neutralised to flat paper),
+`tailwind.config.ts` (fonts + 2px/4px radii + flattened shadows), `index.html` (default
+`data-theme=light`); added `@fontsource-variable/fraunces`, `@fontsource/spectral`,
+`@fontsource/ibm-plex-mono` to `apps/desktop/package.json`. Swept the inline neon the tokens
+couldn't reach (Shell orbs, Sidebar/TopBar/CommandPalette/Dashboard glass+glow, `bg-white/[x]`
+overlays → `hsl(var(--ink)/x)`, `shadow-[0_0_…]` glows stripped app-wide); recoloured CairnLogo,
+DisciplineRing fonts, pie/heatmap palettes, default swatches. **Responsive fix:** shared `Modal`
+now caps to `max-h-[calc(100vh-2rem)]` and scrolls its body (fixes top/bottom clipping the taller
+serif exposed); OnboardingCard made scroll-safe. **Verification:** confirmed via `dev`/HMR in the
+running app (Day + Night). **Host gates (typecheck/lint/build/tests) NOT yet run for this round —
+requires `pnpm install` on host first** (fonts). Not yet committed.
+
 ### Implemented & committed (in git history)
 
 - **v1.1** — committed (glassmorphism UI, risk calculator, R-alerts, shortcuts, leverage, screenshots, partial-close, daily-trade-limit + max-daily-loss rules).

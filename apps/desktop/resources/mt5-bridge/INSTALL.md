@@ -20,7 +20,13 @@ You'll see three things you need:
 
 Keep this screen open; you'll come back to watch the connection indicator.
 
-## 2. Copy the EA into your terminal
+## 2. Install the EA into your terminal
+
+**Easiest — one click.** In Cairn's MT5 panel, click **Install Cairn EA**. Cairn
+copies `CairnBridge.mq5` into every MetaTrader 5 Experts folder it detects and opens
+the folder for you. Then skip to step 3.
+
+**Manual** (only if Cairn didn't detect your terminal):
 
 1. In MetaTrader 5: **File → Open Data Folder**.
 2. Go into **MQL5 → Experts**.

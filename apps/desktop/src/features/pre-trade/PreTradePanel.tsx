@@ -101,20 +101,11 @@ function RuleRow({ r }: { r: RuleEvaluationDTO }) {
   const status = r.passed ? 'pass' : r.severity === 'blocking' ? 'block' : 'warn'
   const icon =
     status === 'pass' ? (
-      <CheckCircle2
-        className="h-3.5 w-3.5 text-accent-a shrink-0 drop-shadow-[0_0_5px_hsl(var(--accent-a)/0.6)]"
-        strokeWidth={1.5}
-      />
+      <CheckCircle2 className="h-3.5 w-3.5 text-accent-a shrink-0" strokeWidth={1.5} />
     ) : status === 'block' ? (
-      <XCircle
-        className="h-3.5 w-3.5 text-danger shrink-0 drop-shadow-[0_0_5px_hsl(var(--danger)/0.6)]"
-        strokeWidth={1.5}
-      />
+      <XCircle className="h-3.5 w-3.5 text-danger shrink-0" strokeWidth={1.5} />
     ) : (
-      <AlertTriangle
-        className="h-3.5 w-3.5 text-warning shrink-0 drop-shadow-[0_0_5px_hsl(var(--warning)/0.6)]"
-        strokeWidth={1.5}
-      />
+      <AlertTriangle className="h-3.5 w-3.5 text-warning shrink-0" strokeWidth={1.5} />
     )
   // HUD status-row framing: faint hue-tinted fill + a glowing left rail.
   const rowClass =

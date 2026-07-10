@@ -233,7 +233,7 @@ function ReviewItem({
 
   return (
     <button type="button" onClick={() => onClick(review)} className="group w-full text-left">
-      <div className="glass rounded-[14px] p-4 transition-all duration-150 hover:bg-white/[0.04]">
+      <div className="glass rounded-[14px] p-4 transition-all duration-150 hover:bg-[hsl(var(--ink)/0.04)]">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-1">
@@ -617,7 +617,7 @@ function AwaitingRow({
       onClick={onClick}
       aria-current={focused}
       className={cn(
-        'group w-full text-left rounded-[12px] glass p-4 transition-all duration-150 hover:bg-white/[0.04]',
+        'group w-full text-left rounded-[12px] glass p-4 transition-all duration-150 hover:bg-[hsl(var(--ink)/0.04)]',
         focused && 'ring-1 ring-accent-a/60',
       )}
     >

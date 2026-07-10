@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -11,18 +11,20 @@
     -->
     <script>
       ;(function () {
-        var theme = 'dark'
+        // Nvexis "The Almanac": Day (parchment) is the hero and the default.
+        // Night (ink) is a true mode, chosen explicitly or via system pref.
+        var theme = 'light'
         try {
           var raw = localStorage.getItem('cairn-ui')
           if (raw) {
             var pref = JSON.parse(raw).state.themePreference
-            if (pref === 'light') {
+            if (pref === 'dark') {
+              theme = 'dark'
+            } else if (pref === 'light') {
               theme = 'light'
-            } else if (pref === 'system' || pref === 'dark' || !pref) {
+            } else if (pref === 'system') {
               theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
             }
-          } else {
-            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
           }
         } catch (_) {}
         document.documentElement.setAttribute('data-theme', theme)

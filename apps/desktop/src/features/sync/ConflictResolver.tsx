@@ -130,9 +130,9 @@ export function ConflictResolver() {
         <button
           type="button"
           onClick={() => void openModal()}
-          className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full border border-warning/50 bg-surface-elevated px-4 py-2 text-caption font-medium text-warning shadow-[0_8px_28px_rgba(0,0,0,0.5),0_0_22px_hsl(var(--warning)/0.22)] transition-[filter,box-shadow] hover:border-warning/70 hover:brightness-110"
+          className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full border border-warning/50 bg-surface-elevated px-4 py-2 text-caption font-medium text-warning shadow-[0_8px_28px_hsl(0_0%_0%/0.18)] transition-[filter,box-shadow] hover:border-warning/70 hover:brightness-110"
         >
-          <AlertTriangle className="h-4 w-4 drop-shadow-[0_0_6px_hsl(var(--warning)/0.6)]" />
+          <AlertTriangle className="h-4 w-4" />
           {count} sync conflict{count === 1 ? '' : 's'}
         </button>
       )}
