@@ -410,6 +410,12 @@ const api = {
       ipcRenderer.invoke('broker:ctraderDisconnect'),
     ctraderSetEnvironment: (env: CtraderEnvironment): Promise<IpcResponse<void>> =>
       ipcRenderer.invoke('broker:ctraderSetEnvironment', env),
+    setCtraderCredentials: (input: {
+      clientId: string
+      clientSecret: string
+    }): Promise<IpcResponse<void>> => ipcRenderer.invoke('broker:setCtraderCredentials', input),
+    clearCtraderCredentials: (): Promise<IpcResponse<void>> =>
+      ipcRenderer.invoke('broker:clearCtraderCredentials'),
     listAccountMap: (): Promise<IpcResponse<BrokerAccountMapEntry[]>> =>
       ipcRenderer.invoke('broker:listAccountMap'),
     listUnmappedAccounts: (): Promise<IpcResponse<UnmappedBrokerAccount[]>> =>

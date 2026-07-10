@@ -304,6 +304,11 @@ declare global {
         ctraderConnect: () => Promise<IpcResponse<void>>
         ctraderDisconnect: () => Promise<IpcResponse<void>>
         ctraderSetEnvironment: (env: CtraderEnvironment) => Promise<IpcResponse<void>>
+        setCtraderCredentials: (input: {
+          clientId: string
+          clientSecret: string
+        }) => Promise<IpcResponse<void>>
+        clearCtraderCredentials: () => Promise<IpcResponse<void>>
         listAccountMap: () => Promise<IpcResponse<BrokerAccountMapEntry[]>>
         listUnmappedAccounts: () => Promise<IpcResponse<UnmappedBrokerAccount[]>>
         setAccountMap: (input: {
@@ -643,6 +648,12 @@ export const ipc = {
       transport.call('broker:ctraderDisconnect', undefined),
     ctraderSetEnvironment: (env: CtraderEnvironment): Promise<IpcResponse<void>> =>
       transport.call('broker:ctraderSetEnvironment', env),
+    setCtraderCredentials: (input: {
+      clientId: string
+      clientSecret: string
+    }): Promise<IpcResponse<void>> => transport.call('broker:setCtraderCredentials', input),
+    clearCtraderCredentials: (): Promise<IpcResponse<void>> =>
+      transport.call('broker:clearCtraderCredentials', undefined),
     listAccountMap: (): Promise<IpcResponse<BrokerAccountMapEntry[]>> =>
       transport.call('broker:listAccountMap', undefined),
     listUnmappedAccounts: (): Promise<IpcResponse<UnmappedBrokerAccount[]>> =>

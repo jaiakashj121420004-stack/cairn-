@@ -8,9 +8,11 @@ import { ipcMain } from 'electron'
 import {
   connectCtrader,
   disconnectCtrader,
+  forgetCtraderAppCredentials,
   getBrokerDiagnostics,
   getBrokerIngestService,
   getCtraderRuntimeConfig,
+  saveCtraderAppCredentials,
   setCtraderEnvironmentSetting,
 } from '../services/broker/index'
 import { getMt5BridgeConfig } from '../services/broker/mt5/config'
@@ -75,6 +77,29 @@ export function registerBrokerHandlers(): void {
         return { ok: false, error: { code: 'DB_ERROR', message: String(err) } }
       }
     },
+  )
+
+  // ── broker:setCtraderCredentials ──────────────────────────────────────────────
+  // Save the user's cTrader OAuth app client id/secret to the OS keychain, so a stock
+  // install can connect without env vars. The secret never touches SQLite or logs.
+  ipcMain.handle('broker:setCtraderCredentials', (_e, raw: unknown): Promise<IpcResponse<void>> => {
+    const r = raw as { clientId?: unknown; clientSecret?: unknown } | null
+    const clientId = typeof r?.clientId === 'string' ? r.clientId : ''
+    const clientSecret = typeof r?.clientSecret === 'string' ? r.clientSecret : ''
+    if (!clientId.trim() || !clientSecret.trim()) {
+      return Promise.resolve({
+        ok: false,
+        error: { code: 'BAD_INPUT', message: 'client id and secret are required' },
+      })
+    }
+    return saveCtraderAppCredentials(clientId, clientSecret)
+  })
+
+  // ── broker:clearCtraderCredentials ────────────────────────────────────────────
+  // Forget stored cTrader credentials (disconnects the stream first).
+  ipcMain.handle(
+    'broker:clearCtraderCredentials',
+    (): Promise<IpcResponse<void>> => forgetCtraderAppCredentials(),
   )
 
   // ── broker:ctraderConnect ─────────────────────────────────────────────────────

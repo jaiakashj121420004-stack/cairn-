@@ -328,6 +328,11 @@ export interface Procedures {
   'broker:ctraderConnect': { input: void; output: void }
   'broker:ctraderDisconnect': { input: void; output: void }
   'broker:ctraderSetEnvironment': { input: CtraderEnvironment; output: void }
+  'broker:setCtraderCredentials': {
+    input: { clientId: string; clientSecret: string }
+    output: void
+  }
+  'broker:clearCtraderCredentials': { input: void; output: void }
   'broker:listAccountMap': { input: void; output: BrokerAccountMapEntry[] }
   'broker:listUnmappedAccounts': { input: void; output: UnmappedBrokerAccount[] }
   'broker:setAccountMap': {
@@ -473,6 +478,8 @@ export const PROCEDURE_NAMES = [
   'broker:ctraderConnect',
   'broker:ctraderDisconnect',
   'broker:ctraderSetEnvironment',
+  'broker:setCtraderCredentials',
+  'broker:clearCtraderCredentials',
   'broker:listAccountMap',
   'broker:listUnmappedAccounts',
   'broker:setAccountMap',

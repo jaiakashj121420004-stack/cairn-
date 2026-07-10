@@ -31,11 +31,15 @@ import {
 } from './account-map'
 import { createCtraderAdapter } from './ctrader/adapter'
 import {
+  clearStoredCtraderAppCredentials,
+  isCtraderAppConfiguredAsync,
+  resolveCtraderAppCredentials,
+  storeCtraderAppCredentials,
+} from './ctrader/app-credentials'
+import {
   getCtraderAccountId,
-  getCtraderAppCredentials,
   getCtraderEnvironment,
   getCtraderStreamHost,
-  isCtraderAppConfigured,
   setCtraderAccountId,
   setCtraderEnvironment,
   CTRADER_STREAM_PORT,
@@ -260,7 +264,7 @@ function ctraderStatus(): BrokerConnectionStatus {
  * ingest service the MT5 bridge uses.
  */
 async function startCtraderStream(): Promise<Result<void>> {
-  const creds = getCtraderAppCredentials()
+  const creds = await resolveCtraderAppCredentials()
   if (!creds) return err('CTRADER_NOT_CONFIGURED', 'cTrader OAuth credentials are not configured')
 
   const accountId = getCtraderAccountId()
@@ -326,7 +330,7 @@ async function startCtraderStream(): Promise<Result<void>> {
  * then start the stream. Read-only scope throughout (docs/broker-integration.md §8).
  */
 export async function connectCtrader(): Promise<Result<void>> {
-  const creds = getCtraderAppCredentials()
+  const creds = await resolveCtraderAppCredentials()
   if (!creds) return err('CTRADER_NOT_CONFIGURED', 'cTrader OAuth credentials are not configured')
 
   const state = randomBytes(16).toString('hex')
@@ -372,6 +376,31 @@ export async function disconnectCtrader(): Promise<Result<void>> {
   return ok(undefined)
 }
 
+/**
+ * Save user-supplied cTrader OAuth application credentials to the OS keychain
+ * (Settings → Integrations → cTrader). This is what lets a stock install connect
+ * without env vars — the review's cTrader P0. Validation + storage live in
+ * `ctrader/app-credentials`; nothing here ever logs or persists the secret elsewhere.
+ */
+export async function saveCtraderAppCredentials(
+  clientId: string,
+  clientSecret: string,
+): Promise<Result<void>> {
+  return storeCtraderAppCredentials(clientId, clientSecret)
+}
+
+/**
+ * Forget stored cTrader credentials. Disconnects first (best effort) so no stream is
+ * left running without the credentials it needs to refresh its token, then clears the
+ * keychain entry. Any env-var fallback is untouched.
+ */
+export async function forgetCtraderAppCredentials(): Promise<Result<void>> {
+  await disconnectCtrader()
+  const cleared = await clearStoredCtraderAppCredentials()
+  if (!cleared.ok) return cleared
+  return ok(undefined)
+}
+
 /** Change the cTrader environment (demo/live). Persisted; takes effect on next connect. */
 export function setCtraderEnvironmentSetting(env: CtraderEnvironment): void {
   setCtraderEnvironment(env)
@@ -381,7 +410,7 @@ export function setCtraderEnvironmentSetting(env: CtraderEnvironment): void {
 export async function getCtraderRuntimeConfig(): Promise<CtraderRuntimeConfig> {
   const tokens = await readCtraderTokens()
   return {
-    appConfigured: isCtraderAppConfigured(),
+    appConfigured: await isCtraderAppConfiguredAsync(),
     environment: getCtraderEnvironment(),
     hasTokens: tokens.ok && tokens.data !== null,
     accountId: getCtraderAccountId(),
@@ -426,7 +455,7 @@ export function getBrokerDiagnostics(): BrokerDiagnostics {
  */
 export async function startCtraderBridge(): Promise<void> {
   try {
-    if (getCtraderAccountId() === null || !isCtraderAppConfigured()) return
+    if (getCtraderAccountId() === null || !(await isCtraderAppConfiguredAsync())) return
     const res = await startCtraderStream()
     if (!res.ok) log.warn(`[broker:ctrader] stream not started: ${res.error.code}`)
   } catch (e) {

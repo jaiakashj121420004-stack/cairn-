@@ -14,7 +14,7 @@ import {
 import { Check, Copy, Download, FolderOpen } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import type { Account } from '@shared/types/index'
-import { Button, Select } from '../../../components/ui'
+import { Button, Input, Select } from '../../../components/ui'
 import { useToast } from '../../../components/ui'
 import { ipc } from '../../../lib/ipc'
 
@@ -454,6 +454,9 @@ const CTRADER_INDICATOR: Record<BrokerStatus['connection'], { dot: string; label
 function CtraderPanel() {
   const [config, setConfig] = useState<CtraderRuntimeConfig | null>(null)
   const [busy, setBusy] = useState(false)
+  const [clientId, setClientId] = useState('')
+  const [clientSecret, setClientSecret] = useState('')
+  const [savingCreds, setSavingCreds] = useState(false)
   const toast = useToast()
 
   async function refresh() {
@@ -503,6 +506,33 @@ function CtraderPanel() {
     }
   }
 
+  async function saveCreds() {
+    setSavingCreds(true)
+    try {
+      const res = await ipc.broker.setCtraderCredentials({ clientId, clientSecret })
+      if (res.ok) {
+        toast('Credentials saved', 'success')
+        setClientId('')
+        setClientSecret('')
+        void refresh()
+      } else {
+        toast(res.error.message, 'error')
+      }
+    } finally {
+      setSavingCreds(false)
+    }
+  }
+
+  async function clearCreds() {
+    const res = await ipc.broker.clearCtraderCredentials()
+    if (res.ok) {
+      toast('Credentials cleared', 'success')
+      void refresh()
+    } else {
+      toast(res.error.message, 'error')
+    }
+  }
+
   const status = config?.connection ?? 'disconnected'
   const indicator = CTRADER_INDICATOR[status]
 
@@ -529,11 +559,43 @@ function CtraderPanel() {
       </div>
 
       {config && !config.appConfigured && (
-        <p className="text-caption text-warning leading-relaxed">
-          cTrader OAuth credentials are not configured in this build. Set{' '}
-          <span className="font-mono">CTRADER_CLIENT_ID</span> and{' '}
-          <span className="font-mono">CTRADER_CLIENT_SECRET</span> to enable the connection.
-        </p>
+        <div className="space-y-2.5 rounded-[10px] border border-border bg-surface-elevated p-4">
+          <p className="text-caption text-text-secondary leading-relaxed">
+            To connect, paste your cTrader Open API application credentials. Create a free app in
+            Spotware&apos;s Open API portal with redirect URI{' '}
+            <span className="font-mono">http://127.0.0.1:53129/ctrader/callback</span> and the{' '}
+            <span className="font-mono">accounts</span> scope. Your secret is stored in your
+            operating system&apos;s keychain — never on disk, never in logs.
+          </p>
+          <Input
+            label="Client ID"
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            placeholder="e.g. 1234_aBcDeFg…"
+          />
+          <Input
+            label="Client secret"
+            type="password"
+            value={clientSecret}
+            onChange={(e) => setClientSecret(e.target.value)}
+            placeholder="••••••••••••"
+          />
+          <Button
+            onClick={() => void saveCreds()}
+            disabled={savingCreds || !clientId.trim() || !clientSecret.trim()}
+          >
+            {savingCreds ? 'Saving…' : 'Save credentials'}
+          </Button>
+        </div>
+      )}
+
+      {config?.appConfigured && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-caption text-text-muted">OAuth credentials configured.</span>
+          <Button variant="secondary" onClick={() => void clearCreds()} disabled={busy}>
+            Clear credentials
+          </Button>
+        </div>
       )}
 
       {/* Connection indicator */}

@@ -1,8 +1,9 @@
 /**
  * cTrader Open API configuration (Wave 4 — `docs/broker-integration.md` §2.2 / §8).
  *
- * Sources the OAuth application credentials from the environment — NEVER from
- * source (CLAUDE.md §2.13 / §19; gitleaks must stay clean). The redirect URI is a
+ * The OAuth application credentials live in `./app-credentials` (keychain-first, with
+ * an env-var fallback) — NEVER in source (CLAUDE.md §2.13 / §19; gitleaks must stay
+ * clean). The redirect URI is a
  * loopback one-shot capture, matching the local-first posture: the only network
  * the OAuth dance touches is Spotware's hosted auth page (opened in the user's
  * browser) and the token endpoint.
@@ -53,28 +54,11 @@ export function getCtraderRedirectUri(): string {
   return `http://127.0.0.1:${CTRADER_REDIRECT_PORT}/ctrader/callback`
 }
 
-/** The env-sourced OAuth application credentials, or null if not configured. */
-export interface CtraderAppCredentials {
-  readonly clientId: string
-  readonly clientSecret: string
-}
-
-/**
- * Read the OAuth application credentials from the environment. Returns null when
- * either is absent — the Settings panel then shows "not configured" rather than
- * attempting a connection. Never logged, never persisted.
- */
-export function getCtraderAppCredentials(): CtraderAppCredentials | null {
-  const clientId = process.env['CTRADER_CLIENT_ID']
-  const clientSecret = process.env['CTRADER_CLIENT_SECRET']
-  if (!clientId || !clientSecret) return null
-  return { clientId, clientSecret }
-}
-
-/** True when both env credentials are present. */
-export function isCtraderAppConfigured(): boolean {
-  return getCtraderAppCredentials() !== null
-}
+// The OAuth application credentials (client id/secret) and their keychain-first
+// resolver live in `./app-credentials` (`resolveCtraderAppCredentials`,
+// `isCtraderAppConfiguredAsync`). A stock install can set them in Settings (stored in
+// the OS keychain); the CTRADER_CLIENT_ID / CTRADER_CLIENT_SECRET env vars remain a
+// dev/CI fallback. This module keeps only the non-secret endpoints/redirect below.
 
 function readSetting(key: string): string | null {
   const row = getDb()
