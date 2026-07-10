@@ -64,9 +64,25 @@ function createWindow(): void {
     },
   })
 
+  // Never open a child window inside the app; hand safe external schemes to the OS
+  // browser and deny everything else. Restricting the scheme means a renderer
+  // compromise cannot use window.open to launch a file:/custom-protocol handler.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url)
+    if (/^(https:|mailto:)/i.test(url)) void shell.openExternal(url)
     return { action: 'deny' }
+  })
+
+  // Deny in-page navigation to any remote origin. Production loads a local file and
+  // never navigates; the dev server (loadURL) is the only allowed non-file origin.
+  // This stops a renderer bug from pointing the window at a remote page, which would
+  // then run with the app's privileges.
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const devUrl = process.env['ELECTRON_RENDERER_URL']
+    const isDevNav = !app.isPackaged && devUrl !== undefined && url.startsWith(devUrl)
+    if (!isDevNav && !url.startsWith('file://')) {
+      event.preventDefault()
+      log.warn(`[main] blocked navigation to a non-app URL`)
+    }
   })
 
   if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {

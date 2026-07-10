@@ -1290,15 +1290,31 @@ export function registerTradeHandlers(): void {
         const db = getDb()
         const { tradeId, kind, sourcePath, caption } = raw
 
-        if (!fs.existsSync(sourcePath)) {
+        // Validate the identifiers that build the on-disk path so a value containing
+        // `..` or a separator can never traverse out of the screenshots root. (The
+        // source path itself comes from a native file picker — user-authorised.)
+        if (!/^[0-9a-fA-F-]{36}$/.test(tradeId)) {
+          return { ok: false, error: { code: 'BAD_INPUT', message: 'Invalid trade id' } }
+        }
+        if (!/^[a-zA-Z0-9_-]{1,32}$/.test(kind)) {
+          return { ok: false, error: { code: 'BAD_INPUT', message: 'Invalid screenshot kind' } }
+        }
+        if (typeof sourcePath !== 'string' || !fs.existsSync(sourcePath)) {
           return { ok: false, error: { code: 'NOT_FOUND', message: 'Source file not found' } }
         }
 
-        const ext = path.extname(sourcePath).toLowerCase() || '.png'
+        const rawExt = path.extname(sourcePath).toLowerCase()
+        const ext = ['.png', '.jpg', '.jpeg', '.webp', '.gif'].includes(rawExt) ? rawExt : '.png'
         const filename = `${Date.now()}_${kind}${ext}`
-        const tradeDir = path.join(screenshotsRoot(), tradeId)
+        const root = screenshotsRoot()
+        const tradeDir = path.join(root, tradeId)
+        const dest = path.join(tradeDir, filename)
+        // Defence in depth: the resolved destination must stay inside the root.
+        if (!path.resolve(dest).startsWith(path.resolve(root) + path.sep)) {
+          return { ok: false, error: { code: 'BAD_INPUT', message: 'Invalid screenshot path' } }
+        }
         fs.mkdirSync(tradeDir, { recursive: true })
-        fs.copyFileSync(sourcePath, path.join(tradeDir, filename))
+        fs.copyFileSync(sourcePath, dest)
 
         const now = Date.now()
         const id = uuidv7()
