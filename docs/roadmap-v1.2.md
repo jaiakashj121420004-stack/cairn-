@@ -252,6 +252,10 @@ Wave 4 is a separate optional milestone. Full spec: `docs/broker-integration.md`
 - **#32, #33, #34 — built, service-level green.** Single `BrokerEvent` stream + integer encoding; auto-log Settings toggle with the honesty boundary; live detection warnings recorded as `rule_violations`.
 - **#30, #31 — built, two production seams open before live end-to-end:** the Settings → Integrations account-map UI (`resolveAccount()` returns `null` today → fills hit `UNKNOWN_ACCOUNT`) and the cTrader protobuf codec (`loadProtobufCodec()` returns `null`). Until both land, the live-terminal manual QA in `docs/broker-integration.md` §10 cannot run; the automated round-trip test stands in for the import-after-live no-duplicate path.
 
+**Update (2026-07-10, committed on `feat/rules-engine`) — shippability P0s CLOSED + the #30/#31 seams landed:**
+- The account-map UI and cTrader protobuf codec seams above have since landed (per CLAUDE.md §17.6: account-map UI `16e22af`, codec `b238fdd`/`44dc9b6`); the remaining Wave-4 gap is live-terminal manual QA (`docs/broker-integration.md §10`).
+- Two gaps that stopped a **stock installed build** from connecting are now fixed: the MT5 EA is **bundled into the installer** with a one-click "Install Cairn EA" button (`ab7be8c`), and cTrader gained a **keychain-first credential-paste UI** so it connects with no env vars (`feat(broker)` commit). Plus a security-hardening pass (`fix(security)` commit). Full detail: `docs/build-status.md` § "Connectivity P0s + security hardening (2026-07-10)" and `docs/broker-integration.md §2.1/§2.2`.
+
 Wave 4 carries external-dependency slack not present in Waves 0–3: an MT5 demo terminal to test the EA, and a Spotware Open API app registration + OAuth review for cTrader.
 
 ---

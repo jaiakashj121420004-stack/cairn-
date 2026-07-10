@@ -6,6 +6,18 @@ Update this file at the end of every wave. -->
 
 Tracks what is actually built/verified vs planned. Last reviewed **2026-05-31** (Wave 1.5 remediation: all §17.6 issues resolved, five gates green; re-verified same date with Wave 2 event-bus work in working tree — all gates still green, 258 tests). Update at the end of every wave.
 
+### Connectivity P0s + security hardening (2026-07-10, committed on `feat/rules-engine`)
+
+Closed both broker-connectivity P0s from the 2026-07-10 full review (scores: product 7.5 / code 9 / security 7.5) — brokers now connect on a **stock installed build**, not only from source — and hardened four security findings.
+
+**MT5 one-click EA install** (commit `ab7be8c`): the EA is now bundled into the installer — `electron-builder.yml` `extraResources` ships `resources/mt5-bridge` (previously only `ctrader-proto`), so installed builds no longer lack the EA the Settings panel told users to copy. Settings → Integrations → MT5 gained a one-click **Install Cairn EA** button (+ per-folder **Open**) that copies `CairnBridge.mq5` (and `.ex5` when a build ships one) into every detected `MQL5/Experts` folder. New `services/broker/mt5/installer.ts` (`installMt5Ea` / `revealMt5ExpertsFolder`, both allow-listed to `findMt5ExpertsPaths()` — no arbitrary write/open sink); IPC `broker:installMt5Ea` / `broker:revealMt5Experts` wired through the full typed chain (procedures → dispatch → window.api → preload → ipc); test `tests/unit/broker/mt5-installer.test.ts` (9 cases). `resources/mt5-bridge/INSTALL.md` + `docs/broker-integration.md §2.1` updated.
+
+**cTrader credential-paste UI** (commit `feat(broker): cTrader credential-paste UI …`): OAuth *application* credentials are resolved keychain-first with an env-var fallback, so an install with no env vars can connect. New `services/broker/ctrader/app-credentials.ts` (`resolveCtraderAppCredentials` / `isCtraderAppConfiguredAsync` / store / read / clear, keytar-backed with a test seam); the three credential defs moved out of `ctrader/config.ts`; `index.ts` resolves creds async at 4 call sites + adds `saveCtraderAppCredentials` / `forgetCtraderAppCredentials`; IPC `broker:setCtraderCredentials` / `broker:clearCtraderCredentials`; a client-id + password-secret paste form + "Clear credentials" affordance in `CtraderPanel`; test `tests/unit/broker/ctrader-app-credentials.test.ts` (11 cases, incl. keychain-over-env precedence). `docs/broker-integration.md §2.2` updated.
+
+**Security hardening** (commit `fix(security): lock down navigation, openExternal scheme, and IPC path sinks`): `main.ts` now denies `will-navigate` to non-app origins and only hands `https:`/`mailto:` to `shell.openExternal`; `paths:openFile` is confined to `app.getPath('userData')` (its only caller opens screenshots there); `trades:addScreenshot` validates `tradeId` (UUID) / `kind` (charset) / extension (allow-list) + destination containment (closes a path-traversal write). **Deferred** (need runtime/e2e verification, not done): strict renderer CSP (blocked by the inline theme script in `index.html` — externalise it first), `sandbox:true`, `settings:set` key allow-list, keytar→safeStorage.
+
+**Gates (host, 2026-07-10):** desktop `typecheck` / `lint` / `test:unit` (**111 files, 1086 tests**) / `build` / `test:e2e` all GREEN; prettier clean; pre-commit + commitlint green on both commits. Backend gates (postgres / `@cairn/server` / docs-smoke) remain RED from the known WinNAT port-exclusion env issue (host-env, not these changes); backend deferred.
+
 ### Design round — Nvexis "The Almanac" (2026-07-10, working tree)
 
 Full re-skin from the v2.1 Neon Cockpit HUD to the **Nvexis "The Almanac"** brand bible

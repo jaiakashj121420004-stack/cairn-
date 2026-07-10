@@ -107,6 +107,7 @@ Components: **C1** Desktop renderer · **C2** Desktop main (IPC/SQLite/keychain/
 | T | UI tampers with money math | Money math is in main/crypto-adjacent services with decimal types + property tests, not the renderer. → M12 |
 | I | Plaintext leaked to logs | No `console.log` in prod (`no-console` lint); electron-log never handed key material. → M11 |
 | E | Renderer reaches Node APIs | No `remote`; narrow preload. → M1 |
+| E | Renderer navigates the window to a remote origin / opens an arbitrary external URL | `will-navigate` denies any non-app origin; `setWindowOpenHandler` hands only `https:`/`mailto:` to `openExternal` (`main.ts`, 2026-07-10). → M24 |
 
 ### C2 — Desktop main process
 | STRIDE | Threat | Mitigation |
@@ -117,6 +118,7 @@ Components: **C1** Desktop renderer · **C2** Desktop main (IPC/SQLite/keychain/
 | I | DK written to disk/logs | DK only in OS keychain (encrypted at rest) + memory; never SQLite/logs/temp. → M6 |
 | D | Sync runner hammers API | Leaky-bucket-rate-limited interval client-side; server rate limits too. → M8 |
 | E | Native module loads malicious code | Pinned deps, `onlyBuiltDependencies` allowlist (better-sqlite3/keytar/electron). → M13 |
+| E | Renderer-supplied path opens/writes outside app dirs | IPC path sinks confined: `paths:openFile` → `userData` only; `trades:addScreenshot` validates `tradeId`/`kind`/extension + destination containment (`ipc/paths.ts`, `ipc/trades.ts`, 2026-07-10). → M24 |
 
 ### C3 — Client crypto (`packages/shared-crypto/src/`, re-exported via `apps/desktop/electron/services/crypto/`; web `vault-crypto`)
 | STRIDE | Threat | Mitigation |
@@ -232,6 +234,7 @@ Components: **C1** Desktop renderer · **C2** Desktop main (IPC/SQLite/keychain/
 | **M21** | Trivy (fs + image) + Socket.dev supply-chain gate in CI | `.github/workflows/security.yml`, `socket.yml` | A-Dep, A-Tenant |
 | **M22** | gitleaks secret scan on every push/PR | `.github/workflows/gitleaks.yml` | A-Dep |
 | **M23** | ZAP baseline DAST against staging API in CI | `.github/workflows/security.yml` (`zap-baseline` job) | A-Net |
+| **M24** | Desktop navigation lockdown + IPC path-sink confinement (2026-07-10) | `will-navigate` deny of non-app origins + `openExternal` scheme allow-list (`apps/desktop/electron/main.ts`); `paths:openFile` confined to `userData`, `trades:addScreenshot` validates `tradeId`/`kind`/extension + destination containment (`apps/desktop/electron/ipc/paths.ts`, `apps/desktop/electron/ipc/trades.ts`). Deferred: strict renderer CSP + `sandbox:true` (need e2e verification). | A-Tab, A-User |
 
 ---
 

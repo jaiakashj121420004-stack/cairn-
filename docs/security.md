@@ -202,6 +202,13 @@ user does not re-enter their password every operation within a session.
   via `clearDataKey(userId)`.
 - The DK in the keychain is plaintext key material protected by the OS credential store's
   own at-rest encryption. It is never written to the app's own SQLite, logs, or temp files.
+- **Other `cairn`-service accounts**, stored the same way (OS-encrypted, never in SQLite/
+  logs): `refresh:<userId>` (opaque rotating auth refresh token, §18.5), `ctrader:tokens`
+  (the cTrader OAuth access/refresh pair), and — added 2026-07-10 — `ctrader:app` (the
+  cTrader OAuth *application* client id/secret, set by the user in Settings → Integrations →
+  cTrader). `ctrader:app` is the keychain-first source that lets a stock install connect
+  cTrader with no env vars (`services/broker/ctrader/app-credentials.ts`); the
+  `CTRADER_CLIENT_ID`/`CTRADER_CLIENT_SECRET` env vars remain a dev/CI fallback.
 
 ---
 
