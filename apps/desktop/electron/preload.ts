@@ -199,6 +199,13 @@ const api = {
     reset: (ack: string): Promise<IpcResponse<void>> => ipcRenderer.invoke('data:reset', { ack }),
   },
 
+  demo: {
+    status: (): Promise<IpcResponse<{ active: boolean; accountId: string | null }>> =>
+      ipcRenderer.invoke('demo:status'),
+    enter: (): Promise<IpcResponse<{ accountId: string }>> => ipcRenderer.invoke('demo:enter'),
+    exit: (): Promise<IpcResponse<void>> => ipcRenderer.invoke('demo:exit'),
+  },
+
   rules: {
     evaluatePreTrade: (input: DraftTradeInput): Promise<IpcResponse<RuleEvaluationDTO[]>> =>
       ipcRenderer.invoke('rules:evaluatePreTrade', input),
@@ -410,6 +417,13 @@ const api = {
       ipcRenderer.invoke('broker:ctraderDisconnect'),
     ctraderSetEnvironment: (env: CtraderEnvironment): Promise<IpcResponse<void>> =>
       ipcRenderer.invoke('broker:ctraderSetEnvironment', env),
+    ctraderListAccounts: (): Promise<
+      IpcResponse<Array<{ ctidTraderAccountId: number; isLive: boolean }>>
+    > => ipcRenderer.invoke('broker:ctraderListAccounts'),
+    ctraderSelectAccount: (input: { accountId: number }): Promise<IpcResponse<void>> =>
+      ipcRenderer.invoke('broker:ctraderSelectAccount', input),
+    ctraderTestConnection: (): Promise<IpcResponse<{ accountCount: number }>> =>
+      ipcRenderer.invoke('broker:ctraderTestConnection'),
     setCtraderCredentials: (input: {
       clientId: string
       clientSecret: string

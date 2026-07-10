@@ -12,8 +12,11 @@ import {
   getBrokerDiagnostics,
   getBrokerIngestService,
   getCtraderRuntimeConfig,
+  listCtraderAccounts,
   saveCtraderAppCredentials,
+  selectCtraderAccount,
   setCtraderEnvironmentSetting,
+  testCtraderConnection,
 } from '../services/broker/index'
 import { getMt5BridgeConfig } from '../services/broker/mt5/config'
 import { installMt5Ea, revealMt5ExpertsFolder } from '../services/broker/mt5/installer'
@@ -122,6 +125,29 @@ export function registerBrokerHandlers(): void {
       }
     },
   )
+
+  // ── broker:ctraderListAccounts ────────────────────────────────────────────────
+  // Read-only REST list of the linked login's trading accounts (for the account
+  // picker). Requires a stored token — i.e. the user has connected at least once.
+  ipcMain.handle('broker:ctraderListAccounts', () => listCtraderAccounts())
+
+  // ── broker:ctraderSelectAccount ───────────────────────────────────────────────
+  // Choose which account fills are attributed to; restarts the stream if one is live.
+  ipcMain.handle('broker:ctraderSelectAccount', (_e, raw: unknown): Promise<IpcResponse<void>> => {
+    const id = (raw as { accountId?: unknown } | null)?.accountId
+    if (typeof id !== 'number' || !Number.isInteger(id)) {
+      return Promise.resolve({
+        ok: false,
+        error: { code: 'BAD_INPUT', message: 'accountId must be an integer' },
+      })
+    }
+    return selectCtraderAccount(id)
+  })
+
+  // ── broker:ctraderTestConnection ──────────────────────────────────────────────
+  // Read-only reachability check: lists accounts to prove creds + token + network.
+  // Never opens a stream or writes anything.
+  ipcMain.handle('broker:ctraderTestConnection', () => testCtraderConnection())
 
   // ── broker:diagnostics ────────────────────────────────────────────────────────
   // Connection-health snapshot for Settings → Integrations. Read-only; every

@@ -10,6 +10,7 @@ import { registerBrokerAccountMapHandlers } from './broker-account-map'
 import { registerDashboardHandlers } from './dashboard'
 import { registerDataHandlers } from './data'
 import { registerDbHandlers } from './db'
+import { registerDemoHandlers } from './demo'
 import { registerImportHandlers } from './import'
 import { registerInsightsHandlers } from './insights'
 import { registerKillzoneHandlers } from './killzones'
@@ -41,6 +42,7 @@ export function setupIpcHandlers(): void {
   registerSetupHandlers()
   registerKillzoneHandlers()
   registerDataHandlers()
+  registerDemoHandlers()
   registerSessionHandlers()
   registerTradeHandlers()
   registerDashboardHandlers()

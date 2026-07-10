@@ -62,6 +62,10 @@ const dispatch: Dispatch = {
   'data:exportPdf': (input) => window.api.data.exportPdf(input.defaultName),
   'data:reset': (input) => window.api.data.reset(input.ack),
 
+  'demo:status': () => window.api.demo.status(),
+  'demo:enter': () => window.api.demo.enter(),
+  'demo:exit': () => window.api.demo.exit(),
+
   'rules:evaluatePreTrade': (input) => window.api.rules.evaluatePreTrade(input),
   'rules:evaluateModification': (input) => window.api.rules.evaluateModification(input),
   'rules:getSessionState': (input) => window.api.rules.getSessionState(input.accountId),
@@ -161,6 +165,9 @@ const dispatch: Dispatch = {
   'broker:ctraderConnect': () => window.api.broker.ctraderConnect(),
   'broker:ctraderDisconnect': () => window.api.broker.ctraderDisconnect(),
   'broker:ctraderSetEnvironment': (input) => window.api.broker.ctraderSetEnvironment(input),
+  'broker:ctraderListAccounts': () => window.api.broker.ctraderListAccounts(),
+  'broker:ctraderSelectAccount': (input) => window.api.broker.ctraderSelectAccount(input),
+  'broker:ctraderTestConnection': () => window.api.broker.ctraderTestConnection(),
   'broker:setCtraderCredentials': (input) => window.api.broker.setCtraderCredentials(input),
   'broker:clearCtraderCredentials': () => window.api.broker.clearCtraderCredentials(),
   'broker:listAccountMap': () => window.api.broker.listAccountMap(),

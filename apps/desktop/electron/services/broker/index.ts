@@ -57,7 +57,7 @@ import { createBrokerIngestService } from './ingest'
 import { createMt5Adapter } from './mt5/adapter'
 import { getMt5Port, getOrCreatePairingToken } from './mt5/config'
 import { resolveDefaultSetupId } from './setup-resolver'
-import type { FetchLike } from './ctrader/oauth'
+import type { CtraderTradingAccount, FetchLike } from './ctrader/oauth'
 import type { BrokerIngestService, BrokerEmitName, ResolvedAccount } from './ingest'
 import type {
   BrokerAccountMapEntry,
@@ -363,6 +363,52 @@ export async function connectCtrader(): Promise<Result<void>> {
   setCtraderAccountId(chosen.ctidTraderAccountId)
 
   return startCtraderStream()
+}
+
+/** Resolve a valid cTrader access token from stored creds + tokens (keychain). */
+async function ctraderAccessToken(): Promise<Result<string>> {
+  const creds = await resolveCtraderAppCredentials()
+  if (!creds) return err('CTRADER_NOT_CONFIGURED', 'cTrader OAuth credentials are not configured')
+  const provider = createCtraderTokenProvider({
+    clientId: creds.clientId,
+    clientSecret: creds.clientSecret,
+    fetchImpl: nodeFetch,
+    now: () => Date.now(),
+  })
+  return provider.getAccessToken()
+}
+
+/**
+ * List the trading accounts on the linked cTrader login (read-only REST,
+ * `GET /connect/tradingaccounts`). Requires app credentials + a stored token — i.e.
+ * the user has connected at least once. Backs the Settings account picker.
+ */
+export async function listCtraderAccounts(): Promise<Result<CtraderTradingAccount[]>> {
+  const token = await ctraderAccessToken()
+  if (!token.ok) return token
+  return fetchTradingAccounts(nodeFetch, token.data)
+}
+
+/**
+ * Choose which cTrader account fills are attributed to (persisted). If a stream is
+ * already running it is restarted against the newly selected account so the change
+ * takes effect immediately; otherwise the selection applies on the next connect.
+ */
+export async function selectCtraderAccount(accountId: number): Promise<Result<void>> {
+  setCtraderAccountId(accountId)
+  if (_ctraderAdapter) return startCtraderStream()
+  return ok(undefined)
+}
+
+/**
+ * Read-only connectivity check for Settings → Integrations: proves the stored
+ * credentials + token can reach cTrader by listing the login's trading accounts.
+ * Never opens a stream or writes anything (safe to run any time).
+ */
+export async function testCtraderConnection(): Promise<Result<{ accountCount: number }>> {
+  const accounts = await listCtraderAccounts()
+  if (!accounts.ok) return accounts
+  return ok({ accountCount: accounts.data.length })
 }
 
 /** Disconnect the cTrader stream and clear stored tokens + linked account. */

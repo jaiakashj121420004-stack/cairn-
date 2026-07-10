@@ -160,6 +160,11 @@ declare global {
         exportPdf: (defaultName?: string) => Promise<IpcResponse<string>>
         reset: (ack: string) => Promise<IpcResponse<void>>
       }
+      demo: {
+        status: () => Promise<IpcResponse<{ active: boolean; accountId: string | null }>>
+        enter: () => Promise<IpcResponse<{ accountId: string }>>
+        exit: () => Promise<IpcResponse<void>>
+      }
       rules: {
         evaluatePreTrade: (input: DraftTradeInput) => Promise<IpcResponse<RuleEvaluationDTO[]>>
         evaluateModification: (
@@ -304,6 +309,11 @@ declare global {
         ctraderConnect: () => Promise<IpcResponse<void>>
         ctraderDisconnect: () => Promise<IpcResponse<void>>
         ctraderSetEnvironment: (env: CtraderEnvironment) => Promise<IpcResponse<void>>
+        ctraderListAccounts: () => Promise<
+          IpcResponse<Array<{ ctidTraderAccountId: number; isLive: boolean }>>
+        >
+        ctraderSelectAccount: (input: { accountId: number }) => Promise<IpcResponse<void>>
+        ctraderTestConnection: () => Promise<IpcResponse<{ accountCount: number }>>
         setCtraderCredentials: (input: {
           clientId: string
           clientSecret: string
@@ -420,6 +430,14 @@ export const ipc = {
     exportPdf: (defaultName?: string): Promise<IpcResponse<string>> =>
       transport.call('data:exportPdf', { defaultName }),
     reset: (ack: string): Promise<IpcResponse<void>> => transport.call('data:reset', { ack }),
+  },
+
+  demo: {
+    status: (): Promise<IpcResponse<{ active: boolean; accountId: string | null }>> =>
+      transport.call('demo:status', undefined),
+    enter: (): Promise<IpcResponse<{ accountId: string }>> =>
+      transport.call('demo:enter', undefined),
+    exit: (): Promise<IpcResponse<void>> => transport.call('demo:exit', undefined),
   },
 
   paths: {
@@ -648,6 +666,13 @@ export const ipc = {
       transport.call('broker:ctraderDisconnect', undefined),
     ctraderSetEnvironment: (env: CtraderEnvironment): Promise<IpcResponse<void>> =>
       transport.call('broker:ctraderSetEnvironment', env),
+    ctraderListAccounts: (): Promise<
+      IpcResponse<Array<{ ctidTraderAccountId: number; isLive: boolean }>>
+    > => transport.call('broker:ctraderListAccounts', undefined),
+    ctraderSelectAccount: (input: { accountId: number }): Promise<IpcResponse<void>> =>
+      transport.call('broker:ctraderSelectAccount', input),
+    ctraderTestConnection: (): Promise<IpcResponse<{ accountCount: number }>> =>
+      transport.call('broker:ctraderTestConnection', undefined),
     setCtraderCredentials: (input: {
       clientId: string
       clientSecret: string

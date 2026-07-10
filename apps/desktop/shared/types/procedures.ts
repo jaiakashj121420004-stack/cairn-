@@ -210,6 +210,10 @@ export interface Procedures {
   'data:exportPdf': { input: { defaultName?: string | undefined }; output: string }
   'data:reset': { input: { ack: string }; output: void }
 
+  'demo:status': { input: void; output: { active: boolean; accountId: string | null } }
+  'demo:enter': { input: void; output: { accountId: string } }
+  'demo:exit': { input: void; output: void }
+
   'rules:evaluatePreTrade': { input: DraftTradeInput; output: RuleEvaluationDTO[] }
   'rules:evaluateModification': { input: EvaluateModificationInput; output: RuleEvaluationDTO[] }
   'rules:getSessionState': { input: { accountId: string }; output: SessionStateDTO }
@@ -328,6 +332,12 @@ export interface Procedures {
   'broker:ctraderConnect': { input: void; output: void }
   'broker:ctraderDisconnect': { input: void; output: void }
   'broker:ctraderSetEnvironment': { input: CtraderEnvironment; output: void }
+  'broker:ctraderListAccounts': {
+    input: void
+    output: Array<{ ctidTraderAccountId: number; isLive: boolean }>
+  }
+  'broker:ctraderSelectAccount': { input: { accountId: number }; output: void }
+  'broker:ctraderTestConnection': { input: void; output: { accountCount: number } }
   'broker:setCtraderCredentials': {
     input: { clientId: string; clientSecret: string }
     output: void
@@ -395,6 +405,9 @@ export const PROCEDURE_NAMES = [
   'data:export',
   'data:exportPdf',
   'data:reset',
+  'demo:status',
+  'demo:enter',
+  'demo:exit',
   'rules:evaluatePreTrade',
   'rules:evaluateModification',
   'rules:getSessionState',
@@ -478,6 +491,9 @@ export const PROCEDURE_NAMES = [
   'broker:ctraderConnect',
   'broker:ctraderDisconnect',
   'broker:ctraderSetEnvironment',
+  'broker:ctraderListAccounts',
+  'broker:ctraderSelectAccount',
+  'broker:ctraderTestConnection',
   'broker:setCtraderCredentials',
   'broker:clearCtraderCredentials',
   'broker:listAccountMap',

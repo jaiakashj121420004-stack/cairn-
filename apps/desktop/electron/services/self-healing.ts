@@ -47,7 +47,7 @@ function writeCrashSnapshot(errorText: string): void {
 }
 
 // ── Item 5: Settings schema validation ────────────────────────────────────────
-const KNOWN_BOOLEAN_SETTINGS = ['onboarding_completed', 'backup_on_close']
+const KNOWN_BOOLEAN_SETTINGS = ['onboarding_completed', 'backup_on_close', 'demo_mode_active']
 const KNOWN_STRING_SETTINGS = ['theme', 'backup_folder', 'backup_schedule', 'backup_daily_time']
 
 export function validateSettings(): void {

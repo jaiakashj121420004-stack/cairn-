@@ -30,10 +30,13 @@ const STEP_DONE = 7
 
 interface Props {
   onComplete: () => void
+  /** Enter first-run demo mode: seeds a sample account and jumps into the app. */
+  onEnterDemo: () => void
 }
 
-export function OnboardingFlow({ onComplete }: Props) {
+export function OnboardingFlow({ onComplete, onEnterDemo }: Props) {
   const [step, setStep] = useState(STEP_WELCOME)
+  const [demoLoading, setDemoLoading] = useState(false)
   const [propFirm, setPropFirm] = useState<PropFirm | null>(null)
   const [template, setTemplate] = useState<AccountTemplate | null>(null)
   // Full per-phase config from StepTemplate — the template row only keeps the
@@ -70,6 +73,16 @@ export function OnboardingFlow({ onComplete }: Props) {
     onComplete()
   }
 
+  async function handleDemo() {
+    setDemoLoading(true)
+    const res = await ipc.demo.enter()
+    if (res.ok) {
+      onEnterDemo()
+    } else {
+      setDemoLoading(false)
+    }
+  }
+
   return (
     <AnimatePresence mode="wait" initial={false}>
       {step === STEP_WELCOME && (
@@ -78,6 +91,8 @@ export function OnboardingFlow({ onComplete }: Props) {
           step={step}
           totalSteps={TOTAL_STEPS}
           onNext={() => void goToStep(STEP_PROP_FIRM)}
+          onDemo={() => void handleDemo()}
+          demoLoading={demoLoading}
         />
       )}
 

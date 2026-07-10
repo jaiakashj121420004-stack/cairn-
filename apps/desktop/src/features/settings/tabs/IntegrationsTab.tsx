@@ -457,6 +457,10 @@ function CtraderPanel() {
   const [clientId, setClientId] = useState('')
   const [clientSecret, setClientSecret] = useState('')
   const [savingCreds, setSavingCreds] = useState(false)
+  const [accounts, setAccounts] = useState<Array<{
+    ctidTraderAccountId: number
+    isLive: boolean
+  }> | null>(null)
   const toast = useToast()
 
   async function refresh() {
@@ -464,10 +468,19 @@ function CtraderPanel() {
     if (res.ok) setConfig(res.data)
   }
 
+  async function loadAccounts() {
+    const res = await ipc.broker.ctraderListAccounts()
+    setAccounts(res.ok ? res.data : null)
+  }
+
   useEffect(() => {
     void refresh()
     const id = setInterval(() => void refresh(), STATUS_POLL_MS)
     return () => clearInterval(id)
+  }, [])
+
+  useEffect(() => {
+    void loadAccounts()
   }, [])
 
   async function connect() {
@@ -481,6 +494,7 @@ function CtraderPanel() {
     } finally {
       setBusy(false)
       void refresh()
+      void loadAccounts()
     }
   }
 
@@ -493,6 +507,31 @@ function CtraderPanel() {
     } finally {
       setBusy(false)
       void refresh()
+    }
+  }
+
+  async function selectAccount(accountId: number) {
+    setBusy(true)
+    try {
+      const res = await ipc.broker.ctraderSelectAccount({ accountId })
+      if (res.ok) toast('Account selected', 'success')
+      else toast(res.error.message, 'error')
+    } finally {
+      setBusy(false)
+      void refresh()
+    }
+  }
+
+  async function testConnection() {
+    setBusy(true)
+    try {
+      const res = await ipc.broker.ctraderTestConnection()
+      if (res.ok)
+        toast(`Reached cTrader — ${res.data.accountCount} trading account(s) visible`, 'success')
+      else toast(res.error.message, 'error')
+      void loadAccounts()
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -615,8 +654,21 @@ function CtraderPanel() {
         onChange={(v) => void changeEnv(v === 'live' ? 'live' : 'demo')}
       />
 
-      {/* Connect / disconnect */}
-      <div className="flex items-center gap-2">
+      {/* Account picker — only once linked and accounts are known */}
+      {config?.hasTokens && accounts && accounts.length > 0 && (
+        <Select
+          label="Account"
+          options={accounts.map((a) => ({
+            value: String(a.ctidTraderAccountId),
+            label: `#${a.ctidTraderAccountId} · ${a.isLive ? 'Live' : 'Demo'}`,
+          }))}
+          value={config?.accountId != null ? String(config.accountId) : ''}
+          onChange={(v) => void selectAccount(Number(v))}
+        />
+      )}
+
+      {/* Connect / disconnect / test */}
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="primary"
           onClick={() => void connect()}
@@ -629,6 +681,13 @@ function CtraderPanel() {
             Disconnect
           </Button>
         )}
+        <Button
+          variant="secondary"
+          onClick={() => void testConnection()}
+          disabled={busy || !config?.hasTokens}
+        >
+          Test connection
+        </Button>
       </div>
     </section>
   )
