@@ -1,10 +1,11 @@
 import { err, ok, type Result } from '@cairn/shared-types'
+import { getSecureStore } from './secure-store'
 
 /**
- * OS keychain wrapper (CLAUDE.md §3.4, §18.4). Caches the *unwrapped* data key at rest
- * in the platform credential store (Windows Credential Manager / macOS Keychain /
- * libsecret) via `keytar`, so the user does not re-enter their password for every
- * operation within an unlocked session.
+ * OS-backed secret wrapper (CLAUDE.md §3.4, §18.4). Caches the *unwrapped* data key at
+ * rest, encrypted with Electron `safeStorage` (P1.E — see `secure-store.ts`), so the
+ * user does not re-enter their password for every operation within an unlocked session.
+ * A legacy keytar entry is migrated transparently on first read.
  *
  * Storage shape: service `cairn`, account `dataKey:<userId>`, value = base64 of the 32
  * raw data-key bytes. (The spec shorthand `cairn:dataKey:<userId>` maps to this
@@ -29,30 +30,19 @@ export interface KeytarLike {
   deletePassword(service: string, account: string): Promise<boolean>
 }
 
-// Lazily-resolved keytar, or `null` if the native module is unavailable on this
-// platform/runtime. `undefined` means "not yet attempted". A test seam
-// (`__setKeytarForTests`) lets unit tests inject a fake without the native binary,
-// which cannot load under the Node ABI that the test runner uses.
-let cachedKeytar: KeytarLike | null | undefined
+// The store is the shared safeStorage-backed {@link getSecureStore}; `null` means OS
+// encryption is unavailable (callers then return KEYCHAIN_UNAVAILABLE). A test seam
+// (`__setKeytarForTests`) lets unit tests inject a fake without touching safeStorage.
 let testOverride: KeytarLike | null | undefined
 
-/** Test seam: inject a fake keytar (or `null` to simulate unavailability). */
+/** Test seam: inject a fake secret store (or `null` to simulate unavailability). */
 export function __setKeytarForTests(fake: KeytarLike | null | undefined): void {
   testOverride = fake
-  cachedKeytar = undefined
 }
 
 async function loadKeytar(): Promise<KeytarLike | null> {
   if (testOverride !== undefined) return testOverride
-  if (cachedKeytar !== undefined) return cachedKeytar
-  try {
-    const mod = (await import('keytar')) as unknown as KeytarLike & { default?: KeytarLike }
-    cachedKeytar = mod.default ?? mod
-  } catch {
-    // Native module missing or ABI-mismatched — degrade gracefully rather than crash.
-    cachedKeytar = null
-  }
-  return cachedKeytar
+  return getSecureStore()
 }
 
 /**

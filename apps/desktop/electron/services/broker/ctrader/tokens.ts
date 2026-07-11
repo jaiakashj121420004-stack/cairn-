@@ -12,38 +12,30 @@
  */
 
 import { err, ok } from '@cairn/shared-types'
+import { getSecureStore } from '../../secure-store'
 import type { CtraderTokens } from './oauth'
 import type { Result } from '@cairn/shared-types'
 
 const SERVICE = 'cairn'
 const ACCOUNT = 'ctrader:tokens'
 
-/** The subset of `keytar` used here. Injectable for tests. */
+/** The subset of the secret store used here. Injectable for tests. */
 export interface KeytarLike {
   getPassword(service: string, account: string): Promise<string | null>
   setPassword(service: string, account: string, password: string): Promise<void>
   deletePassword(service: string, account: string): Promise<boolean>
 }
 
-let cachedKeytar: KeytarLike | null | undefined
 let testOverride: KeytarLike | null | undefined
 
-/** Test seam: inject a fake keytar (or `null` to simulate unavailability). */
+/** Test seam: inject a fake secret store (or `null` to simulate unavailability). */
 export function __setCtraderKeytarForTests(fake: KeytarLike | null | undefined): void {
   testOverride = fake
-  cachedKeytar = undefined
 }
 
 async function loadKeytar(): Promise<KeytarLike | null> {
   if (testOverride !== undefined) return testOverride
-  if (cachedKeytar !== undefined) return cachedKeytar
-  try {
-    const mod = (await import('keytar')) as unknown as KeytarLike & { default?: KeytarLike }
-    cachedKeytar = mod.default ?? mod
-  } catch {
-    cachedKeytar = null
-  }
-  return cachedKeytar
+  return getSecureStore()
 }
 
 function isTokens(value: unknown): value is CtraderTokens {
