@@ -11,8 +11,6 @@
 //   • the sync write path enqueues account + account_phases ops.
 
 import { vi, describe, it, expect, beforeAll, afterEach } from 'vitest'
-import { readFileSync } from 'fs'
-import { join } from 'path'
 import type { IpcResponse, Account } from '../../shared/types/index'
 
 type IpcHandler = (e: unknown, raw: unknown) => unknown
@@ -30,6 +28,7 @@ vi.mock('electron', () => ({
 import initSqlJs from 'sql.js'
 import { drizzle } from 'drizzle-orm/sql-js'
 import * as schema from '../../electron/db/schema'
+import { applyAllMigrations } from '../helpers/test-migrations'
 import type { CairnDb } from '../../electron/db/index'
 
 let injectedDb: unknown
@@ -37,27 +36,6 @@ vi.mock('../../electron/db/index', () => ({ getDb: () => injectedDb }))
 
 import { registerAccountHandlers } from '../../electron/ipc/accounts'
 import { setSyncWriteContext, VectorClockCache } from '../../electron/services/sync'
-
-const MIGRATIONS = [
-  '0001_initial',
-  '0002_v11',
-  '0003_opened_at',
-  '0004_consolidate_partials',
-  '0005_dismissed_insights',
-  '0006_notebook',
-  '0007_notebook_account',
-  '0008_external_ref',
-  '0009_phase2',
-  '0010_playbooks',
-  '0011_sync',
-  '0012_sync_merge',
-  '0013_sync_clocks',
-  '0014_live_detection_outcome',
-  '0015_broker_account_map',
-  '0016_account_phases',
-  '0017_daily_locks',
-  '0018_pre_trade_gate',
-].map((t) => readFileSync(join(__dirname, `../../electron/db/migrations/${t}.sql`), 'utf-8'))
 
 const PROP_FIRM_ID = '00000000-0000-0000-0000-000000000001'
 const SYNC_DEVICE_ID = '99999999-9999-9999-9999-999999999999'
@@ -74,12 +52,7 @@ afterEach(() => setSyncWriteContext(null))
 /** Fresh migrated DB with a single seeded prop firm; wired as the injected `getDb()`. */
 function makeDb(): CairnDb {
   const sqlite = new SQL.Database()
-  for (const sql of MIGRATIONS) {
-    for (const stmt of sql.split('--> statement-breakpoint')) {
-      const t = stmt.trim()
-      if (t) sqlite.run(t)
-    }
-  }
+  applyAllMigrations(sqlite)
   const db = drizzle(sqlite, { schema })
   injectedDb = db
   const now = Date.UTC(2026, 0, 1)

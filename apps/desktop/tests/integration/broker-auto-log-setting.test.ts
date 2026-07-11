@@ -6,8 +6,6 @@
 // renderer encodes it (JSON), and `parseAutoLogMode` decodes what comes back.
 
 import { vi, describe, it, expect, beforeAll } from 'vitest'
-import { readFileSync } from 'fs'
-import { join } from 'path'
 import {
   BROKER_AUTO_LOG_MODE_SETTING_KEY,
   DEFAULT_BROKER_AUTO_LOG_MODE,
@@ -29,32 +27,12 @@ vi.mock('electron', () => ({
 import initSqlJs from 'sql.js'
 import { drizzle } from 'drizzle-orm/sql-js'
 import * as schema from '../../electron/db/schema'
+import { applyAllMigrations } from '../helpers/test-migrations'
 
 let injectedDb: unknown
 vi.mock('../../electron/db/index', () => ({ getDb: () => injectedDb }))
 
 import { registerSettingsHandlers } from '../../electron/ipc/settings'
-
-const MIGRATIONS = [
-  '0001_initial',
-  '0002_v11',
-  '0003_opened_at',
-  '0004_consolidate_partials',
-  '0005_dismissed_insights',
-  '0006_notebook',
-  '0007_notebook_account',
-  '0008_external_ref',
-  '0009_phase2',
-  '0010_playbooks',
-  '0011_sync',
-  '0012_sync_merge',
-  '0013_sync_clocks',
-  '0014_live_detection_outcome',
-  '0015_broker_account_map',
-  '0016_account_phases',
-  '0017_daily_locks',
-  '0018_pre_trade_gate',
-].map((t) => readFileSync(join(__dirname, `../../electron/db/migrations/${t}.sql`), 'utf-8'))
 
 let SQL: Awaited<ReturnType<typeof initSqlJs>>
 
@@ -65,12 +43,7 @@ beforeAll(async () => {
 
 function makeDb() {
   const sqlite = new SQL.Database()
-  for (const sql of MIGRATIONS) {
-    for (const stmt of sql.split('--> statement-breakpoint')) {
-      const t = stmt.trim()
-      if (t) sqlite.run(t)
-    }
-  }
+  applyAllMigrations(sqlite)
   injectedDb = drizzle(sqlite, { schema })
 }
 

@@ -10,8 +10,6 @@
 //      reaches the ingest service and the connection is dropped.
 
 import { describe, it, expect, beforeAll, afterEach } from 'vitest'
-import { readFileSync } from 'fs'
-import { join } from 'path'
 import { connect as tcpConnect } from 'net'
 import initSqlJs from 'sql.js'
 import { drizzle } from 'drizzle-orm/sql-js'
@@ -20,31 +18,11 @@ import * as schema from '../../electron/db/schema'
 import { createBrokerIngestService } from '../../electron/services/broker/ingest'
 import { createMt5Listener } from '../../electron/services/broker/mt5/listener'
 import { encodeFrame } from '../../electron/services/broker/mt5/frame'
+import { applyAllMigrations } from '../helpers/test-migrations'
 import type { Mt5Listener, Mt5RejectReason } from '../../electron/services/broker/mt5/listener'
 import type { CairnDb } from '../../electron/db/index'
 import type { BrokerEvent } from '@cairn/shared-types'
 import type { Socket } from 'net'
-
-const MIGRATIONS = [
-  '0001_initial',
-  '0002_v11',
-  '0003_opened_at',
-  '0004_consolidate_partials',
-  '0005_dismissed_insights',
-  '0006_notebook',
-  '0007_notebook_account',
-  '0008_external_ref',
-  '0009_phase2',
-  '0010_playbooks',
-  '0011_sync',
-  '0012_sync_merge',
-  '0013_sync_clocks',
-  '0014_live_detection_outcome',
-  '0015_broker_account_map',
-  '0016_account_phases',
-  '0017_daily_locks',
-  '0018_pre_trade_gate',
-].map((t) => readFileSync(join(__dirname, `../../electron/db/migrations/${t}.sql`), 'utf-8'))
 
 const PROP_FIRM_ID = '00000000-0000-0000-0000-000000000001'
 const ACCOUNT_ID = '00000000-0000-0000-0000-000000000002'
@@ -63,12 +41,7 @@ beforeAll(async () => {
 
 function makeDb(): CairnDb {
   const sqlite = new SQL.Database()
-  for (const sql of MIGRATIONS) {
-    for (const stmt of sql.split('--> statement-breakpoint')) {
-      const t = stmt.trim()
-      if (t) sqlite.run(t)
-    }
-  }
+  applyAllMigrations(sqlite)
   const db = drizzle(sqlite, { schema })
   const now = Date.UTC(2024, 0, 1)
 

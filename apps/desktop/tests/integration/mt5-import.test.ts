@@ -24,6 +24,7 @@ vi.mock('electron', () => ({
 import initSqlJs from 'sql.js'
 import { drizzle } from 'drizzle-orm/sql-js'
 import * as schema from '../../electron/db/schema'
+import { applyAllMigrations } from '../helpers/test-migrations'
 
 let injectedDb: unknown
 vi.mock('../../electron/db/index', () => ({ getDb: () => injectedDb }))
@@ -31,28 +32,6 @@ vi.mock('../../electron/db/index', () => ({ getDb: () => injectedDb }))
 import { registerImportHandlers } from '../../electron/ipc/import'
 import { setSyncWriteContext, VectorClockCache } from '../../electron/services/sync'
 import type { CairnDb } from '../../electron/db/index'
-
-// All migrations including the new one
-const MIGRATIONS = [
-  '0001_initial',
-  '0002_v11',
-  '0003_opened_at',
-  '0004_consolidate_partials',
-  '0005_dismissed_insights',
-  '0006_notebook',
-  '0007_notebook_account',
-  '0008_external_ref',
-  '0009_phase2',
-  '0010_playbooks',
-  '0011_sync',
-  '0012_sync_merge',
-  '0013_sync_clocks',
-  '0014_live_detection_outcome',
-  '0015_broker_account_map',
-  '0016_account_phases',
-  '0017_daily_locks',
-  '0018_pre_trade_gate',
-].map((t) => readFileSync(join(__dirname, `../../electron/db/migrations/${t}.sql`), 'utf-8'))
 
 const FIXTURE_HTML = readFileSync(join(__dirname, '../fixtures/mt5-statement.html'), 'utf-8')
 
@@ -74,12 +53,7 @@ const USDJPY_PAIR_ID = '00000000-0000-0000-0000-000000000006'
 
 function makeDb() {
   const sqlite = new SQL.Database()
-  for (const sql of MIGRATIONS) {
-    for (const stmt of sql.split('--> statement-breakpoint')) {
-      const t = stmt.trim()
-      if (t) sqlite.run(t)
-    }
-  }
+  applyAllMigrations(sqlite)
 
   const db = drizzle(sqlite, { schema })
   injectedDb = db
@@ -486,12 +460,7 @@ describe('import:commitMt5 — validation errors', () => {
 describe('migration 0008 — schema', () => {
   it('adds external_ref column to trades', () => {
     const sqlite = new SQL.Database()
-    for (const sql of MIGRATIONS) {
-      for (const stmt of sql.split('--> statement-breakpoint')) {
-        const t = stmt.trim()
-        if (t) sqlite.run(t)
-      }
-    }
+    applyAllMigrations(sqlite)
     const info = sqlite.exec("PRAGMA table_info('trades')")
     const cols = (info[0]?.values ?? []).map((r) => r[1] as string)
     expect(cols).toContain('external_ref')
@@ -499,12 +468,7 @@ describe('migration 0008 — schema', () => {
 
   it('adds external_ref column to trade_partials', () => {
     const sqlite = new SQL.Database()
-    for (const sql of MIGRATIONS) {
-      for (const stmt of sql.split('--> statement-breakpoint')) {
-        const t = stmt.trim()
-        if (t) sqlite.run(t)
-      }
-    }
+    applyAllMigrations(sqlite)
     const info = sqlite.exec("PRAGMA table_info('trade_partials')")
     const cols = (info[0]?.values ?? []).map((r) => r[1] as string)
     expect(cols).toContain('external_ref')
@@ -512,12 +476,7 @@ describe('migration 0008 — schema', () => {
 
   it('unique index on trades.external_ref allows multiple NULLs', () => {
     const sqlite = new SQL.Database()
-    for (const sql of MIGRATIONS) {
-      for (const stmt of sql.split('--> statement-breakpoint')) {
-        const t = stmt.trim()
-        if (t) sqlite.run(t)
-      }
-    }
+    applyAllMigrations(sqlite)
     // Index exists
     const idx = sqlite.exec(
       "SELECT name FROM sqlite_master WHERE type='index' AND name='trades_external_ref_uq'",

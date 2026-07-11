@@ -1,48 +1,11 @@
 // @vitest-environment node
 import { drizzle } from 'drizzle-orm/sql-js'
 import initSqlJs from 'sql.js'
-import { readFileSync } from 'fs'
-import { join } from 'path'
 import { v7 as uuidv7 } from 'uuid'
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import * as schema from '../../../electron/db/schema'
+import { applyAllMigrations } from '../../helpers/test-migrations'
 import type { CairnDb } from '../../../electron/db/index'
-
-const MIGRATIONS = [
-  readFileSync(join(__dirname, '../../../electron/db/migrations/0001_initial.sql'), 'utf-8'),
-  readFileSync(join(__dirname, '../../../electron/db/migrations/0002_v11.sql'), 'utf-8'),
-  readFileSync(join(__dirname, '../../../electron/db/migrations/0003_opened_at.sql'), 'utf-8'),
-  readFileSync(
-    join(__dirname, '../../../electron/db/migrations/0004_consolidate_partials.sql'),
-    'utf-8',
-  ),
-  readFileSync(
-    join(__dirname, '../../../electron/db/migrations/0005_dismissed_insights.sql'),
-    'utf-8',
-  ),
-  readFileSync(join(__dirname, '../../../electron/db/migrations/0006_notebook.sql'), 'utf-8'),
-  readFileSync(
-    join(__dirname, '../../../electron/db/migrations/0007_notebook_account.sql'),
-    'utf-8',
-  ),
-  readFileSync(join(__dirname, '../../../electron/db/migrations/0008_external_ref.sql'), 'utf-8'),
-  readFileSync(join(__dirname, '../../../electron/db/migrations/0009_phase2.sql'), 'utf-8'),
-  readFileSync(join(__dirname, '../../../electron/db/migrations/0010_playbooks.sql'), 'utf-8'),
-  readFileSync(join(__dirname, '../../../electron/db/migrations/0011_sync.sql'), 'utf-8'),
-  readFileSync(join(__dirname, '../../../electron/db/migrations/0012_sync_merge.sql'), 'utf-8'),
-  readFileSync(join(__dirname, '../../../electron/db/migrations/0013_sync_clocks.sql'), 'utf-8'),
-  readFileSync(
-    join(__dirname, '../../../electron/db/migrations/0014_live_detection_outcome.sql'),
-    'utf-8',
-  ),
-  readFileSync(
-    join(__dirname, '../../../electron/db/migrations/0015_broker_account_map.sql'),
-    'utf-8',
-  ),
-  readFileSync(join(__dirname, '../../../electron/db/migrations/0016_account_phases.sql'), 'utf-8'),
-  readFileSync(join(__dirname, '../../../electron/db/migrations/0017_daily_locks.sql'), 'utf-8'),
-  readFileSync(join(__dirname, '../../../electron/db/migrations/0018_pre_trade_gate.sql'), 'utf-8'),
-]
 
 let SQL: Awaited<ReturnType<typeof initSqlJs>> | null = null
 
@@ -66,12 +29,7 @@ export interface TestDbBundle {
 export function createTestDb(): TestDbBundle {
   if (!SQL) throw new Error('Call await ensureSqlJs() in beforeAll/beforeEach first')
   const sqlite = new SQL.Database()
-  for (const migration of MIGRATIONS) {
-    for (const stmt of migration.split('--> statement-breakpoint')) {
-      const t = stmt.trim()
-      if (t) sqlite.run(t)
-    }
-  }
+  applyAllMigrations(sqlite)
   const drizzleDb = drizzle(sqlite, { schema })
   // Cast: same sync interface; production code is typed against better-sqlite3.
   const db = drizzleDb as unknown as CairnDb

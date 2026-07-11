@@ -8,8 +8,6 @@
 //   3. Phase-2 completion → the count decrements and honesty persists.
 
 import { vi, describe, it, expect, beforeAll } from 'vitest'
-import { readFileSync } from 'fs'
-import { join } from 'path'
 import { eq } from 'drizzle-orm'
 import type { IpcResponse, Trade, TradeListItem } from '../../shared/types/index'
 
@@ -30,32 +28,12 @@ import { drizzle } from 'drizzle-orm/sql-js'
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import * as schema from '../../electron/db/schema'
 import { runSeed } from '../../electron/db/seed'
+import { applyAllMigrations } from '../helpers/test-migrations'
 
 let injectedDb: unknown
 vi.mock('../../electron/db/index', () => ({ getDb: () => injectedDb }))
 
 import { registerTradeHandlers } from '../../electron/ipc/trades'
-
-const MIGRATIONS = [
-  '0001_initial',
-  '0002_v11',
-  '0003_opened_at',
-  '0004_consolidate_partials',
-  '0005_dismissed_insights',
-  '0006_notebook',
-  '0007_notebook_account',
-  '0008_external_ref',
-  '0009_phase2',
-  '0010_playbooks',
-  '0011_sync',
-  '0012_sync_merge',
-  '0013_sync_clocks',
-  '0014_live_detection_outcome',
-  '0015_broker_account_map',
-  '0016_account_phases',
-  '0017_daily_locks',
-  '0018_pre_trade_gate',
-].map((t) => readFileSync(join(__dirname, `../../electron/db/migrations/${t}.sql`), 'utf-8'))
 
 let SQL: Awaited<ReturnType<typeof initSqlJs>>
 
@@ -66,12 +44,7 @@ beforeAll(async () => {
 
 function makeDb() {
   const sqlite = new SQL.Database()
-  for (const sql of MIGRATIONS) {
-    for (const stmt of sql.split('--> statement-breakpoint')) {
-      const t = stmt.trim()
-      if (t) sqlite.run(t)
-    }
-  }
+  applyAllMigrations(sqlite)
   const db = drizzle(sqlite, { schema })
   ;(runSeed as (db: unknown) => void)(db as unknown as BetterSQLite3Database<typeof schema>)
   injectedDb = db

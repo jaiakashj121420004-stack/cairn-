@@ -32,32 +32,12 @@ vi.mock('electron', () => ({
 import initSqlJs from 'sql.js'
 import { drizzle } from 'drizzle-orm/sql-js'
 import * as schema from '../../electron/db/schema'
+import { applyAllMigrations } from '../helpers/test-migrations'
 
 let injectedDb: unknown
 vi.mock('../../electron/db/index', () => ({ getDb: () => injectedDb }))
 
 import { registerImportHandlers } from '../../electron/ipc/import'
-
-const MIGRATIONS = [
-  '0001_initial',
-  '0002_v11',
-  '0003_opened_at',
-  '0004_consolidate_partials',
-  '0005_dismissed_insights',
-  '0006_notebook',
-  '0007_notebook_account',
-  '0008_external_ref',
-  '0009_phase2',
-  '0010_playbooks',
-  '0011_sync',
-  '0012_sync_merge',
-  '0013_sync_clocks',
-  '0014_live_detection_outcome',
-  '0015_broker_account_map',
-  '0016_account_phases',
-  '0017_daily_locks',
-  '0018_pre_trade_gate',
-].map((t) => readFileSync(join(__dirname, `../../electron/db/migrations/${t}.sql`), 'utf-8'))
 
 const FIXTURE_DIR = join(__dirname, '../fixtures/import/tradingview')
 const SIMPLE_CSV = readFileSync(join(FIXTURE_DIR, 'tv-simple.csv'), 'utf-8')
@@ -89,12 +69,7 @@ const USDJPY_PAIR_ID = '00000000-0000-0000-0000-000000000006'
 
 function makeDb() {
   const sqlite = new SQL.Database()
-  for (const sql of MIGRATIONS) {
-    for (const stmt of sql.split('--> statement-breakpoint')) {
-      const t = stmt.trim()
-      if (t) sqlite.run(t)
-    }
-  }
+  applyAllMigrations(sqlite)
   const db = drizzle(sqlite, { schema })
   injectedDb = db
 

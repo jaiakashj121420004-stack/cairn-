@@ -4,40 +4,12 @@
 // Uses sql.js so the SQL runs against a real SQLite engine.
 
 import { describe, it, expect, beforeAll } from 'vitest'
-import { readFileSync } from 'fs'
-import { join } from 'path'
 import initSqlJs from 'sql.js'
 import { drizzle } from 'drizzle-orm/sql-js'
 import * as schema from '../../../electron/db/schema'
 import { getByPlaybook } from '../../../electron/services/analytics/playbooks'
+import { applyAllMigrations } from '../../helpers/test-migrations'
 import type { AnalyticsFilter } from '../../../shared/types/index'
-
-const MIGRATIONS_DIR = join(__dirname, '../../../electron/db/migrations')
-
-function readMigration(tag: string) {
-  return readFileSync(join(MIGRATIONS_DIR, `${tag}.sql`), 'utf-8')
-}
-
-const MIGRATIONS = [
-  '0001_initial',
-  '0002_v11',
-  '0003_opened_at',
-  '0004_consolidate_partials',
-  '0005_dismissed_insights',
-  '0006_notebook',
-  '0007_notebook_account',
-  '0008_external_ref',
-  '0009_phase2',
-  '0010_playbooks',
-  '0011_sync',
-  '0012_sync_merge',
-  '0013_sync_clocks',
-  '0014_live_detection_outcome',
-  '0015_broker_account_map',
-  '0016_account_phases',
-  '0017_daily_locks',
-  '0018_pre_trade_gate',
-].map(readMigration)
 
 let SQL: Awaited<ReturnType<typeof initSqlJs>>
 
@@ -68,12 +40,7 @@ const FILTER: AnalyticsFilter = {
 
 function makeDb() {
   const sqlite = new SQL.Database()
-  for (const sql of MIGRATIONS) {
-    for (const stmt of sql.split('--> statement-breakpoint')) {
-      const t = stmt.trim()
-      if (t) sqlite.run(t)
-    }
-  }
+  applyAllMigrations(sqlite)
   const db = drizzle(sqlite, { schema })
 
   db.insert(schema.propFirms)
