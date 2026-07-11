@@ -57,3 +57,6 @@ gate-logs/
 
 # Stray temp files
 _tmp_*
+
+# FUSE-orphaned files (a deleted-but-open file on a FUSE mount is renamed to this)
+.fuse_hidden*
