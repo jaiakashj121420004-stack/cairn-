@@ -6,6 +6,8 @@
 //   main process                  preload                   renderer
 //   e.sender.send('cairn:event') → ipcRenderer.on → eventListeners map → eventBus.on callbacks
 
+import type { BrokerWarning } from '@cairn/shared-types'
+
 export type CairnEventName =
   | 'trade.placed'
   | 'trade.closed'
@@ -16,6 +18,7 @@ export type CairnEventName =
   | 'rule.violated'
   | 'sync:toast'
   | 'guardrail.degraded'
+  | 'broker.warning'
 
 export interface CairnEventPayload {
   'trade.placed': { tradeId: string; accountId: string }
@@ -33,6 +36,14 @@ export interface CairnEventPayload {
    *  not being enforced this cycle. `GuardrailBanner` turns this into a persistent
    *  warning pointing at Settings. Never contains secrets/vault content. */
   'guardrail.degraded': { ruleKey: string; reason: string }
+  /** Emitted by the broker ingest service (electron/services/broker/ingest.ts) the
+   *  instant live-detection (rules-engine/live-detection.ts) finds a real-time rule
+   *  breach on a live position — a stop widened, a target cut, size increased, an
+   *  over-trade, an entry outside the killzones, or a fill past the circuit breaker.
+   *  `BrokerWarningToasts` surfaces the calm, mentor-voice `message` as a
+   *  non-blocking toast. These are DETECTIONS, not blocks — Cairn cannot stop an
+   *  order already live at the broker. */
+  'broker.warning': BrokerWarning
 }
 
 type Listener<N extends CairnEventName> = (payload: CairnEventPayload[N]) => void

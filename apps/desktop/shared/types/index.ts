@@ -787,6 +787,81 @@ export interface WeekDayStats {
   adherencePct: number // 0-100, or -1 meaning no trades that day
 }
 
+/**
+ * User-configurable thresholds for the pre-trade psychology nudges (CLAUDE.md
+ * §2.11 — every behavioural preference is configurable). Stored as one JSON value
+ * under the `pretrade_nudges` setting key. These drive advisory, NON-blocking
+ * nudges in the New Trade panel; the rules engine remains the only thing that
+ * blocks (CLAUDE.md §2.1).
+ */
+export interface PreTradeNudgeConfig {
+  /** Tilt watch: warn when the account is on a losing run. */
+  tilt: {
+    enabled: boolean
+    /** Consecutive losing trades that trip the nudge (advisory; sits below any hard loss-stop rule). */
+    lossRun: number
+  }
+  /** Urgency check: warn when this-account's win-rate is materially worse at high urgency. */
+  urgency: {
+    enabled: boolean
+    /** Urgency score (1–10) at or above which the check applies. */
+    level: number
+  }
+}
+
+/**
+ * Point-in-time psychology signals for the New Trade panel, computed from the
+ * account's own closed-trade history. The renderer turns these into calm,
+ * mentor-voice nudges shown BEFORE the click. Advisory only — never blocks.
+ */
+export interface PreTradeSignals {
+  tilt: {
+    enabled: boolean
+    /** Configured loss-run threshold. */
+    lossRun: number
+    /** Current consecutive-loss streak (most-recent closed trades). */
+    currentLossStreak: number
+  }
+  urgency: {
+    enabled: boolean
+    /** Configured urgency threshold. */
+    level: number
+    /** Win-rate (%) on trades logged below `level`. */
+    lowWinRatePct: number
+    /** Win-rate (%) on trades logged at or above `level`. */
+    highWinRatePct: number
+    /** Trades in the low-urgency bucket. */
+    lowSample: number
+    /** Trades in the high-urgency bucket. */
+    highSample: number
+    /** True when both buckets are large enough and the gap is material. */
+    sufficient: boolean
+  }
+}
+
+/**
+ * One live-detection breach surfaced on the Dashboard "Live discipline" card
+ * (Wave 4, docs/broker-integration.md §5). Sourced from the `rule_violations`
+ * rows the ingest service writes with `outcome = 'detected_live'` — a real-time
+ * rule breach on a live broker position (stop widened, target cut, size
+ * increased, over-trade, outside-killzone, or a fill past the circuit breaker).
+ * These are DETECTIONS, not blocks — Cairn cannot stop an order already live.
+ */
+export interface LiveWarningItem {
+  /** `rule_violations.id`. */
+  id: string
+  /** The live trade the breach is recorded against (null only if the FK was cleared). */
+  tradeId: string | null
+  /** Engine rule key the breach maps to (e.g. `no_sl_widening`). */
+  ruleKey: string
+  /** Broker symbol the breach concerns, resolved via the trade's pair; null if unresolved. */
+  symbol: string | null
+  /** Machine-written explanation of what diverged (from `context_json.detail`). */
+  detail: string
+  /** When the breach was detected (UTC ms). */
+  createdAt: number
+}
+
 // Composite performance score (Zella-Score style) — 0-100, alongside Discipline.
 export interface CompositeScoreComponents {
   winRate: number // 0-100 sub-score

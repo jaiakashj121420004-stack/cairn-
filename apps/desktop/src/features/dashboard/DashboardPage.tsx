@@ -39,6 +39,7 @@ import { PreTradePanel } from '../pre-trade/PreTradePanel'
 import { SessionBiasModal } from '../session-bias/SessionBiasModal'
 import { CalendarWidget } from './CalendarWidget'
 import { DisciplineRing } from './DisciplineRing'
+import { LiveDisciplineCard } from './LiveDisciplineCard'
 
 /* ──────────────────────────────────────────────────────────────────
    DECORATIVE AREA CHART — fills bottom of stat card
@@ -932,6 +933,9 @@ export function DashboardPage() {
             </div>
           </Panel>
         )}
+
+        {/* ── Live discipline — today's real-time broker-detection breaches ── */}
+        <LiveDisciplineCard accountId={selectedAccountId} />
 
         {/* ── Bottom row: Recent trades + Week adherence + Calendar ── */}
         <div className="grid grid-cols-4 gap-4">

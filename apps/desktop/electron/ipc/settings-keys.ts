@@ -20,6 +20,7 @@ export const SETTING_KEYS: ReadonlySet<string> = new Set<string>([
   'week_starts_on',
   'timezone',
   'pre_trade.fast_path_enabled',
+  'pretrade_nudges',
   'default_risk_pct',
   'telemetry.optIn',
   BROKER_AUTO_LOG_MODE_SETTING_KEY,

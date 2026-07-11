@@ -52,6 +52,8 @@ import type {
   CompletePhase2Input,
   PartialCloseInput,
   DashboardStats,
+  LiveWarningItem,
+  PreTradeSignals,
   AnalyticsFilter,
   PerformanceStats,
   RuleAdherenceStats,
@@ -253,6 +255,7 @@ declare global {
       }
       dashboard: {
         getStats: (accountId: string) => Promise<IpcResponse<DashboardStats>>
+        getLiveWarnings: (accountId: string) => Promise<IpcResponse<LiveWarningItem[]>>
       }
       analytics: {
         performance: (filter: AnalyticsFilter) => Promise<IpcResponse<PerformanceStats>>
@@ -286,6 +289,7 @@ declare global {
       insights: {
         list: (accountId: string) => Promise<IpcResponse<Insight[]>>
         dismiss: (accountId: string, insightId: string) => Promise<IpcResponse<void>>
+        preTradeSignals: (accountId: string) => Promise<IpcResponse<PreTradeSignals>>
       }
       notebook: {
         list: () => Promise<IpcResponse<NotebookEntrySummary[]>>
@@ -591,6 +595,8 @@ export const ipc = {
   dashboard: {
     getStats: (accountId: string): Promise<IpcResponse<DashboardStats>> =>
       transport.call('dashboard:getStats', { accountId }),
+    getLiveWarnings: (accountId: string): Promise<IpcResponse<LiveWarningItem[]>> =>
+      transport.call('dashboard:getLiveWarnings', { accountId }),
   },
 
   analytics: {
@@ -631,6 +637,8 @@ export const ipc = {
       transport.call('insights:list', { accountId }),
     dismiss: (accountId: string, insightId: string): Promise<IpcResponse<void>> =>
       transport.call('insights:dismiss', { accountId, insightId }),
+    preTradeSignals: (accountId: string): Promise<IpcResponse<PreTradeSignals>> =>
+      transport.call('insights:preTradeSignals', { accountId }),
   },
 
   notebook: {

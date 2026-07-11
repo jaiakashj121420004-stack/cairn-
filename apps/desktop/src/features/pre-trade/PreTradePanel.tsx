@@ -11,6 +11,7 @@ import type {
   RuleEvaluationDTO,
   TradeDirection,
   DailyBias,
+  PreTradeSignals,
 } from '@shared/types/index'
 import { useToast } from '../../components/ui'
 import { Button, Select, Checkbox, Modal } from '../../components/ui'
@@ -25,6 +26,7 @@ import { useSessionStore } from '../../stores/session-store'
 import { useSettingsStore } from '../../stores/settings-store'
 import { EMOTION_PRESETS } from './constants/emotion-presets'
 import { INVALIDATION_CHIPS, INVALIDATION_MIN_CHARS } from './constants/invalidation-chips'
+import { PreTradeNudges } from './PreTradeNudges'
 import type { PairType } from '../../lib/calculators'
 
 interface Props {
@@ -210,6 +212,8 @@ export function PreTradePanel({
   const [fastPathEnabled, setFastPathEnabled] = useState(true)
   /** Whether the panel is currently in fast (gate-only) mode vs the full single-phase form. */
   const [fastMode, setFastMode] = useState(true)
+  /** Point-in-time psychology signals for the pre-trade nudges (P3), or null while loading/unavailable. */
+  const [preTradeSignals, setPreTradeSignals] = useState<PreTradeSignals | null>(null)
 
   // Load reference data + account for risk calculator
   useEffect(() => {
@@ -274,6 +278,18 @@ export function PreTradePanel({
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- lastCtx is a snapshot: read once when panel opens, must not re-trigger on later changes
+  }, [open, selectedAccountId])
+
+  // Load point-in-time psychology signals for the pre-trade nudges (P3). Advisory
+  // only — never blocks; the rules engine still gates the trade.
+  useEffect(() => {
+    if (!open || !selectedAccountId) {
+      setPreTradeSignals(null)
+      return
+    }
+    void ipc.insights.preTradeSignals(selectedAccountId).then((r) => {
+      setPreTradeSignals(r.ok ? r.data : null)
+    })
   }, [open, selectedAccountId])
 
   // Auto-apply a playbook requested via Cmd+K once playbooks are loaded.
@@ -703,6 +719,9 @@ export function PreTradePanel({
                   </p>
                 )}
               </section>
+
+              {/* Pre-trade psychology nudges (advisory, non-blocking) */}
+              <PreTradeNudges signals={preTradeSignals} urgencyScore={form.urgencyScore} />
 
               {/* B — Instrument */}
               <section className="space-y-3">

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { ToastProvider } from './components/ui/toast'
 import { SyncToasts } from './features/auth/SyncToasts'
 import { SyncUpgradePrompt } from './features/auth/SyncUpgradePrompt'
+import { BrokerWarningToasts } from './features/broker/BrokerWarningToasts'
 import { DemoBanner } from './features/demo/DemoBanner'
 import { OnboardingFlow } from './features/onboarding/OnboardingFlow'
 import { ConflictResolver } from './features/sync/ConflictResolver'
@@ -40,6 +41,7 @@ export default function App() {
     <MotionConfig reducedMotion="user">
       <ToastProvider>
         <SyncToasts />
+        <BrokerWarningToasts />
         <SyncUpgradePrompt />
         {appState === 'onboarding' ? (
           <OnboardingFlow

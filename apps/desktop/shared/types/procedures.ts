@@ -53,6 +53,8 @@ import type {
   CompletePhase2Input,
   PartialCloseInput,
   DashboardStats,
+  LiveWarningItem,
+  PreTradeSignals,
   AnalyticsFilter,
   PerformanceStats,
   RuleAdherenceStats,
@@ -297,6 +299,7 @@ export interface Procedures {
   'trades:deleteScreenshot': { input: { screenshotId: string }; output: { ok: true } }
 
   'dashboard:getStats': { input: { accountId: string }; output: DashboardStats }
+  'dashboard:getLiveWarnings': { input: { accountId: string }; output: LiveWarningItem[] }
 
   'analytics:performance': { input: { filter: AnalyticsFilter }; output: PerformanceStats }
   'analytics:adherence': { input: { filter: AnalyticsFilter }; output: RuleAdherenceStats }
@@ -326,6 +329,7 @@ export interface Procedures {
 
   'insights:list': { input: { accountId: string }; output: Insight[] }
   'insights:dismiss': { input: { accountId: string; insightId: string }; output: void }
+  'insights:preTradeSignals': { input: { accountId: string }; output: PreTradeSignals }
 
   'notebook:list': { input: void; output: NotebookEntrySummary[] }
   'notebook:search': { input: NotebookSearchInput; output: NotebookEntrySummary[] }
@@ -476,6 +480,7 @@ export const PROCEDURE_NAMES = [
   'trades:listScreenshots',
   'trades:deleteScreenshot',
   'dashboard:getStats',
+  'dashboard:getLiveWarnings',
   'analytics:performance',
   'analytics:adherence',
   'analytics:setups',
@@ -501,6 +506,7 @@ export const PROCEDURE_NAMES = [
   'backup:reschedule',
   'insights:list',
   'insights:dismiss',
+  'insights:preTradeSignals',
   'notebook:list',
   'notebook:search',
   'notebook:get',

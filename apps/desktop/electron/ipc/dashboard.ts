@@ -1,13 +1,14 @@
 import { eq, and, gte, lt, ne, isNull, desc, sql } from 'drizzle-orm'
 import { ipcMain } from 'electron'
 import { getDb } from '../db/index'
-import { trades, accounts, pairs, setups } from '../db/schema'
+import { trades, accounts, pairs, setups, ruleViolations } from '../db/schema'
 import { computeAdvancedMetrics } from '../services/analytics/advanced-metrics'
 import { computeCompositeScore } from '../services/analytics/composite-score'
 import { getConfiguredTimeZone } from '../services/time/trading-day'
 import type {
   IpcResponse,
   DashboardStats,
+  LiveWarningItem,
   RecentTradeItem,
   WeekDayStats,
 } from '../../shared/types/index'
@@ -416,6 +417,74 @@ export function registerDashboardHandlers(): void {
         }
 
         return { ok: true, data: result }
+      } catch (err) {
+        return {
+          ok: false,
+          error: { code: 'DASHBOARD_ERROR', message: String(err) },
+        }
+      }
+    },
+  )
+
+  // ── dashboard:getLiveWarnings ────────────────────────────────────────────────
+  // Today's live-detection breaches for the account — the persistent surface for
+  // the Wave 4 real-time warnings (docs/broker-integration.md §5). Reads the
+  // `rule_violations` rows written with outcome 'detected_live', newest first,
+  // resolving each to its broker symbol via the trade's pair. Read-only; a
+  // dedicated lightweight query so the "Live discipline" card can refresh on every
+  // `broker.warning` without re-running the heavy getStats aggregation.
+  ipcMain.handle(
+    'dashboard:getLiveWarnings',
+    async (_e, { accountId }: { accountId: string }): Promise<IpcResponse<LiveWarningItem[]>> => {
+      try {
+        const db = getDb()
+        const todayMs = startOfDayUtcMs(todayUtc())
+        const tomorrowMs = todayMs + 86_400_000
+
+        const rows = db
+          .select({
+            id: ruleViolations.id,
+            tradeId: ruleViolations.tradeId,
+            ruleKey: ruleViolations.ruleKey,
+            contextJson: ruleViolations.contextJson,
+            createdAt: ruleViolations.createdAt,
+            symbol: pairs.symbol,
+          })
+          .from(ruleViolations)
+          .leftJoin(trades, eq(trades.id, ruleViolations.tradeId))
+          .leftJoin(pairs, eq(pairs.id, trades.pairId))
+          .where(
+            and(
+              eq(ruleViolations.accountId, accountId),
+              eq(ruleViolations.outcome, 'detected_live'),
+              gte(ruleViolations.createdAt, todayMs),
+              lt(ruleViolations.createdAt, tomorrowMs),
+            ),
+          )
+          .orderBy(desc(ruleViolations.createdAt))
+          .limit(20)
+          .all()
+
+        const items: LiveWarningItem[] = rows.map((r) => {
+          let detail = ''
+          try {
+            const ctx = JSON.parse(r.contextJson) as { detail?: unknown }
+            if (typeof ctx.detail === 'string') detail = ctx.detail
+          } catch {
+            // Malformed context_json — surface the breach without a detail line
+            // rather than dropping it.
+          }
+          return {
+            id: r.id,
+            tradeId: r.tradeId ?? null,
+            ruleKey: r.ruleKey,
+            symbol: r.symbol ?? null,
+            detail,
+            createdAt: r.createdAt,
+          }
+        })
+
+        return { ok: true, data: items }
       } catch (err) {
         return {
           ok: false,

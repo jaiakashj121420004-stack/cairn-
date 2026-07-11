@@ -108,6 +108,7 @@ const dispatch: Dispatch = {
   'trades:deleteScreenshot': (input) => window.api.trades.deleteScreenshot(input.screenshotId),
 
   'dashboard:getStats': (input) => window.api.dashboard.getStats(input.accountId),
+  'dashboard:getLiveWarnings': (input) => window.api.dashboard.getLiveWarnings(input.accountId),
 
   'analytics:performance': (input) => window.api.analytics.performance(input.filter),
   'analytics:adherence': (input) => window.api.analytics.adherence(input.filter),
@@ -137,6 +138,7 @@ const dispatch: Dispatch = {
 
   'insights:list': (input) => window.api.insights.list(input.accountId),
   'insights:dismiss': (input) => window.api.insights.dismiss(input.accountId, input.insightId),
+  'insights:preTradeSignals': (input) => window.api.insights.preTradeSignals(input.accountId),
 
   'notebook:list': () => window.api.notebook.list(),
   'notebook:search': (input) => window.api.notebook.search(input),

@@ -66,6 +66,8 @@ import type {
   CompletePhase2Input,
   PartialCloseInput,
   DashboardStats,
+  LiveWarningItem,
+  PreTradeSignals,
   AnalyticsFilter,
   PerformanceStats,
   PlaybookStats,
@@ -326,6 +328,8 @@ const api = {
   dashboard: {
     getStats: (accountId: string): Promise<IpcResponse<DashboardStats>> =>
       ipcRenderer.invoke('dashboard:getStats', { accountId }),
+    getLiveWarnings: (accountId: string): Promise<IpcResponse<LiveWarningItem[]>> =>
+      ipcRenderer.invoke('dashboard:getLiveWarnings', { accountId }),
   },
   analytics: {
     performance: (filter: AnalyticsFilter): Promise<IpcResponse<PerformanceStats>> =>
@@ -379,6 +383,8 @@ const api = {
       ipcRenderer.invoke('insights:list', { accountId }),
     dismiss: (accountId: string, insightId: string): Promise<IpcResponse<void>> =>
       ipcRenderer.invoke('insights:dismiss', { accountId, insightId }),
+    preTradeSignals: (accountId: string): Promise<IpcResponse<PreTradeSignals>> =>
+      ipcRenderer.invoke('insights:preTradeSignals', { accountId }),
   },
 
   notebook: {

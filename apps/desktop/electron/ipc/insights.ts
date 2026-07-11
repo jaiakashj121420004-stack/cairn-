@@ -4,8 +4,13 @@ import { v7 as uuidv7 } from 'uuid'
 import { getDb } from '../db/index'
 import * as schema from '../db/schema'
 import { runInsights } from '../services/insights/index'
+import {
+  computePreTradeSignals,
+  parsePreTradeNudgeConfig,
+} from '../services/insights/pre-trade-signals'
 import { getConfiguredTimeZone } from '../services/time/trading-day'
-import type { Insight, IpcResponse } from '../../shared/types/index'
+import type { Insight, IpcResponse, PreTradeSignals } from '../../shared/types/index'
+import type { PreTradeSignalTrade } from '../services/insights/pre-trade-signals'
 import type { ClosedTrade } from '../services/insights/types'
 
 const DISMISS_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
@@ -142,6 +147,55 @@ export function registerInsightsHandlers(): void {
           })
           .run()
         return { ok: true, data: undefined }
+      } catch (e) {
+        return err(e)
+      }
+    },
+  )
+
+  // ── insights:preTradeSignals ──────────────────────────────────────────────────
+  // Point-in-time psychology signals for the New Trade panel (P3). Reads the
+  // account's closed trades + the user's `pretrade_nudges` thresholds and returns
+  // the current loss streak and urgency win-rate split. The renderer turns these
+  // into calm, NON-blocking nudges; the rules engine still does all blocking.
+  ipcMain.handle(
+    'insights:preTradeSignals',
+    (_e, { accountId }: { accountId: string }): IpcResponse<PreTradeSignals> => {
+      try {
+        const db = getDb()
+
+        const configRow = db
+          .select({ value: schema.settings.value })
+          .from(schema.settings)
+          .where(eq(schema.settings.key, 'pretrade_nudges'))
+          .get()
+        const config = parsePreTradeNudgeConfig(configRow?.value)
+
+        const rows = db
+          .select({
+            pnlR: schema.trades.pnlR,
+            preUrgencyScore: schema.trades.preUrgencyScore,
+            exitTime: schema.trades.exitTime,
+          })
+          .from(schema.trades)
+          .where(
+            and(
+              eq(schema.trades.accountId, accountId),
+              eq(schema.trades.status, 'closed'),
+              isNull(schema.trades.deletedAt),
+            ),
+          )
+          .all()
+
+        const trades: PreTradeSignalTrade[] = rows
+          .filter((r) => r.exitTime != null)
+          .map((r) => ({
+            pnlR: r.pnlR ?? null,
+            preUrgencyScore: r.preUrgencyScore,
+            exitTime: r.exitTime as number,
+          }))
+
+        return { ok: true, data: computePreTradeSignals(trades, config) }
       } catch (e) {
         return err(e)
       }
