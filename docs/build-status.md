@@ -6,6 +6,27 @@ Update this file at the end of every wave. -->
 
 Tracks what is actually built/verified vs planned. Last reviewed **2026-05-31** (Wave 1.5 remediation: all §17.6 issues resolved, five gates green; re-verified same date with Wave 2 event-bus work in working tree — all gates still green, 258 tests). Update at the end of every wave.
 
+### 2026-07-11 — P0 live QA + P1 security (A–E) + P2 hygiene (A–B), all committed
+
+Executed the regrade backlog (`docs/` regrade doc / memory `cairn-regrade-plan-2026-07-10`). All five desktop gates GREEN throughout (typecheck / lint / test:unit **1148** / build / e2e). Branch `feat/rules-engine`.
+
+**P0 external checklist (needs Akash's machine/accounts):**
+- **P0.1 DONE** — compiled `CairnBridge.ex5` in MetaEditor (0 errors); installer bundles it; Cairn "Install Cairn EA" copies the compiled `.ex5` into MT5 `MQL5/Experts`.
+- **P0.2 — MT5 bridge VERIFIED LIVE.** EA attached on a MetaQuotes-Demo account; Cairn Integrations shows heartbeats ("Last event: Ns ago"). **Fill capture NOT yet tested** (Saturday = markets closed, demo has no crypto) — resume Sunday ~5pm ET/Monday: place a trade → bind the unmapped account → draft trade → close. The **on-chart pre-trade gate is not live-testable** on this build (paid feature; free-tier session; billing deferred).
+- **P0.4 — Spotware app registered** ("Cairn Trading Cockpit", app id **33053**, read-only `accounts` scope, redirect `http://127.0.0.1:53129/ctrader/callback`); Client ID/Secret pasted into Cairn (keychain). **cTrader connect BLOCKED on Spotware KYC (~3 business days)** — the OAuth flow requires app status "Active"; even Demo routes to the "needs Active" page. Nothing to fix our side.
+
+**P1 security hardening — A–E DONE + committed** (`7b65faf` = A–D, `68bc47d` = E):
+- A: backup zip-slip guard; https-in-packaged enforcement (loopback http allowed); `settings:set` key allow-list. B: MT5 pairing token encrypted via `safeStorage` (`secret-box.ts`) + legacy plaintext migration. C: renderer `sandbox:true` on both windows. D: strict CSP via build-time `<meta>` (hash of the inline theme script into `script-src`; e2e exercises it since it's baked into `out/`). E: keytar → `safeStorage` migration for all secrets (`secure-store.ts`: encrypted `<userData>/cairn/secrets.json` + one-time keytar-read migration; keychain/ctrader tokens/app-creds swapped). Tests: `tests/unit/security/{hardening,secret-box,secure-store}.test.ts`. **Manual per-OS check Akash still owes:** after rebuild+reinstall, Settings→Integrations→cTrader should still show "OAuth credentials configured" (proves the keytar→safeStorage migration).
+
+**P2 hygiene:**
+- **A DONE** (`ffa4aec`) — removed 13 tracked `.fuse_hidden*` orphans (−5318 lines) + gitignored them.
+- **B DONE** — journal-driven test-DB migrations (`tests/helpers/test-migrations.ts` `applyAllMigrations`, reads `meta/_journal.json`); converted `_db.ts` + `_fixtures.ts` + 17 inline-list tests off hardcoded migration arrays. **Retires the migration-list drift class** (adding a migration no longer edits ~20 test files). `db.test.ts` + `migrations.test.ts` intentionally left explicit. (Commit pending at time of writing: `git add apps/desktop/tests`.)
+- **C — closed no-op:** stale `Cairn_Report_...TradeZella.html` kept (referenced by §17.5 as historical rationale); coverage-threshold ratchet deferred (risky to raise blind).
+
+**Deferred to P4 (billing):** Dodo Payments integration — full plan + 7 task-slices scoped (memory `cairn-p1-security-and-billing`); decisions: Dodo + keep Stripe/Razorpay stubs, Pro = gate+live+sync/web, monthly+annual, **$19/mo (~₹1,599)** / ~$190/yr. Needs the deferred Fastify backend running (local Docker + `dodo wh listen`; WinNAT reset for server gates).
+
+**NEXT: P3 (breadth/opportunity)** — surface Wave-4 live in-trade warnings as a headline; psychology-driven pre-trade nudges; high-signal reports + weekly-review; TradingView replay embed; optional multi-asset (schema change).
+
 ### Regrade & P0–P4 execution plan (2026-07-10)
 
 Re-verified the 2026-07-10 full review (`Cairn_Full_Review_2026-07-10.md.pdf`) line-by-line against the live tree. The review predates the same-day connectivity + security commits below, so five of its deductions are already void (MT5 EA bundled + one-click install; cTrader keychain-paste UI; `paths:openFile` contained; `trades:addScreenshot` validated; `openExternal`/`will-navigate` locked down; committed `dist/` is not actually git-tracked). **Regrade:** Product **8.3** (was 7.5), Code **9.2** (was 9), Security **8.4** (was 7.5); MT5 + cTrader both **shippable on a stock build**, pending the last-mile items below.
