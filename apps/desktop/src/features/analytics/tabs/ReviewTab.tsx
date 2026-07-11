@@ -9,18 +9,32 @@ import { Select } from '../../../components/ui/select'
 import { Textarea } from '../../../components/ui/textarea'
 import { formatDate } from '../../../lib/formatters'
 import { ipc } from '../../../lib/ipc'
+import { useSessionStore } from '../../../stores/session-store'
+import { WeeklyReview } from './WeeklyReview'
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-function NewReviewForm({ onDone }: { onDone: () => void }) {
+interface ReviewPrefill {
+  periodStart: string
+  periodEnd: string
+  adherenceScore: number
+}
+
+function NewReviewForm({
+  initial,
+  onDone,
+}: {
+  initial?: ReviewPrefill | undefined
+  onDone: () => void
+}) {
   const [periodType, setPeriodType] = useState<ReviewPeriodType>('weekly')
-  const [periodStart, setPeriodStart] = useState(todayIso())
-  const [periodEnd, setPeriodEnd] = useState(todayIso())
+  const [periodStart, setPeriodStart] = useState(initial?.periodStart ?? todayIso())
+  const [periodEnd, setPeriodEnd] = useState(initial?.periodEnd ?? todayIso())
   const [topMistakes, setTopMistakes] = useState('')
   const [lessonNextPeriod, setLessonNextPeriod] = useState('')
-  const [adherenceScore, setAdherenceScore] = useState(80)
+  const [adherenceScore, setAdherenceScore] = useState(initial?.adherenceScore ?? 80)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -107,9 +121,11 @@ function NewReviewForm({ onDone }: { onDone: () => void }) {
 }
 
 export function ReviewTab() {
+  const { selectedAccountId } = useSessionStore()
   const [reviews, setReviews] = useState<ReviewSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
+  const [prefill, setPrefill] = useState<ReviewPrefill | undefined>(undefined)
 
   async function refetch() {
     setLoading(true)
@@ -122,8 +138,24 @@ export function ReviewTab() {
     void refetch()
   }, [])
 
+  function openNewReview(next?: ReviewPrefill) {
+    setPrefill(next)
+    setModalOpen(true)
+  }
+
   return (
     <div className="space-y-4">
+      <WeeklyReview
+        accountId={selectedAccountId}
+        onWriteReview={(range) =>
+          openNewReview({
+            periodStart: range.startIso,
+            periodEnd: range.endIso,
+            adherenceScore: range.adherencePct,
+          })
+        }
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-body font-semibold text-text-primary">Past reviews</h3>
@@ -131,7 +163,7 @@ export function ReviewTab() {
             Reflect on the period, name the mistakes, commit to the lesson.
           </p>
         </div>
-        <Button onClick={() => setModalOpen(true)}>
+        <Button onClick={() => openNewReview()}>
           <Plus size={14} className="mr-1" />
           New review
         </Button>
@@ -194,6 +226,8 @@ export function ReviewTab() {
         maxWidth="560px"
       >
         <NewReviewForm
+          key={prefill ? `${prefill.periodStart}-${prefill.periodEnd}` : 'blank'}
+          initial={prefill}
           onDone={() => {
             setModalOpen(false)
             void refetch()
