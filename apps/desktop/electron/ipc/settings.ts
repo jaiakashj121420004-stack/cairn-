@@ -3,6 +3,7 @@ import { ipcMain } from 'electron'
 import { z } from 'zod'
 import { getDb } from '../db/index'
 import * as schema from '../db/schema'
+import { isAllowedSettingKey } from './settings-keys'
 import type { IpcResponse } from '../../shared/types/index'
 
 export function registerPingHandler(): void {
@@ -37,6 +38,14 @@ export function registerSettingsHandlers(): void {
     const parsed = SetSettingInput.safeParse(raw)
     if (!parsed.success) {
       return { ok: false, error: { code: 'VALIDATION_ERROR', message: parsed.error.message } }
+    }
+    // Only allow-listed keys may be written from the renderer (P1 security). This
+    // stops a compromised renderer from injecting arbitrary keys into `settings`.
+    if (!isAllowedSettingKey(parsed.data.key)) {
+      return {
+        ok: false,
+        error: { code: 'VALIDATION_ERROR', message: `setting key not allowed: ${parsed.data.key}` },
+      }
     }
     try {
       const db = getDb()

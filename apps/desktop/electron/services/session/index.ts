@@ -7,6 +7,7 @@
  * the enrolled device id, and the unwrapped data key.
  */
 import { hostname } from 'os'
+import { app } from 'electron'
 import log from 'electron-log'
 import {
   clearDataKey as keychainClearDataKey,
@@ -15,6 +16,7 @@ import {
 } from '../keychain'
 import { activateSync, deactivateSync } from '../sync/activate'
 import { setTelemetryUser } from '../telemetry'
+import { assertSafeApiUrl } from './api-url'
 import { AuthHttpClient, nodeAuthFetch } from './auth-client'
 import { VaultEnroller } from './enrollment'
 import { createElectronDeviceIdStore, createElectronSessionPersistence } from './persistence'
@@ -40,7 +42,9 @@ export type { PublicSession } from '@cairn/shared-types'
  */
 export function getApiBaseUrl(): string {
   const fromEnv = process.env['CAIRN_API_URL']
-  return fromEnv && fromEnv.length > 0 ? fromEnv : 'http://localhost:3000'
+  const url = fromEnv && fromEnv.length > 0 ? fromEnv : 'http://localhost:3000'
+  assertSafeApiUrl(url, app.isPackaged)
+  return url
 }
 
 let store: SessionStore | null = null

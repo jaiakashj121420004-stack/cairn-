@@ -60,7 +60,9 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      // Renderer runs in the OS sandbox (P1 security). The preload uses only
+      // contextBridge + ipcRenderer — no Node APIs — so it is sandbox-safe.
+      sandbox: true,
     },
   })
 

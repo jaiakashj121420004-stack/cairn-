@@ -1,6 +1,54 @@
+import { createHash } from 'node:crypto'
 import { resolve } from 'path'
 import react from '@vitejs/plugin-react'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
+import type { Plugin } from 'vite'
+
+/**
+ * Inject a strict Content-Security-Policy `<meta>` into the BUILT renderer HTML (P1
+ * security). Build-only (`apply: 'build'`) so Vite's dev server keeps its inline HMR
+ * client + eval; the packaged app — and the e2e-tested `out/` build — get the strict
+ * policy.
+ *
+ * Runs `post`, over the FINAL html, and SHA-256-hashes every attribute-less inline
+ * `<script>` (just the no-flicker theme init) into `script-src`, so the policy needs no
+ * 'unsafe-inline' for scripts and the hash always matches what the browser computes.
+ * `style-src` keeps 'unsafe-inline' for the inline styles React/Framer/Tailwind emit;
+ * `connect-src` allows https + loopback for the backend and the sync websocket.
+ */
+function cspMetaPlugin(): Plugin {
+  return {
+    name: 'cairn-csp-meta',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html: string): string {
+        const scriptHashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(
+          (m) =>
+            `'sha256-${createHash('sha256')
+              .update(m[1] ?? '', 'utf8')
+              .digest('base64')}'`,
+        )
+        const csp = [
+          "default-src 'self'",
+          `script-src 'self' ${scriptHashes.join(' ')}`.trimEnd(),
+          "style-src 'self' 'unsafe-inline'",
+          "img-src 'self' data: blob:",
+          "font-src 'self' data:",
+          "connect-src 'self' https: http://localhost:* ws://localhost:* wss:",
+          "object-src 'none'",
+          "base-uri 'none'",
+          "frame-ancestors 'none'",
+          "form-action 'none'",
+        ].join('; ')
+        return html.replace(
+          '</title>',
+          `</title>\n    <meta http-equiv="Content-Security-Policy" content="${csp}" />`,
+        )
+      },
+    },
+  }
+}
 
 // Deps that must be BUNDLED into the main chunk rather than externalized (the default).
 //  - `@scure/bip39` + `@scure/base` + `@noble/hashes`: ESM-only, so a `require()` from the
@@ -55,7 +103,7 @@ export default defineConfig({
         },
       },
     },
-    plugins: [react()],
+    plugins: [react(), cspMetaPlugin()],
     resolve: {
       alias: {
         '@': resolve(__dirname, 'src'),

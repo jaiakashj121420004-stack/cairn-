@@ -18,6 +18,7 @@ import { join } from 'path'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../../../db/index'
 import * as schema from '../../../db/schema'
+import { isSecretEnvelope, openSecret, sealSecret } from '../../secret-box'
 import type { Mt5BridgeConfig } from '@cairn/shared-types'
 
 /** Default loopback port for the bridge. Configurable via the settings key below. */
@@ -45,21 +46,32 @@ function writeSetting(key: string, jsonValue: string): void {
 }
 
 /**
- * The per-install pairing token, generated and persisted on first read. 24 random
- * bytes → 48 hex chars; ample entropy for a loopback-only secret.
+ * The per-install pairing token, generated and persisted (encrypted at rest via
+ * {@link sealSecret}) on first read. 24 random bytes → 48 hex chars; ample entropy for
+ * a loopback-only secret. A legacy plaintext token from an older build is migrated to
+ * an encrypted envelope in place, preserving its value so an already-configured EA
+ * keeps matching.
  */
 export function getOrCreatePairingToken(): string {
   const stored = readSetting(TOKEN_SETTING_KEY)
   if (stored) {
     try {
       const parsed: unknown = JSON.parse(stored)
-      if (typeof parsed === 'string' && parsed.length > 0) return parsed
+      if (isSecretEnvelope(parsed)) {
+        const token = openSecret(parsed)
+        if (token && token.length > 0) return token
+        // Envelope present but undecryptable (e.g. keychain now unavailable) — regenerate.
+      } else if (typeof parsed === 'string' && parsed.length > 0) {
+        // Legacy plaintext token — migrate to an encrypted envelope, same value.
+        writeSetting(TOKEN_SETTING_KEY, JSON.stringify(sealSecret(parsed)))
+        return parsed
+      }
     } catch {
       // fall through and regenerate
     }
   }
   const token = randomBytes(24).toString('hex')
-  writeSetting(TOKEN_SETTING_KEY, JSON.stringify(token))
+  writeSetting(TOKEN_SETTING_KEY, JSON.stringify(sealSecret(token)))
   return token
 }
 

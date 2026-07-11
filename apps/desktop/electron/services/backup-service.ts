@@ -16,6 +16,7 @@ import log from 'electron-log'
 import { v7 as uuidv7 } from 'uuid'
 import { getDb, vacuumInto } from '../db/index'
 import * as schema from '../db/schema'
+import { assertZipEntriesContained } from './backup-zip-safety'
 import type { BackupLogEntry, BackupResult, RestoreInfo } from '../../shared/types/index'
 
 function getDataDir(): string {
@@ -139,6 +140,10 @@ export function restoreFromBackup(zipPath: string): void {
   const tmpDir = mkdtempSync(join(app.getPath('temp'), 'cairn-restore-'))
   try {
     const zip = new AdmZip(zipPath)
+    assertZipEntriesContained(
+      zip.getEntries().map((e) => e.entryName),
+      tmpDir,
+    )
     zip.extractAllTo(tmpDir, true)
 
     const newDbPath = join(tmpDir, 'journal.db')

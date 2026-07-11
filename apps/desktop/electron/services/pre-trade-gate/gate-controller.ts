@@ -102,7 +102,8 @@ function ensureOverlay(): BrowserWindow {
       preload: join(__dirname, '../preload/preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      // Renderer runs in the OS sandbox (P1 security); preload is Node-free.
+      sandbox: true,
     },
   })
   win.setMenuBarVisibility(false)

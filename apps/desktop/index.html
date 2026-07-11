@@ -5,9 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cairn</title>
     <!--
-      No-flicker theme script: runs synchronously before first paint.
-      Reads the Zustand-persisted preference from localStorage and applies
-      data-theme to <html> before React hydrates. Prevents flash of wrong theme.
+      No-flicker theme script: runs synchronously before first paint. Reads the
+      Zustand-persisted preference from localStorage and applies data-theme to <html>
+      before React hydrates. Inline on purpose; the CSP plugin (electron.vite.config.ts)
+      hashes this exact script into `script-src` at build time, so a strict CSP allows
+      it with no 'unsafe-inline'. If blocked it degrades to a one-frame flash.
     -->
     <script>
       ;(function () {
