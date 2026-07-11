@@ -20,19 +20,23 @@
  */
 
 import { err, ok } from '@cairn/shared-types'
+import { DEAL_LIST_MAX_SPAN_MS, dealsToBrokerEvents, planDealListWindows } from './backfill'
 import { mapExecutionEvent } from './mapper'
 import {
   PAYLOAD,
   accountAuthResSchema,
   buildAccountAuthReq,
   buildApplicationAuthReq,
+  buildDealListReq,
   buildHeartbeat,
   buildSymbolsListReq,
+  dealListResSchema,
   errorResSchema,
   symbolsListResSchema,
 } from './messages'
 import type { CtraderConnection, CtraderMessage } from './connection'
 import type { CtraderSymbolInfo } from './mapper'
+import type { CtraderDeal } from './messages'
 import type {
   BrokerConnConfig,
   BrokerConnectionStatus,
@@ -65,6 +69,13 @@ export interface CtraderAdapterDeps {
   schedule?: (fn: () => void, ms: number) => void
   /** Heartbeat cadence (ms). 0 disables it (used in tests). Defaults to 10s. */
   heartbeatMs?: number
+  /**
+   * On-connect historical backfill lookback (ms). 0 (default) disables backfill;
+   * production passes a positive value so pre-existing trades populate read-only.
+   */
+  backfillLookbackMs?: number
+  /** Max span per deal-list request (ms). Defaults to the Spotware ~1-week cap. */
+  dealListMaxSpanMs?: number
 }
 
 const DEFAULT_BACKOFF_MS = [1_000, 2_000, 5_000, 10_000, 30_000]
@@ -74,6 +85,8 @@ export function createCtraderAdapter(deps: CtraderAdapterDeps): LiveBrokerAdapte
   const backoff = deps.backoffMs ?? DEFAULT_BACKOFF_MS
   const schedule = deps.schedule ?? ((fn, ms): void => void setTimeout(fn, ms))
   const heartbeatMs = deps.heartbeatMs ?? 10_000
+  const backfillLookbackMs = deps.backfillLookbackMs ?? 0
+  const dealListMaxSpanMs = deps.dealListMaxSpanMs ?? DEAL_LIST_MAX_SPAN_MS
 
   const handlers = new Set<(e: BrokerEvent) => void>()
   const symbols = new Map<number, CtraderSymbolInfo>()
@@ -83,6 +96,14 @@ export function createCtraderAdapter(deps: CtraderAdapterDeps): LiveBrokerAdapte
   let attempt = 0
   let stopped = false
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null
+
+  // Historical-backfill state (P0.3). Runs once per adapter instance, after the
+  // symbol list is known, by paging read-only deal-list windows.
+  let backfillStarted = false
+  let backfillWindows: ReturnType<typeof planDealListWindows> = []
+  let backfillIndex = 0
+  let backfillCurrentFrom = 0
+  let backfillDeals: CtraderDeal[] = []
 
   function fanout(event: BrokerEvent): void {
     for (const handler of handlers) {
@@ -107,6 +128,41 @@ export function createCtraderAdapter(deps: CtraderAdapterDeps): LiveBrokerAdapte
     heartbeatTimer = setInterval(() => {
       connection?.send({ payloadType: PAYLOAD.HEARTBEAT_EVENT, payload: buildHeartbeat() })
     }, heartbeatMs)
+  }
+
+  /** Kick off the read-only historical backfill (once) after symbols are known. */
+  function startBackfill(): void {
+    if (backfillStarted || backfillLookbackMs <= 0) return
+    backfillStarted = true
+    backfillWindows = planDealListWindows(deps.now(), backfillLookbackMs, dealListMaxSpanMs)
+    backfillIndex = 0
+    backfillDeals = []
+    sendDealListWindow()
+  }
+
+  /** Send the deal-list request for the current window, or finish if none remain. */
+  function sendDealListWindow(): void {
+    const dealWindow = backfillWindows[backfillIndex]
+    if (!dealWindow) {
+      finishBackfill()
+      return
+    }
+    backfillCurrentFrom = dealWindow.fromTimestamp
+    connection?.send({
+      payloadType: PAYLOAD.OA_DEAL_LIST_REQ,
+      payload: buildDealListReq(deps.accountId, backfillCurrentFrom, dealWindow.toTimestamp),
+    })
+  }
+
+  /** Reconstruct trades from every collected deal and fan them into the ingest path. */
+  function finishBackfill(): void {
+    const events = dealsToBrokerEvents(backfillDeals, {
+      resolveSymbol: (id) => symbols.get(id) ?? null,
+      brokerAccountId: String(deps.accountId),
+    })
+    backfillDeals = []
+    log(`backfill: reconstructed ${events.length} event(s) from history`)
+    for (const event of events) fanout(event)
   }
 
   function handleMessage(msg: CtraderMessage): void {
@@ -145,6 +201,38 @@ export function createCtraderAdapter(deps: CtraderAdapterDeps): LiveBrokerAdapte
             lotSizeCentiUnits:
               s.lotSize && s.lotSize > 0 ? s.lotSize : DEFAULT_LOT_SIZE_CENTI_UNITS,
           })
+        }
+        // Symbols are known — safe to reconstruct backfilled deals by symbol name.
+        startBackfill()
+        break
+      }
+
+      case PAYLOAD.OA_DEAL_LIST_RES: {
+        const parsed = dealListResSchema.safeParse(msg.payload)
+        if (!parsed.success) {
+          log('malformed deal list')
+          // Don't stall the whole backfill on one bad page — advance to the next window.
+          backfillIndex += 1
+          sendDealListWindow()
+          return
+        }
+        const deals = parsed.data.deal ?? []
+        for (const d of deals) backfillDeals.push(d)
+        const dealWindow = backfillWindows[backfillIndex]
+        if (parsed.data.hasMore && deals.length > 0 && dealWindow) {
+          // More rows in this window than one page — advance past the newest deal.
+          const maxTs = deals.reduce(
+            (m, d) => Math.max(m, d.executionTimestamp ?? 0),
+            backfillCurrentFrom,
+          )
+          backfillCurrentFrom = maxTs + 1
+          connection?.send({
+            payloadType: PAYLOAD.OA_DEAL_LIST_REQ,
+            payload: buildDealListReq(deps.accountId, backfillCurrentFrom, dealWindow.toTimestamp),
+          })
+        } else {
+          backfillIndex += 1
+          sendDealListWindow()
         }
         break
       }

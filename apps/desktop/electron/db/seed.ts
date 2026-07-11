@@ -24,6 +24,9 @@ function seedSettings(db: CairnDb): void {
     { key: 'backup_schedule', value: JSON.stringify('daily') },
     { key: 'backup_folder_path', value: JSON.stringify('') },
     { key: 'default_pair', value: JSON.stringify('EURUSD') },
+    // Pre-trade gate (0018) match tolerances (docs/pre-trade-gate-popup.md §5.1).
+    { key: 'pre_trade_match_window_ms', value: JSON.stringify(300000) },
+    { key: 'pre_trade_price_tolerance_pips', value: JSON.stringify(5) },
   ]
 
   for (const row of defaults) {

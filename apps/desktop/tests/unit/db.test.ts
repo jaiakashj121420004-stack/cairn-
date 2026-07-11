@@ -144,10 +144,10 @@ describe('seed: runs without error and inserts correct data', () => {
     expect(() => seed(db)).not.toThrow()
   })
 
-  it('inserts 8 default settings', () => {
+  it('inserts 10 default settings', () => {
     seed(db)
     const rows = db.select().from(schema.settings).all()
-    expect(rows.length).toBe(8)
+    expect(rows.length).toBe(10)
   })
 
   it('inserts 19 pairs', () => {
@@ -199,7 +199,7 @@ describe('seed: runs without error and inserts correct data', () => {
     expect(pairs.length).toBe(19)
     expect(setups.length).toBe(10)
     expect(killzones.length).toBe(5)
-    expect(settings.length).toBe(8)
+    expect(settings.length).toBe(10)
   })
 })
 

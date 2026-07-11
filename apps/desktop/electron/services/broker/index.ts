@@ -23,6 +23,8 @@ import { BrowserWindow, shell } from 'electron'
 import log from 'electron-log'
 import { getDb } from '../../db/index'
 import * as schema from '../../db/schema'
+import { handleGateSignal, setGateEaSender } from '../pre-trade-gate/gate-controller'
+import { maybeApplyGateForFill } from '../pre-trade-gate/gate-hook'
 import {
   deleteBrokerAccountMap,
   findBrokerAccountBinding,
@@ -212,7 +214,10 @@ export async function startMt5Bridge(): Promise<void> {
 
   try {
     const service = getBrokerIngestService()
-    const adapter = createMt5Adapter({ log: (m) => log.info(`[broker:mt5] ${m}`) })
+    const adapter = createMt5Adapter({
+      log: (m) => log.info(`[broker:mt5] ${m}`),
+      onGateSignal: handleGateSignal,
+    })
 
     adapter.onEvent((event) => {
       _mt5LastEventAt = Date.now()
@@ -221,6 +226,13 @@ export async function startMt5Bridge(): Promise<void> {
         // UNKNOWN_ACCOUNT / UNRESOLVED_SYMBOL are expected until the account map is
         // configured; surfaced (no PII) rather than thrown so the listener survives.
         log.warn(`[broker:mt5] ingest rejected event: ${res.error.code}`)
+      }
+      // Bind the fill to a pre-trade gate plan (no-op unless one matches). Best-effort:
+      // a gate-scoring hiccup must never break fill capture.
+      try {
+        maybeApplyGateForFill(getDb(), event)
+      } catch (err) {
+        log.warn(`[broker:mt5] gate outcome hook failed: ${String(err)}`)
       }
     })
 
@@ -236,6 +248,8 @@ export async function startMt5Bridge(): Promise<void> {
       return
     }
     _mt5Adapter = adapter
+    // Let the gate controller draw SL/TP lines back on the EA chart (P0.7).
+    setGateEaSender(adapter.sendGateCommand)
     log.info(`[broker:mt5] listening on 127.0.0.1:${port}`)
   } catch (err) {
     log.warn('[broker:mt5] bridge startup failed (non-fatal):', err)
@@ -247,9 +261,17 @@ export async function stopMt5Bridge(): Promise<void> {
   if (!_mt5Adapter) return
   await _mt5Adapter.disconnect()
   _mt5Adapter = null
+  setGateEaSender(null)
 }
 
 // ── cTrader Open API (docs/broker-integration.md §2.2) ──────────────────────────
+
+/**
+ * On-connect historical backfill lookback (P0.3): 90 days of read-only deal
+ * history. Reconstructed trades dedupe against the live stream via external_ref;
+ * a later statement import still settles the authoritative money.
+ */
+const CTRADER_BACKFILL_LOOKBACK_MS = 90 * 24 * 60 * 60 * 1000
 
 /** Current cTrader transport status (independent of the MT5 bridge). */
 function ctraderStatus(): BrokerConnectionStatus {
@@ -310,12 +332,19 @@ async function startCtraderStream(): Promise<Result<void>> {
       }),
     now: () => Date.now(),
     log: (m) => log.info(`[broker:ctrader] ${m}`),
+    backfillLookbackMs: CTRADER_BACKFILL_LOOKBACK_MS,
   })
 
   adapter.onEvent((event) => {
     _ctraderLastEventAt = Date.now()
     const res = getBrokerIngestService().apply(event)
     if (!res.ok) log.warn(`[broker:ctrader] ingest rejected event: ${res.error.code}`)
+    // Bind the fill to a pre-trade gate plan (no-op unless one matches). Best-effort.
+    try {
+      maybeApplyGateForFill(getDb(), event)
+    } catch (err) {
+      log.warn(`[broker:ctrader] gate outcome hook failed: ${String(err)}`)
+    }
   })
 
   const connected = await adapter.connect({ broker: 'ctrader', brokerAccountId: String(accountId) })

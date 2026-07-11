@@ -44,7 +44,14 @@ function fakeSocket(remoteAddress: string | undefined): {
 }
 
 function deps(onEvent: (e: BrokerEvent) => void, onReject: (r: Mt5RejectReason) => void) {
-  return { token: TOKEN, maxFrameBytes: 64 * 1024, onEvent, onReject, log: () => {} }
+  return {
+    token: TOKEN,
+    maxFrameBytes: 64 * 1024,
+    onEvent,
+    onGateSignal: () => {},
+    onReject,
+    log: () => {},
+  }
 }
 
 describe('isLoopbackAddress', () => {

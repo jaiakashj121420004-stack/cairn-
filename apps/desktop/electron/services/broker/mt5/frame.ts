@@ -67,6 +67,69 @@ const heartbeatEventSchema = z.object({
   raw: z.unknown().optional(),
 })
 
+/**
+ * Pre-trade gate signals (P0.7) — EA → Cairn control messages, NOT trade fills.
+ * `gate.intent` fires when the trader clicks Cairn Buy/Sell on the chart;
+ * `gate.levels` streams the draggable SL/TP line prices for the live readout.
+ * These are routed to the gate controller, never to the ingest service.
+ */
+const gateIntentSchema = z.object({
+  type: z.literal('gate.intent'),
+  broker: z.literal('mt5'),
+  brokerAccountId: z.string().min(1),
+  symbol: z.string().min(1),
+  direction: directionSchema,
+  price: z.number().finite(),
+  eventTimeMs: z.number().finite(),
+})
+
+const gateLevelsSchema = z.object({
+  type: z.literal('gate.levels'),
+  broker: z.literal('mt5'),
+  brokerAccountId: z.string().min(1),
+  symbol: z.string().min(1),
+  price: z.number().finite(),
+  stopLoss: z.number().finite().nullable(),
+  takeProfit: z.number().finite().nullable(),
+  eventTimeMs: z.number().finite(),
+})
+
+export interface GateIntentSignal {
+  readonly kind: 'gate.intent'
+  readonly brokerAccountId: string
+  readonly symbol: string
+  readonly direction: 'long' | 'short'
+  readonly price: number
+  readonly eventTimeMs: number
+}
+
+export interface GateLevelsSignal {
+  readonly kind: 'gate.levels'
+  readonly brokerAccountId: string
+  readonly symbol: string
+  readonly price: number
+  readonly stopLoss: number | null
+  readonly takeProfit: number | null
+  readonly eventTimeMs: number
+}
+
+export type GateSignal = GateIntentSignal | GateLevelsSignal
+
+/** One decoded inbound frame — either a trade event or a gate control signal. */
+export type Mt5Inbound =
+  | { readonly kind: 'event'; readonly event: BrokerEvent }
+  | { readonly kind: 'gate'; readonly signal: GateSignal }
+
+/** Cairn → EA gate command shapes (P0.7). Sent token-authenticated over the same socket. */
+export type GateCommand =
+  | { readonly type: 'gate.show'; readonly show: boolean }
+  | {
+      readonly type: 'gate.drawLines'
+      readonly stopLoss: number | null
+      readonly takeProfit: number | null
+      readonly label?: string
+    }
+
 const envelopeSchema = z.object({
   token: z.string(),
   event: z.unknown(),
@@ -105,7 +168,7 @@ export function encodeFrame(obj: unknown): Buffer {
  * Returns a typed error rather than throwing so the caller can log (no PII) and
  * drop a malformed frame without crashing the listener.
  */
-export function decodeMt5Frame(payload: Buffer, expectedToken: string): Result<BrokerEvent> {
+export function decodeMt5Inbound(payload: Buffer, expectedToken: string): Result<Mt5Inbound> {
   let parsed: unknown
   try {
     parsed = JSON.parse(payload.toString('utf8'))
@@ -122,6 +185,46 @@ export function decodeMt5Frame(payload: Buffer, expectedToken: string): Result<B
 
   const ev = env.data.event
   const maybeType = (ev as { type?: unknown } | null)?.type
+
+  // ── Gate control signals (P0.7) — routed to the gate controller, not ingest ──
+  if (maybeType === 'gate.intent') {
+    const gi = gateIntentSchema.safeParse(ev)
+    if (!gi.success) return fail('BAD_EVENT', 'invalid gate.intent')
+    return {
+      ok: true,
+      data: {
+        kind: 'gate',
+        signal: {
+          kind: 'gate.intent',
+          brokerAccountId: gi.data.brokerAccountId,
+          symbol: gi.data.symbol,
+          direction: gi.data.direction,
+          price: gi.data.price,
+          eventTimeMs: gi.data.eventTimeMs,
+        },
+      },
+    }
+  }
+  if (maybeType === 'gate.levels') {
+    const gl = gateLevelsSchema.safeParse(ev)
+    if (!gl.success) return fail('BAD_EVENT', 'invalid gate.levels')
+    return {
+      ok: true,
+      data: {
+        kind: 'gate',
+        signal: {
+          kind: 'gate.levels',
+          brokerAccountId: gl.data.brokerAccountId,
+          symbol: gl.data.symbol,
+          price: gl.data.price,
+          stopLoss: gl.data.stopLoss,
+          takeProfit: gl.data.takeProfit,
+          eventTimeMs: gl.data.eventTimeMs,
+        },
+      },
+    }
+  }
+
   if (maybeType === 'heartbeat') {
     const hb = heartbeatEventSchema.safeParse(ev)
     if (!hb.success) return fail('BAD_EVENT', 'invalid heartbeat')
@@ -129,18 +232,21 @@ export function decodeMt5Frame(payload: Buffer, expectedToken: string): Result<B
     return {
       ok: true,
       data: {
-        type: 'heartbeat',
-        broker: 'mt5',
-        brokerAccountId: hb.data.brokerAccountId,
-        brokerTradeId: '',
-        symbol: '',
-        direction: 'long',
-        volumeLots: 0,
-        price: 0,
-        stopLoss: null,
-        takeProfit: null,
-        eventTimeMs: hb.data.eventTimeMs,
-        raw: hb.data.raw ?? null,
+        kind: 'event',
+        event: {
+          type: 'heartbeat',
+          broker: 'mt5',
+          brokerAccountId: hb.data.brokerAccountId,
+          brokerTradeId: '',
+          symbol: '',
+          direction: 'long',
+          volumeLots: 0,
+          price: 0,
+          stopLoss: null,
+          takeProfit: null,
+          eventTimeMs: hb.data.eventTimeMs,
+          raw: hb.data.raw ?? null,
+        },
       },
     }
   }
@@ -151,20 +257,43 @@ export function decodeMt5Frame(payload: Buffer, expectedToken: string): Result<B
   return {
     ok: true,
     data: {
-      type: t.type,
-      broker: t.broker,
-      brokerAccountId: t.brokerAccountId,
-      brokerTradeId: t.brokerTradeId,
-      symbol: t.symbol,
-      direction: t.direction,
-      volumeLots: t.volumeLots,
-      price: t.price,
-      stopLoss: t.stopLoss,
-      takeProfit: t.takeProfit,
-      eventTimeMs: t.eventTimeMs,
-      raw: t.raw ?? null,
+      kind: 'event',
+      event: {
+        type: t.type,
+        broker: t.broker,
+        brokerAccountId: t.brokerAccountId,
+        brokerTradeId: t.brokerTradeId,
+        symbol: t.symbol,
+        direction: t.direction,
+        volumeLots: t.volumeLots,
+        price: t.price,
+        stopLoss: t.stopLoss,
+        takeProfit: t.takeProfit,
+        eventTimeMs: t.eventTimeMs,
+        raw: t.raw ?? null,
+      },
     },
   }
+}
+
+/**
+ * Back-compat decode limited to trade events (the ingest path). A gate control
+ * signal on this path is rejected as `BAD_EVENT`; use {@link decodeMt5Inbound} to
+ * receive gate signals.
+ */
+export function decodeMt5Frame(payload: Buffer, expectedToken: string): Result<BrokerEvent> {
+  const res = decodeMt5Inbound(payload, expectedToken)
+  if (!res.ok) return res
+  if (res.data.kind === 'event') return { ok: true, data: res.data.event }
+  return fail('BAD_EVENT', 'gate signal received on the trade-event path')
+}
+
+/**
+ * Frame a Cairn → EA gate command with the pairing token, so the EA (which
+ * token-checks inbound frames the same way the listener does) trusts it.
+ */
+export function encodeGateCommand(token: string, command: GateCommand): Buffer {
+  return encodeFrame({ token, event: command })
 }
 
 /**

@@ -42,6 +42,9 @@ export const PAYLOAD = {
   /** Read: accounts authorised by the current access token. */
   OA_GET_ACCOUNTS_BY_TOKEN_REQ: 2149,
   OA_GET_ACCOUNTS_BY_TOKEN_RES: 2150,
+  /** Read: historical deal list, used for on-connect backfill (P0.3). Read-only. */
+  OA_DEAL_LIST_REQ: 2133,
+  OA_DEAL_LIST_RES: 2134,
 } as const
 
 // ── Enums we branch on ──────────────────────────────────────────────────────────
@@ -155,6 +158,13 @@ export const getAccountsResSchema = z.object({
   ctidTraderAccount: z.array(ctidAccountSchema).optional(),
 })
 
+/** ProtoOADealListRes — one page of historical deals for the backfill (P0.3). */
+export const dealListResSchema = z.object({
+  ctidTraderAccountId: z.coerce.number(),
+  deal: z.array(dealSchema).optional(),
+  hasMore: z.boolean().optional(),
+})
+
 /** ProtoOAErrorRes / ProtoErrorRes. */
 export const errorResSchema = z.object({
   errorCode: z.string().optional(),
@@ -196,6 +206,18 @@ export function buildSymbolsListReq(ctidTraderAccountId: number): {
 /** ProtoOAGetAccountListByAccessTokenReq (read). */
 export function buildGetAccountsReq(accessToken: string): { accessToken: string } {
   return { accessToken }
+}
+
+/** ProtoOADealListReq (read) — historical deals in `[fromTimestamp, toTimestamp]` (UTC ms). */
+export function buildDealListReq(
+  ctidTraderAccountId: number,
+  fromTimestamp: number,
+  toTimestamp: number,
+  maxRows?: number,
+): { ctidTraderAccountId: number; fromTimestamp: number; toTimestamp: number; maxRows?: number } {
+  return maxRows === undefined
+    ? { ctidTraderAccountId, fromTimestamp, toTimestamp }
+    : { ctidTraderAccountId, fromTimestamp, toTimestamp, maxRows }
 }
 
 /** ProtoHeartbeatEvent (no body). */

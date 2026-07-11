@@ -86,6 +86,7 @@ describe('migration journal wiring', () => {
       '0015_broker_account_map',
       '0016_account_phases',
       '0017_daily_locks',
+      '0018_pre_trade_gate',
     ])
     // Every journaled tag must resolve to a non-empty .sql file.
     for (const tag of orderedTags()) {
@@ -851,7 +852,7 @@ describe('full migration chain — forward + re-run idempotency (fresh & seeded)
     expect(before.setups).toBe(10)
     expect(before.killzones).toBe(5)
     expect(before.firms).toBe(1)
-    expect(before.settings).toBe(8)
+    expect(before.settings).toBe(10)
 
     // Re-running the migrator over a populated DB must not touch schema or data.
     expect(runPendingMigrations(sqlite)).toBe(0)

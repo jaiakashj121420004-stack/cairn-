@@ -12,7 +12,9 @@
  * fed from the heartbeat/event stream this adapter forwards.
  */
 
+import { encodeGateCommand } from './frame'
 import { createMt5Listener } from './listener'
+import type { GateCommand, GateSignal } from './frame'
 import type { Mt5Listener } from './listener'
 import type {
   BrokerConnConfig,
@@ -26,6 +28,14 @@ import type {
 export interface Mt5AdapterOptions {
   /** Structured, PII-free log line. Defaults to a no-op. */
   log?: (message: string) => void
+  /** Sink for pre-trade gate control signals from the EA (P0.7). */
+  onGateSignal?: (signal: GateSignal) => void
+}
+
+/** MT5 adapter plus the Cairn→EA gate command channel (P0.7). */
+export interface Mt5Adapter extends LiveBrokerAdapter {
+  /** Send a gate command to the live EA connection. False if none is live. */
+  sendGateCommand(command: GateCommand): boolean
 }
 
 /** Pull the loopback port + pairing token out of the generic connect config. */
@@ -48,11 +58,12 @@ function readConnOptions(config: BrokerConnConfig): Result<{ port: number; token
   return { ok: true, data: { port, token } }
 }
 
-export function createMt5Adapter(options: Mt5AdapterOptions = {}): LiveBrokerAdapter {
+export function createMt5Adapter(options: Mt5AdapterOptions = {}): Mt5Adapter {
   const log = options.log ?? ((): void => {})
   const handlers = new Set<(e: BrokerEvent) => void>()
   let listener: Mt5Listener | null = null
   let connection: BrokerConnectionStatus = 'disconnected'
+  let token: string | null = null
 
   function fanout(event: BrokerEvent): void {
     for (const handler of handlers) {
@@ -76,6 +87,8 @@ export function createMt5Adapter(options: Mt5AdapterOptions = {}): LiveBrokerAda
       port: parsed.data.port,
       token: parsed.data.token,
       onEvent: fanout,
+      // Only pass onGateSignal when defined (exactOptionalPropertyTypes).
+      ...(options.onGateSignal ? { onGateSignal: options.onGateSignal } : {}),
       log,
       onReject: (reason) => log(`rejected: ${reason}`),
     })
@@ -85,8 +98,15 @@ export function createMt5Adapter(options: Mt5AdapterOptions = {}): LiveBrokerAda
       return { ok: false, error: started.error }
     }
     listener = l
+    token = parsed.data.token
     connection = 'connected'
     return { ok: true, data: undefined }
+  }
+
+  /** Send a Cairn→EA gate command over the live connection (P0.7). */
+  function sendGateCommand(command: GateCommand): boolean {
+    if (!listener || !token) return false
+    return listener.send(encodeGateCommand(token, command))
   }
 
   function onEvent(handler: (e: BrokerEvent) => void): Disposable {
@@ -117,5 +137,6 @@ export function createMt5Adapter(options: Mt5AdapterOptions = {}): LiveBrokerAda
     onEvent,
     status,
     disconnect,
+    sendGateCommand,
   }
 }

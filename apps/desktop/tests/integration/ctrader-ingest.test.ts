@@ -46,6 +46,8 @@ const MIGRATIONS = [
   '0014_live_detection_outcome',
   '0015_broker_account_map',
   '0016_account_phases',
+  '0017_daily_locks',
+  '0018_pre_trade_gate',
 ].map((t) => readFileSync(join(__dirname, `../../electron/db/migrations/${t}.sql`), 'utf-8'))
 
 const PROP_FIRM_ID = '00000000-0000-0000-0000-000000000001'
@@ -370,5 +372,105 @@ describe('cTrader adapter → ingest — recorded execution replay', () => {
       .where(eq(schema.trades.externalRef, String(POSITION_ID)))
       .all()
     expect(trades).toHaveLength(1)
+  })
+
+  it('backfills a deal-list into a trade that converges with the live stream', async () => {
+    const db = makeDb()
+    let clock = Date.UTC(2024, 0, 3, 10, 0)
+    const ingest = createBrokerIngestService({
+      db,
+      now: () => clock++,
+      emit: () => {},
+      resolveAccount: () => ({ accountId: ACCOUNT_ID, defaultSetupId: SETUP_ID }),
+      getAutoLogMode: () => 'draft_awaiting_context',
+    })
+    const fake = makeFakeConnection()
+    const adapter = createCtraderAdapter({
+      clientId: 'cid',
+      clientSecret: 'secret',
+      accountId: CTID,
+      getAccessToken: () => Promise.resolve(ok('access-token')),
+      openConnection: () => Promise.resolve(ok(fake.conn)),
+      now: () => clock,
+      heartbeatMs: 0,
+      schedule: () => {},
+      backfillLookbackMs: 7 * 24 * 60 * 60 * 1000,
+    })
+    adapter.onEvent((e) => void ingest.apply(e))
+    await adapter.connect({ broker: 'ctrader', brokerAccountId: String(CTID) })
+
+    fake.push({ payloadType: PAYLOAD.OA_APPLICATION_AUTH_RES, payload: {} })
+    await Promise.resolve()
+    fake.push({ payloadType: PAYLOAD.OA_ACCOUNT_AUTH_RES, payload: { ctidTraderAccountId: CTID } })
+    fake.push({
+      payloadType: PAYLOAD.OA_SYMBOLS_LIST_RES,
+      payload: { symbol: [{ symbolId: EURUSD_SYMBOL_ID, symbolName: 'EURUSD', lotSize: LOT }] },
+    })
+
+    // Symbols known → the adapter issues a read-only deal-list request for backfill.
+    expect(fake.sent.some((m) => m.payloadType === PAYLOAD.OA_DEAL_LIST_REQ)).toBe(true)
+
+    const BACKFILL_POS = 888
+    // History returns a single opening deal — the position is still open.
+    fake.push({
+      payloadType: PAYLOAD.OA_DEAL_LIST_RES,
+      payload: {
+        ctidTraderAccountId: CTID,
+        hasMore: false,
+        deal: [
+          {
+            dealId: 501,
+            positionId: BACKFILL_POS,
+            symbolId: EURUSD_SYMBOL_ID,
+            tradeSide: TRADE_SIDE.BUY,
+            volume: LOT,
+            filledVolume: LOT,
+            executionPrice: 1.1,
+            executionTimestamp: T0,
+          },
+        ],
+      },
+    })
+
+    const openedRow = db
+      .select()
+      .from(schema.trades)
+      .where(eq(schema.trades.externalRef, String(BACKFILL_POS)))
+      .get()
+    expect(openedRow?.status).toBe('open')
+
+    // The LIVE stream then closes the same position → converges on the SAME row.
+    fake.push({
+      payloadType: PAYLOAD.OA_EXECUTION_EVENT,
+      payload: {
+        ctidTraderAccountId: CTID,
+        executionType: EXECUTION_TYPE.ORDER_FILLED,
+        position: {
+          positionId: BACKFILL_POS,
+          positionStatus: POSITION_STATUS.CLOSED,
+          tradeData: { symbolId: EURUSD_SYMBOL_ID, volume: 0, tradeSide: TRADE_SIDE.BUY },
+          price: 1.1,
+        },
+        deal: {
+          dealId: 502,
+          positionId: BACKFILL_POS,
+          symbolId: EURUSD_SYMBOL_ID,
+          tradeSide: TRADE_SIDE.SELL,
+          volume: LOT,
+          filledVolume: LOT,
+          executionPrice: 1.12,
+          executionTimestamp: T0 + 120_000,
+          closePositionDetail: { entryPrice: 1.1, profit: 100 },
+        },
+      },
+    })
+
+    const rows = db
+      .select()
+      .from(schema.trades)
+      .where(eq(schema.trades.externalRef, String(BACKFILL_POS)))
+      .all()
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.status).toBe('closed')
   })
 })

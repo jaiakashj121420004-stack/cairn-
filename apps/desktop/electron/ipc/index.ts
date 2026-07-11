@@ -11,6 +11,7 @@ import { registerDashboardHandlers } from './dashboard'
 import { registerDataHandlers } from './data'
 import { registerDbHandlers } from './db'
 import { registerDemoHandlers } from './demo'
+import { registerGateHandlers } from './gate'
 import { registerImportHandlers } from './import'
 import { registerInsightsHandlers } from './insights'
 import { registerKillzoneHandlers } from './killzones'
@@ -43,6 +44,7 @@ export function setupIpcHandlers(): void {
   registerKillzoneHandlers()
   registerDataHandlers()
   registerDemoHandlers()
+  registerGateHandlers()
   registerSessionHandlers()
   registerTradeHandlers()
   registerDashboardHandlers()

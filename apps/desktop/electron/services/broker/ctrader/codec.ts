@@ -59,6 +59,7 @@ const DECODABLE: Readonly<Record<number, string>> = {
   [PAYLOAD.OA_EXECUTION_EVENT]: 'ProtoOAExecutionEvent',
   [PAYLOAD.OA_ERROR_RES]: 'ProtoOAErrorRes',
   [PAYLOAD.OA_GET_ACCOUNTS_BY_TOKEN_RES]: 'ProtoOAGetAccountListByAccessTokenRes',
+  [PAYLOAD.OA_DEAL_LIST_RES]: 'ProtoOADealListRes',
 }
 
 /**
@@ -73,6 +74,8 @@ const ENCODABLE: Readonly<Record<number, string>> = {
   [PAYLOAD.OA_ACCOUNT_AUTH_REQ]: 'ProtoOAAccountAuthReq',
   [PAYLOAD.OA_SYMBOLS_LIST_REQ]: 'ProtoOASymbolsListReq',
   [PAYLOAD.OA_GET_ACCOUNTS_BY_TOKEN_REQ]: 'ProtoOAGetAccountListByAccessTokenReq',
+  // Read query for historical backfill (P0.3). NOT an order write — see readonly test.
+  [PAYLOAD.OA_DEAL_LIST_REQ]: 'ProtoOADealListReq',
 }
 
 /**

@@ -214,6 +214,40 @@ export interface Procedures {
   'demo:enter': { input: void; output: { accountId: string } }
   'demo:exit': { input: void; output: void }
 
+  'gate:status': { input: void; output: { entitled: boolean } }
+  'gate:getIntent': {
+    input: void
+    output: {
+      accountId: string
+      pairId: string
+      symbol: string
+      direction: 'long' | 'short'
+      price: number
+    } | null
+  }
+  'gate:confirmPlan': {
+    input: {
+      accountId: string
+      pairId: string
+      direction: 'long' | 'short'
+      intendedEntry: number
+      intendedSl: number
+      intendedTp: number
+      slPips: number
+      rrRatio: number
+      lotSize: number
+      riskPctBps: number
+      confluencesJson?: string | null
+      invalidation?: string | null
+    }
+    output: { id: string }
+  }
+  'gate:breachRules': {
+    input: { accountId: string; pairId: string; direction: 'long' | 'short' }
+    output: { id: string }
+  }
+  'gate:dismiss': { input: void; output: void }
+
   'rules:evaluatePreTrade': { input: DraftTradeInput; output: RuleEvaluationDTO[] }
   'rules:evaluateModification': { input: EvaluateModificationInput; output: RuleEvaluationDTO[] }
   'rules:getSessionState': { input: { accountId: string }; output: SessionStateDTO }
@@ -408,6 +442,11 @@ export const PROCEDURE_NAMES = [
   'demo:status',
   'demo:enter',
   'demo:exit',
+  'gate:status',
+  'gate:getIntent',
+  'gate:confirmPlan',
+  'gate:breachRules',
+  'gate:dismiss',
   'rules:evaluatePreTrade',
   'rules:evaluateModification',
   'rules:getSessionState',

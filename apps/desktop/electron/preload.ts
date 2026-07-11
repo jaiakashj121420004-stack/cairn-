@@ -206,6 +206,39 @@ const api = {
     exit: (): Promise<IpcResponse<void>> => ipcRenderer.invoke('demo:exit'),
   },
 
+  gate: {
+    status: (): Promise<IpcResponse<{ entitled: boolean }>> => ipcRenderer.invoke('gate:status'),
+    getIntent: (): Promise<
+      IpcResponse<{
+        accountId: string
+        pairId: string
+        symbol: string
+        direction: 'long' | 'short'
+        price: number
+      } | null>
+    > => ipcRenderer.invoke('gate:getIntent'),
+    confirmPlan: (input: {
+      accountId: string
+      pairId: string
+      direction: 'long' | 'short'
+      intendedEntry: number
+      intendedSl: number
+      intendedTp: number
+      slPips: number
+      rrRatio: number
+      lotSize: number
+      riskPctBps: number
+      confluencesJson?: string | null
+      invalidation?: string | null
+    }): Promise<IpcResponse<{ id: string }>> => ipcRenderer.invoke('gate:confirmPlan', input),
+    breachRules: (input: {
+      accountId: string
+      pairId: string
+      direction: 'long' | 'short'
+    }): Promise<IpcResponse<{ id: string }>> => ipcRenderer.invoke('gate:breachRules', input),
+    dismiss: (): Promise<IpcResponse<void>> => ipcRenderer.invoke('gate:dismiss'),
+  },
+
   rules: {
     evaluatePreTrade: (input: DraftTradeInput): Promise<IpcResponse<RuleEvaluationDTO[]>> =>
       ipcRenderer.invoke('rules:evaluatePreTrade', input),

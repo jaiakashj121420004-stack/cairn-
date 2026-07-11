@@ -18,6 +18,7 @@ export const FEATURES = [
   'analytics_advanced',
   'cloud_sync',
   'multi_device',
+  'pre_trade_gate',
 ] as const
 export type Feature = (typeof FEATURES)[number]
 

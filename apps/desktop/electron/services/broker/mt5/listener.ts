@@ -20,7 +20,8 @@
  */
 
 import { createServer } from 'net'
-import { decodeMt5Frame, FrameDecoder, MAX_FRAME_BYTES } from './frame'
+import { decodeMt5Inbound, FrameDecoder, MAX_FRAME_BYTES } from './frame'
+import type { GateSignal } from './frame'
 import type { BrokerEvent, Result } from '@cairn/shared-types'
 import type { Server, Socket } from 'net'
 
@@ -43,6 +44,8 @@ export interface Mt5ListenerOptions {
   token: string
   /** Sink for each validated event (the ingest service in production). */
   onEvent: (event: BrokerEvent) => void
+  /** Sink for pre-trade gate control signals (P0.7). Defaults to a no-op. */
+  onGateSignal?: (signal: GateSignal) => void
   /** Max single-frame payload bytes. Defaults to {@link MAX_FRAME_BYTES}. */
   maxFrameBytes?: number
   /** Structured, PII-free log line. Defaults to a no-op. */
@@ -58,6 +61,8 @@ export interface Mt5Listener {
   stop(): Promise<void>
   /** The bound port once listening, else null. */
   port(): number | null
+  /** Write a Cairn→EA frame on the active connection; false if none is live (P0.7). */
+  send(frame: Buffer): boolean
 }
 
 /**
@@ -76,6 +81,7 @@ interface ConnectionDeps {
   token: string
   maxFrameBytes: number
   onEvent: (event: BrokerEvent) => void
+  onGateSignal: (signal: GateSignal) => void
   log: (message: string) => void
   onReject: (reason: Mt5RejectReason) => void
 }
@@ -97,7 +103,7 @@ export function handleMt5Connection(socket: Socket, deps: ConnectionDeps): void 
   socket.on('data', (chunk: Buffer) => {
     const { frames, oversized } = decoder.push(chunk)
     for (const payload of frames) {
-      const res = decodeMt5Frame(payload, deps.token)
+      const res = decodeMt5Inbound(payload, deps.token)
       if (!res.ok) {
         const code = res.error.code as Mt5RejectReason
         deps.log(`dropped frame: ${code}`)
@@ -110,9 +116,10 @@ export function handleMt5Connection(socket: Socket, deps: ConnectionDeps): void 
         continue
       }
       try {
-        deps.onEvent(res.data)
+        if (res.data.kind === 'gate') deps.onGateSignal(res.data.signal)
+        else deps.onEvent(res.data.event)
       } catch {
-        // The sink (ingest) must never take the listener down.
+        // The sink (ingest / gate) must never take the listener down.
         deps.log('event sink threw; frame dropped')
       }
     }
@@ -133,11 +140,13 @@ export function createMt5Listener(options: Mt5ListenerOptions): Mt5Listener {
     token: options.token,
     maxFrameBytes: options.maxFrameBytes ?? MAX_FRAME_BYTES,
     onEvent: options.onEvent,
+    onGateSignal: options.onGateSignal ?? ((): void => {}),
     log: options.log ?? (() => {}),
     onReject: options.onReject ?? (() => {}),
   }
 
   let server: Server | null = null
+  let activeSocket: Socket | null = null
 
   function start(): Promise<Result<{ port: number }>> {
     return new Promise((resolve) => {
@@ -145,7 +154,14 @@ export function createMt5Listener(options: Mt5ListenerOptions): Mt5Listener {
         resolve({ ok: true, data: { port: port() ?? options.port } })
         return
       }
-      const srv = createServer((socket) => handleMt5Connection(socket, deps))
+      const srv = createServer((socket) => {
+        // Track the live EA connection so Cairn can send gate commands back to it.
+        activeSocket = socket
+        socket.on('close', () => {
+          if (activeSocket === socket) activeSocket = null
+        })
+        handleMt5Connection(socket, deps)
+      })
       srv.on('error', (err) => {
         deps.log('listener bind error')
         server = null
@@ -179,5 +195,11 @@ export function createMt5Listener(options: Mt5ListenerOptions): Mt5Listener {
     return typeof addr === 'object' && addr ? addr.port : null
   }
 
-  return { start, stop, port }
+  /** Write a Cairn→EA frame on the active connection. False if none is live. */
+  function send(frame: Buffer): boolean {
+    if (!activeSocket || activeSocket.destroyed) return false
+    return activeSocket.write(frame)
+  }
+
+  return { start, stop, port, send }
 }

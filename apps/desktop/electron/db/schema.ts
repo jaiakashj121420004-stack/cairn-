@@ -295,10 +295,52 @@ export const trades = sqliteTable('trades', {
   brokerTradeId: text('broker_trade_id'),
   importedAt: integer('imported_at'),
   externalRef: text('external_ref'),
+  // Pre-trade gate outcome (migration 0018): 'clean' | 'breach_ack' | 'breach_silent'
+  // | null (n/a — no gate). A breach is NEVER counted clean regardless of P&L: the
+  // matcher also forces is_clean = 0 on a breach row, so scoring needs no change.
+  gateOutcome: text('gate_outcome'),
   // Timestamps
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
   deletedAt: integer('deleted_at'),
+})
+
+/**
+ * Pending / consumed pre-trade gate plans (migration 0018,
+ * docs/pre-trade-gate-popup.md). A COMPLIANT plan carries the intended levels
+ * (integer-encoded like `trades`); an ACKNOWLEDGED-BREACH intent has
+ * `breachAck = 1` and may omit the levels. The plan↔fill matcher consumes a
+ * pending row when a live fill on the same (account, pair, direction) arrives
+ * within the configured time window + price tolerance. Local-only (per-device
+ * trading intent) — deliberately NOT a syncable table.
+ */
+export const preTradePlans = sqliteTable('pre_trade_plans', {
+  id: text('id').primaryKey(),
+  accountId: text('account_id')
+    .notNull()
+    .references(() => accounts.id),
+  pairId: text('pair_id')
+    .notNull()
+    .references(() => pairs.id),
+  direction: text('direction').notNull(),
+  /** Intended levels — price ticks / pip-tenths / lots×100 / bps. Null for a breach-ack intent. */
+  intendedEntry: integer('intended_entry'),
+  intendedSl: integer('intended_sl'),
+  intendedTp: integer('intended_tp'),
+  slPips: integer('sl_pips'),
+  rrRatio: integer('rr_ratio'),
+  lotSize: integer('lot_size'),
+  riskPctBps: integer('risk_pct_bps'),
+  confluencesJson: text('confluences_json'),
+  invalidation: text('invalidation'),
+  /** 1 = the trader hit "Breach Rules" (acknowledged breach), not a compliant plan. */
+  breachAck: integer('breach_ack').notNull().default(0),
+  /** 'pending' | 'consumed' | 'expired'. */
+  status: text('status').notNull().default('pending'),
+  expiresAt: integer('expires_at').notNull(),
+  createdAt: integer('created_at').notNull(),
+  consumedAt: integer('consumed_at'),
+  consumedTradeId: text('consumed_trade_id').references(() => trades.id),
 })
 
 export const playbooks = sqliteTable('playbooks', {

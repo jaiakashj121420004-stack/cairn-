@@ -107,6 +107,8 @@ describe('cTrader codec — read-only send path', () => {
       [PAYLOAD.OA_ACCOUNT_AUTH_REQ]: { ctidTraderAccountId: 1, accessToken: 'token' },
       [PAYLOAD.OA_SYMBOLS_LIST_REQ]: { ctidTraderAccountId: 1, includeArchivedSymbols: false },
       [PAYLOAD.OA_GET_ACCOUNTS_BY_TOKEN_REQ]: { accessToken: 'token' },
+      // Read query for historical backfill (P0.3) — a search, never an order write.
+      [PAYLOAD.OA_DEAL_LIST_REQ]: { ctidTraderAccountId: 1, fromTimestamp: 0, toTimestamp: 1 },
     }
     for (const [payloadType, body] of Object.entries(ALLOWED_SEND)) {
       expect(() => codec.encode({ payloadType: Number(payloadType), payload: body })).not.toThrow()

@@ -165,6 +165,38 @@ declare global {
         enter: () => Promise<IpcResponse<{ accountId: string }>>
         exit: () => Promise<IpcResponse<void>>
       }
+      gate: {
+        status: () => Promise<IpcResponse<{ entitled: boolean }>>
+        getIntent: () => Promise<
+          IpcResponse<{
+            accountId: string
+            pairId: string
+            symbol: string
+            direction: 'long' | 'short'
+            price: number
+          } | null>
+        >
+        confirmPlan: (input: {
+          accountId: string
+          pairId: string
+          direction: 'long' | 'short'
+          intendedEntry: number
+          intendedSl: number
+          intendedTp: number
+          slPips: number
+          rrRatio: number
+          lotSize: number
+          riskPctBps: number
+          confluencesJson?: string | null
+          invalidation?: string | null
+        }) => Promise<IpcResponse<{ id: string }>>
+        breachRules: (input: {
+          accountId: string
+          pairId: string
+          direction: 'long' | 'short'
+        }) => Promise<IpcResponse<{ id: string }>>
+        dismiss: () => Promise<IpcResponse<void>>
+      }
       rules: {
         evaluatePreTrade: (input: DraftTradeInput) => Promise<IpcResponse<RuleEvaluationDTO[]>>
         evaluateModification: (
@@ -438,6 +470,40 @@ export const ipc = {
     enter: (): Promise<IpcResponse<{ accountId: string }>> =>
       transport.call('demo:enter', undefined),
     exit: (): Promise<IpcResponse<void>> => transport.call('demo:exit', undefined),
+  },
+
+  gate: {
+    status: (): Promise<IpcResponse<{ entitled: boolean }>> =>
+      transport.call('gate:status', undefined),
+    getIntent: (): Promise<
+      IpcResponse<{
+        accountId: string
+        pairId: string
+        symbol: string
+        direction: 'long' | 'short'
+        price: number
+      } | null>
+    > => transport.call('gate:getIntent', undefined),
+    confirmPlan: (input: {
+      accountId: string
+      pairId: string
+      direction: 'long' | 'short'
+      intendedEntry: number
+      intendedSl: number
+      intendedTp: number
+      slPips: number
+      rrRatio: number
+      lotSize: number
+      riskPctBps: number
+      confluencesJson?: string | null
+      invalidation?: string | null
+    }): Promise<IpcResponse<{ id: string }>> => transport.call('gate:confirmPlan', input),
+    breachRules: (input: {
+      accountId: string
+      pairId: string
+      direction: 'long' | 'short'
+    }): Promise<IpcResponse<{ id: string }>> => transport.call('gate:breachRules', input),
+    dismiss: (): Promise<IpcResponse<void>> => transport.call('gate:dismiss', undefined),
   },
 
   paths: {

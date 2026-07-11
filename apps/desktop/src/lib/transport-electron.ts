@@ -66,6 +66,12 @@ const dispatch: Dispatch = {
   'demo:enter': () => window.api.demo.enter(),
   'demo:exit': () => window.api.demo.exit(),
 
+  'gate:status': () => window.api.gate.status(),
+  'gate:getIntent': () => window.api.gate.getIntent(),
+  'gate:confirmPlan': (input) => window.api.gate.confirmPlan(input),
+  'gate:breachRules': (input) => window.api.gate.breachRules(input),
+  'gate:dismiss': () => window.api.gate.dismiss(),
+
   'rules:evaluatePreTrade': (input) => window.api.rules.evaluatePreTrade(input),
   'rules:evaluateModification': (input) => window.api.rules.evaluateModification(input),
   'rules:getSessionState': (input) => window.api.rules.getSessionState(input.accountId),
