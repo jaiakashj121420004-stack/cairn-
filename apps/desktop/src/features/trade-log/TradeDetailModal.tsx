@@ -18,6 +18,7 @@ import { ipc } from '../../lib/ipc'
 import { springDefault } from '../../lib/motion'
 import { useSessionStore } from '../../stores/session-store'
 import { CloseTradeModal } from '../post-trade/CloseTradeModal'
+import { TradingViewChart } from './TradingViewChart'
 
 interface Props {
   tradeId: string | null
@@ -586,6 +587,10 @@ export function TradeDetailModal({ tradeId, onClose, onTradeUpdated }: Props) {
                       </div>
                     </>
                   )}
+
+                  {/* Chart — TradingView review embed */}
+                  <SectionTitle>Chart</SectionTitle>
+                  <TradingViewChart symbol={detail.pairSymbol} />
                 </>
               )}
             </div>

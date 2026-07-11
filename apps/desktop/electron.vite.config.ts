@@ -36,6 +36,10 @@ function cspMetaPlugin(): Plugin {
           "img-src 'self' data: blob:",
           "font-src 'self' data:",
           "connect-src 'self' https: http://localhost:* ws://localhost:* wss:",
+          // Embedded TradingView review chart (P3): only the widgetembed frame is
+          // allowed — their scripts run inside that cross-origin frame, not our
+          // document, so script-src stays locked to 'self'.
+          "frame-src 'self' https://www.tradingview.com https://s.tradingview.com",
           "object-src 'none'",
           "base-uri 'none'",
           "frame-ancestors 'none'",
