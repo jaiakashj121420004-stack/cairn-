@@ -82,7 +82,7 @@ export function LiveDisciplineCard({ accountId }: { accountId: string | null }) 
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1], delay: 0.5 }}
-      className="glass overflow-hidden rounded-[18px]"
+      className="card-float glass overflow-hidden rounded-[18px]"
       data-testid="live-discipline-card"
     >
       <div

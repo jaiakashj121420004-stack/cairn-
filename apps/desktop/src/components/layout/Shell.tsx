@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { Suspense } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { CommandPalette } from '../../features/command-palette/CommandPalette'
@@ -23,19 +23,22 @@ export function Shell() {
       <div className="flex flex-1 flex-col overflow-hidden">
         <TopBar />
         <main className="flex-1 overflow-auto">
+          {/* Suspense wraps a KEYED fade-in (no AnimatePresence `mode="wait"`).
+              The old exit-then-wait crossfade deadlocked whenever a lazy route
+              chunk suspended: the incoming page mounted but its enter animation
+              never fired, leaving it at opacity:0 until a reload. Re-keying on the
+              pathname remounts the page so the fade-in always plays after the
+              chunk resolves. */}
           <Suspense fallback={null}>
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={location.pathname}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: duration.short, ease: 'easeInOut' }}
-                className="h-full"
-              >
-                <Outlet />
-              </motion.div>
-            </AnimatePresence>
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: duration.short, ease: 'easeInOut' }}
+              className="h-full"
+            >
+              <Outlet />
+            </motion.div>
           </Suspense>
         </main>
       </div>

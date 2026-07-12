@@ -42,84 +42,8 @@ import { DisciplineRing } from './DisciplineRing'
 import { LiveDisciplineCard } from './LiveDisciplineCard'
 
 /* ──────────────────────────────────────────────────────────────────
-   DECORATIVE AREA CHART — fills bottom of stat card
-   Used when real time-series data isn't available
-───────────────────────────────────────────────────────────────── */
-function DecorativeWave({ color, id }: { color: string; id: string }) {
-  return (
-    <svg viewBox="0 0 320 56" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
-      <defs>
-        <linearGradient id={`dw-${id}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.30" />
-          <stop offset="100%" stopColor={color} stopOpacity="0.00" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M0,38 C40,18 80,50 120,28 C160,6 200,44 240,22 C270,6 295,36 320,20 L320,56 L0,56 Z"
-        fill={`url(#dw-${id})`}
-      />
-      <path
-        d="M0,38 C40,18 80,50 120,28 C160,6 200,44 240,22 C270,6 295,36 320,20"
-        fill="none"
-        stroke={color}
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        opacity="0.70"
-      />
-    </svg>
-  )
-}
-
-/* Real sparkline from data array */
-function SparklineArea({ data, color, id }: { data: number[]; color: string; id: string }) {
-  if (data.length < 2) return <DecorativeWave color={color} id={id} />
-  const w = 320
-  const h = 56
-  const min = Math.min(...data)
-  const max = Math.max(...data)
-  const range = max - min || 1
-  const pts = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * w
-    const y = h - ((v - min) / range) * (h - 10) - 5
-    return [x, y] as [number, number]
-  })
-  const linePts = pts.map(([x, y]) => `${x},${y}`).join(' ')
-  const fillPts = [`0,${h}`, ...pts.map(([x, y]) => `${x},${y}`), `${w},${h}`].join(' ')
-
-  return (
-    <svg
-      viewBox={`0 0 ${w} ${h}`}
-      preserveAspectRatio="none"
-      className="absolute inset-0 h-full w-full"
-    >
-      <defs>
-        <linearGradient id={`sl-${id}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.30" />
-          <stop offset="100%" stopColor={color} stopOpacity="0.00" />
-        </linearGradient>
-      </defs>
-      <polyline points={fillPts} fill={`url(#sl-${id})`} stroke="none" />
-      <polyline
-        points={linePts}
-        fill="none"
-        stroke={color}
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        opacity="0.80"
-      />
-      {(() => {
-        const last = pts[pts.length - 1]
-        return last && <circle cx={last[0]} cy={last[1]} r="3" fill={color} />
-      })()}
-    </svg>
-  )
-}
-
-/* ──────────────────────────────────────────────────────────────────
-   STAT CARD — the hero metric cards (like Image 2 reference)
-   Each has: icon badge + label + big number + change pill + area chart
+   STAT CARD — the hero metric cards: icon badge + label + big number +
+   change pill. Floating (soft depth), no decorative area chart.
 ───────────────────────────────────────────────────────────────── */
 interface StatCardProps {
   label: string
@@ -130,7 +54,6 @@ interface StatCardProps {
   colorHsl: string // token var used for SVG stroke/fill + card top-rule
   colorRgb: string // deprecated (Almanac uses color-mix on colorHsl); kept for call-site compat
   icon: React.ElementType
-  sparkData?: number[] | undefined
   delay?: number | undefined
   className?: string | undefined
 }
@@ -142,7 +65,6 @@ function StatCard({
   subPositive,
   colorHsl,
   icon: Icon,
-  sparkData,
   delay = 0,
   className,
 }: StatCardProps) {
@@ -151,15 +73,15 @@ function StatCard({
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.36, ease: [0.22, 1, 0.36, 1], delay }}
-      className={cn('relative overflow-hidden rounded-[4px] flex flex-col', className)}
+      className={cn('card-float relative flex flex-col overflow-hidden rounded-[10px]', className)}
       style={{
         background: 'hsl(var(--surface))',
         border: '1px solid hsl(var(--border))',
         borderTop: `2px solid ${colorHsl}`,
       }}
     >
-      {/* Top content */}
-      <div className="relative z-10 flex flex-1 flex-col gap-2.5 px-5 pt-5 pb-3">
+      {/* Content — centred now that the decorative area chart is gone */}
+      <div className="relative z-10 flex flex-1 flex-col justify-center gap-2.5 px-5 py-5">
         {/* Icon + label row */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -201,20 +123,6 @@ function StatCard({
         >
           {value}
         </p>
-      </div>
-
-      {/* Bottom chart area */}
-      <div className="relative h-14 w-full overflow-hidden">
-        {(() => {
-          // Strip all non-alphanumeric chars so SVG gradient IDs and url() refs are valid.
-          // "Today's P&L" → "TodaysPL"; the & in P&L would otherwise break the CSS url() reference.
-          const safeId = label.replace(/[^a-zA-Z0-9]/g, '')
-          return sparkData && sparkData.length >= 2 ? (
-            <SparklineArea data={sparkData} color={colorHsl} id={safeId} />
-          ) : (
-            <DecorativeWave color={colorHsl} id={safeId} />
-          )
-        })()}
       </div>
     </motion.div>
   )
@@ -366,7 +274,7 @@ function Panel({
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1], delay }}
-      className={cn('glass rounded-[18px] overflow-hidden', className)}
+      className={cn('card-float glass overflow-hidden rounded-[18px]', className)}
     >
       {children}
     </motion.div>
@@ -526,19 +434,6 @@ export function DashboardPage() {
   const pnlColor = dailyPnl === null ? CYAN : dailyPnl > 0 ? GREEN : dailyPnl < 0 ? ROSE : CYAN
   const exColor = expectancy === null ? CYAN : expectancy >= 0 ? GREEN : ROSE
 
-  /* Fake "equity sparkline" from recent trades cumulative */
-  const equitySpark = stats?.recentTrades
-    ? (() => {
-        let running = 0
-        const vals: number[] = []
-        ;[...stats.recentTrades].reverse().forEach((t) => {
-          running += t.pnlCents ?? 0
-          vals.push(running)
-        })
-        return vals.length >= 2 ? vals : undefined
-      })()
-    : undefined
-
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       {/* ── Page header ─────────────────────────────── */}
@@ -631,7 +526,6 @@ export function DashboardPage() {
             colorHsl={VIOLET.hsl}
             colorRgb={VIOLET.rgb}
             icon={DollarSign}
-            sparkData={equitySpark}
             delay={0.07}
             className="col-span-1"
           />
@@ -668,7 +562,6 @@ export function DashboardPage() {
             colorHsl={exColor.hsl}
             colorRgb={exColor.rgb}
             icon={Activity}
-            sparkData={stats?.expectancySpark}
             delay={0.21}
             className="col-span-1"
           />

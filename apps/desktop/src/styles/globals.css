@@ -242,6 +242,28 @@
     border-color: hsl(var(--border-strong));
   }
 
+  /* Floating card depth — soft, warm layered shadows so a card reads as raised
+     off the parchment, with a subtle lift on hover. Amends the flat Almanac
+     aesthetic (§14 #10) for the dashboard cards per an explicit request for a
+     3D/floating look. Defined AFTER .glass so it wins over .glass's box-shadow:none
+     when both classes are applied. */
+  .card-float {
+    box-shadow:
+      0 1px 2px hsl(28 30% 16% / 0.06),
+      0 6px 14px -4px hsl(28 30% 16% / 0.14),
+      0 18px 34px -12px hsl(28 30% 16% / 0.18);
+    transition:
+      box-shadow 200ms ease,
+      transform 200ms ease;
+  }
+  .card-float:hover {
+    box-shadow:
+      0 2px 4px hsl(28 30% 16% / 0.08),
+      0 10px 22px -6px hsl(28 30% 16% / 0.18),
+      0 26px 46px -14px hsl(28 30% 16% / 0.22);
+    transform: translateY(-2px);
+  }
+
   /* Hero panel — an "issue" masthead: surface + oxblood top double-rule */
   .glass-hero {
     background: hsl(var(--surface));
