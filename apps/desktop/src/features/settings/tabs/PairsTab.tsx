@@ -3,15 +3,10 @@ import { useEffect, useState, useMemo } from 'react'
 import type { Pair, CreatePairInput } from '@shared/types/index'
 import { Button, Badge, Modal, Input, Select } from '../../../components/ui'
 import { useToast } from '../../../components/ui'
+import { ASSET_CLASSES, assetClassConfig } from '../../../lib/asset-class'
 import { ipc } from '../../../lib/ipc'
 
-const ASSET_CLASS_OPTIONS = [
-  { value: 'forex', label: 'Forex' },
-  { value: 'commodities', label: 'Commodities' },
-  { value: 'indices', label: 'Indices' },
-  { value: 'crypto', label: 'Crypto' },
-  { value: 'other', label: 'Other' },
-]
+const ASSET_CLASS_OPTIONS = ASSET_CLASSES.map((a) => ({ value: a.value, label: a.label }))
 
 const BLANK: CreatePairInput = {
   symbol: '',
@@ -119,6 +114,9 @@ export function PairsTab() {
     ])
     await load()
   }
+
+  const unitTerm = assetClassConfig(form.assetClass).unitTerm
+  const unitTermLabel = unitTerm === 'pip' ? 'Pip' : 'Point'
 
   return (
     <div className="space-y-4">
@@ -255,19 +253,34 @@ export function PairsTab() {
             label="Asset class"
             options={ASSET_CLASS_OPTIONS}
             value={form.assetClass}
-            onChange={(v) => setForm({ ...form, assetClass: v as CreatePairInput['assetClass'] })}
+            onChange={(v) => {
+              const assetClass = v as CreatePairInput['assetClass']
+              // Prefill sensible decimals/value for the class when creating a new
+              // pair; when editing, never clobber the user's saved numbers.
+              if (editing) {
+                setForm((f) => ({ ...f, assetClass }))
+                return
+              }
+              const cfg = assetClassConfig(assetClass)
+              setForm((f) => ({
+                ...f,
+                assetClass,
+                pipDecimal: cfg.pipDecimalDefault,
+                pipValuePerStandardLotCents: cfg.pipValueDefaultCents,
+              }))
+            }}
           />
           <div className="grid grid-cols-2 gap-3">
             <Input
-              label="Pip decimal"
+              label={`${unitTermLabel} decimal`}
               type="number"
               numeric
               value={String(form.pipDecimal)}
               onChange={(e) => setForm({ ...form, pipDecimal: Number(e.target.value) })}
-              hint="Decimals that equal 1 pip"
+              hint={`Decimals that equal 1 ${unitTerm}`}
             />
             <Input
-              label="Pip value (cents)"
+              label={`${unitTermLabel} value (cents)`}
               type="number"
               numeric
               value={String(form.pipValuePerStandardLotCents)}

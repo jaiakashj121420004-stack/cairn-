@@ -9,7 +9,7 @@ import type { IpcResponse, Pair, CreatePairInput, UpdatePairInput } from '../../
 const CreatePairSchema = z.object({
   symbol: z.string().min(1).max(20).toUpperCase(),
   displayName: z.string().min(1).max(50),
-  assetClass: z.enum(['forex', 'commodities', 'indices', 'crypto', 'other']),
+  assetClass: z.enum(['forex', 'commodities', 'indices', 'crypto', 'stocks', 'other']),
   pipDecimal: z.number().int().min(0).max(5),
   pipValuePerStandardLotCents: z.number().int().positive(),
   correlatedWith: z.array(z.string()).optional(),
@@ -20,7 +20,7 @@ const UpdatePairSchema = z.object({
   id: z.string().uuid(),
   symbol: z.string().min(1).max(20).toUpperCase().optional(),
   displayName: z.string().min(1).max(50).optional(),
-  assetClass: z.enum(['forex', 'commodities', 'indices', 'crypto', 'other']).optional(),
+  assetClass: z.enum(['forex', 'commodities', 'indices', 'crypto', 'stocks', 'other']).optional(),
   pipDecimal: z.number().int().min(0).max(5).optional(),
   pipValuePerStandardLotCents: z.number().int().positive().optional(),
   correlatedWith: z.array(z.string()).nullable().optional(),
