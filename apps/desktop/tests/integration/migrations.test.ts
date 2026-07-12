@@ -87,6 +87,7 @@ describe('migration journal wiring', () => {
       '0016_account_phases',
       '0017_daily_locks',
       '0018_pre_trade_gate',
+      '0019_pair_contract_spec',
     ])
     // Every journaled tag must resolve to a non-empty .sql file.
     for (const tag of orderedTags()) {

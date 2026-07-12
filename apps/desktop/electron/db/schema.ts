@@ -139,6 +139,12 @@ export const pairs = sqliteTable('pairs', {
   assetClass: text('asset_class').notNull(),
   pipDecimal: integer('pip_decimal').notNull(),
   pipValuePerStandardLotCents: integer('pip_value_per_standard_lot_cents').notNull(),
+  // Contract spec (migration 0019, nullable): min price increment in the stored
+  // price encoding + money per tick per standard lot (cents). When both are set the
+  // pair is configured by contract spec and pip_value_per_standard_lot_cents is
+  // derived from them; NULL means the pip value was entered directly.
+  tickSize: integer('tick_size'),
+  tickValueCents: integer('tick_value_cents'),
   correlatedWith: text('correlated_with'),
   active: integer('active').notNull().default(1),
   displayOrder: integer('display_order').notNull(),

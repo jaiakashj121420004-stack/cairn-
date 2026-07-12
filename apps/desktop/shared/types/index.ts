@@ -364,6 +364,10 @@ export interface Pair {
   assetClass: string
   pipDecimal: number
   pipValuePerStandardLotCents: number
+  /** Contract spec (nullable): min price increment in stored price units. */
+  tickSize: number | null
+  /** Contract spec (nullable): money per tick per standard lot, in cents. */
+  tickValueCents: number | null
   correlatedWith: string | null
   active: number
   displayOrder: number
@@ -378,6 +382,9 @@ export interface CreatePairInput {
   assetClass: string
   pipDecimal: number
   pipValuePerStandardLotCents: number
+  /** When both tick fields are set, pipValuePerStandardLotCents is derived from them. */
+  tickSize?: number | null
+  tickValueCents?: number | null
   correlatedWith?: string[]
   notes?: string
 }
@@ -389,6 +396,8 @@ export interface UpdatePairInput {
   assetClass?: string
   pipDecimal?: number
   pipValuePerStandardLotCents?: number
+  tickSize?: number | null
+  tickValueCents?: number | null
   correlatedWith?: string[] | null
   active?: boolean
   displayOrder?: number

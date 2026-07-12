@@ -37,6 +37,12 @@ const MIGRATIONS = [
   readFileSync(join(__dirname, '../../electron/db/migrations/0011_sync.sql'), 'utf-8'),
   readFileSync(join(__dirname, '../../electron/db/migrations/0012_sync_merge.sql'), 'utf-8'),
   readFileSync(join(__dirname, '../../electron/db/migrations/0013_sync_clocks.sql'), 'utf-8'),
+  // 0019 only ALTERs `pairs` (contract-spec columns); safe to apply on the 0013
+  // state and required so the drizzle `pairs` schema matches this test DB.
+  readFileSync(
+    join(__dirname, '../../electron/db/migrations/0019_pair_contract_spec.sql'),
+    'utf-8',
+  ),
 ]
 
 let SQL: Awaited<ReturnType<typeof initSqlJs>>
