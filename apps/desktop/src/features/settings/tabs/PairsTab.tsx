@@ -4,6 +4,7 @@ import type { Pair, CreatePairInput } from '@shared/types/index'
 import { Button, Badge, Modal, Input, Select } from '../../../components/ui'
 import { useToast } from '../../../components/ui'
 import { ASSET_CLASSES, assetClassConfig } from '../../../lib/asset-class'
+import { decodeTickSize, encodeTickSize, previewPipValueCents } from '../../../lib/contract-spec'
 import { ipc } from '../../../lib/ipc'
 
 const ASSET_CLASS_OPTIONS = ASSET_CLASSES.map((a) => ({ value: a.value, label: a.label }))
@@ -24,6 +25,11 @@ export function PairsTab() {
   const [editing, setEditing] = useState<Pair | null>(null)
   const [form, setForm] = useState<CreatePairInput>(BLANK)
   const [saving, setSaving] = useState(false)
+  /** Whether the value is entered directly (pip) or derived from a contract spec. */
+  const [configMode, setConfigMode] = useState<'pip' | 'contract'>('pip')
+  /** Contract-spec inputs (contract mode only): real tick size + tick value (cents). */
+  const [tickSizeInput, setTickSizeInput] = useState('')
+  const [tickValueInput, setTickValueInput] = useState('')
   const toast = useToast()
 
   async function load() {
@@ -47,6 +53,9 @@ export function PairsTab() {
   function openCreate() {
     setEditing(null)
     setForm(BLANK)
+    setConfigMode('pip')
+    setTickSizeInput('')
+    setTickValueInput('')
     setModalOpen(true)
   }
 
@@ -63,12 +72,60 @@ export function PairsTab() {
         : {}),
       ...(pair.notes != null ? { notes: pair.notes } : {}),
     })
+    // Restore the contract-spec editing mode when the pair was configured that way.
+    if (pair.tickSize != null && pair.tickValueCents != null) {
+      setConfigMode('contract')
+      setTickSizeInput(String(decodeTickSize(pair.tickSize, pair.pipDecimal)))
+      setTickValueInput(String(pair.tickValueCents))
+    } else {
+      setConfigMode('pip')
+      setTickSizeInput('')
+      setTickValueInput('')
+    }
     setModalOpen(true)
+  }
+
+  /** Resolve the value fields to send, deriving from the contract spec in contract mode. */
+  function resolveValueFields(): {
+    tickSize: number | null
+    tickValueCents: number | null
+    pipValuePerStandardLotCents: number
+  } {
+    if (configMode !== 'contract') {
+      return {
+        tickSize: null,
+        tickValueCents: null,
+        pipValuePerStandardLotCents: form.pipValuePerStandardLotCents,
+      }
+    }
+    const tickSizeStored = encodeTickSize(parseFloat(tickSizeInput), form.pipDecimal)
+    const tickValueCents = Math.round(Number(tickValueInput))
+    return {
+      tickSize: tickSizeStored,
+      tickValueCents,
+      // Preview value; the IPC re-derives the authoritative one with decimal.js.
+      pipValuePerStandardLotCents: previewPipValueCents(tickSizeStored, tickValueCents),
+    }
   }
 
   async function handleSave() {
     if (!form.symbol || !form.displayName) {
       toast('Symbol and display name are required', 'error')
+      return
+    }
+    const values = resolveValueFields()
+    if (
+      configMode === 'contract' &&
+      (values.tickSize == null ||
+        values.tickSize <= 0 ||
+        values.tickValueCents == null ||
+        values.tickValueCents <= 0)
+    ) {
+      toast('Enter a valid tick size and tick value', 'error')
+      return
+    }
+    if (values.pipValuePerStandardLotCents <= 0) {
+      toast('Value per lot must be greater than zero', 'error')
       return
     }
     setSaving(true)
@@ -79,7 +136,9 @@ export function PairsTab() {
         displayName: form.displayName,
         assetClass: form.assetClass,
         pipDecimal: form.pipDecimal,
-        pipValuePerStandardLotCents: form.pipValuePerStandardLotCents,
+        pipValuePerStandardLotCents: values.pipValuePerStandardLotCents,
+        tickSize: values.tickSize,
+        tickValueCents: values.tickValueCents,
         notes: form.notes ?? null,
       })
       if (res.ok) {
@@ -87,7 +146,12 @@ export function PairsTab() {
         await load()
       } else toast(res.error.message, 'error')
     } else {
-      const res = await ipc.pairs.create(form)
+      const res = await ipc.pairs.create({
+        ...form,
+        pipValuePerStandardLotCents: values.pipValuePerStandardLotCents,
+        tickSize: values.tickSize,
+        tickValueCents: values.tickValueCents,
+      })
       if (res.ok) {
         toast('Pair created', 'success')
         await load()
@@ -270,6 +334,25 @@ export function PairsTab() {
               }))
             }}
           />
+          {/* Configure by a directly-entered value, or by a contract spec (tick
+              size + tick value) from which the value is derived. */}
+          <div className="flex items-center gap-2">
+            <span className="text-caption text-text-muted">Configure by</span>
+            {(['pip', 'contract'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setConfigMode(mode)}
+                className={
+                  configMode === mode
+                    ? 'rounded-md bg-accent-a/15 px-2 py-0.5 text-caption font-medium text-accent-a'
+                    : 'rounded-md px-2 py-0.5 text-caption text-text-muted hover:text-text-primary'
+                }
+              >
+                {mode === 'pip' ? `${unitTermLabel} value` : 'Contract spec'}
+              </button>
+            ))}
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <Input
               label={`${unitTermLabel} decimal`}
@@ -279,17 +362,47 @@ export function PairsTab() {
               onChange={(e) => setForm({ ...form, pipDecimal: Number(e.target.value) })}
               hint={`Decimals that equal 1 ${unitTerm}`}
             />
-            <Input
-              label={`${unitTermLabel} value (cents)`}
-              type="number"
-              numeric
-              value={String(form.pipValuePerStandardLotCents)}
-              onChange={(e) =>
-                setForm({ ...form, pipValuePerStandardLotCents: Number(e.target.value) })
-              }
-              hint="Per standard lot"
-            />
+            {configMode === 'pip' ? (
+              <Input
+                label={`${unitTermLabel} value (cents)`}
+                type="number"
+                numeric
+                value={String(form.pipValuePerStandardLotCents)}
+                onChange={(e) =>
+                  setForm({ ...form, pipValuePerStandardLotCents: Number(e.target.value) })
+                }
+                hint="Per standard lot"
+              />
+            ) : (
+              <Input
+                label="Tick size"
+                value={tickSizeInput}
+                onChange={(e) => setTickSizeInput(e.target.value)}
+                placeholder="0.25"
+                hint="Min price increment"
+              />
+            )}
           </div>
+          {configMode === 'contract' && (
+            <div className="space-y-1">
+              <Input
+                label="Tick value (cents)"
+                type="number"
+                numeric
+                value={tickValueInput}
+                onChange={(e) => setTickValueInput(e.target.value)}
+                hint="Money per tick per standard lot"
+              />
+              <p className="text-caption text-text-muted">
+                ≈{' '}
+                {previewPipValueCents(
+                  encodeTickSize(parseFloat(tickSizeInput) || 0, form.pipDecimal),
+                  Math.round(Number(tickValueInput) || 0),
+                )}{' '}
+                cents per {unitTerm} / lot
+              </p>
+            </div>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>
               Cancel
