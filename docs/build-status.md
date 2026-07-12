@@ -6,6 +6,18 @@ Update this file at the end of every wave. -->
 
 Tracks what is actually built/verified vs planned. Last reviewed **2026-05-31** (Wave 1.5 remediation: all §17.6 issues resolved, five gates green; re-verified same date with Wave 2 event-bus work in working tree — all gates still green, 258 tests). Update at the end of every wave.
 
+### 2026-07-12 — UI / design-polish round (post-P3), all committed + build-green
+
+Three commits on `feat/rules-engine`, then a recovery:
+
+- **`75b7cc4`** `fix(ui)`: (a) **tab-switch blank-page bug** — `Shell.tsx` wrapped the lazy (code-split) routes in `Suspense` + `AnimatePresence mode="wait"` + an `exit` animation; when an incoming route's chunk suspended, `mode="wait"` was still waiting on the old page's exit, so the new page mounted but its enter fade never fired → it sat at `opacity:0` until a reload. Replaced with a keyed fade-in inside `Suspense` (no `AnimatePresence`). (b) Removed the decorative stat-card area-charts (`DecorativeWave` / `SparklineArea` deleted, `sparkData` prop + `equitySpark` gone). (c) Floating card depth (`.card-float`).
+- **`2c86ca5`** `feat(ui)`: textured **`.app-canvas`** backdrop (fine paper grain + warm ambient light — sunlit by day, lamplit by night — + edge vignette), **embossed/letterpressed** theme-aware `.card-float`, and fixed the **empty Discipline ring** (was an invisible `bg-surface` pulse → now a dashed ring + "Select an account"). This **amends the flat §14 #10 aesthetic** (texture + light + depth, NOT neon/glass) per an explicit user request; `DESIGN-GUIDELINES.md` / `docs/design-system.md § v3.0` not yet formally re-written.
+- **`7d51b6e`** `fix(ui)`: **base64-encode the paper-grain SVG data-URI**. The original inline `url("data:image/svg+xml,…")` had raw spaces + a nested `url(#g)` filter reference, which broke CSS minification and **nuked the entire stylesheet** (app rendered unstyled — nav as raw blue links). Base64 has no spaces / no inner `url(` / no `#`, so it's parser-safe.
+
+**LESSON (important):** any CSS / `globals.css` change MUST be validated with `.\run-host-gates.ps1` — the **`build`** gate is the only one that compiles CSS. The husky pre-commit runs only typecheck / lint / format:check, and **none of those catch a CSS compile failure**. `2c86ca5` slipped through pre-commit and broke the app; caught only on a later full gate run.
+
+Final state: all five desktop gates GREEN (typecheck / lint / test:unit / **build 14.3s** / e2e); on that run the Postgres/server gates also passed (WinNAT free), only `docs routes smoke` red (unrelated server docs-toggle quirk). App renders correctly in both light and dark.
+
 ### 2026-07-12 — P3 (breadth/opportunity) COMPLETE — 5 candidates, all committed
 
 All five P3 candidates shipped on `feat/rules-engine`, each committed after all five desktop gates GREEN (typecheck / lint / test:unit / build / e2e). The three backend gates stay RED on the WinNAT-blocked runs (unrelated); on one M2 run the Postgres/server gates went green when the port freed.
