@@ -12,7 +12,7 @@ export function Shell() {
   useKeyboardShortcuts()
 
   return (
-    <div className="relative flex h-screen overflow-hidden bg-background">
+    <div className="app-canvas relative flex h-screen overflow-hidden">
       {/* ── Masthead double-rule — the almanac's page-top signature ── */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-50" aria-hidden="true">
         <div className="h-[2px] w-full bg-[hsl(var(--ox))]" />

@@ -100,6 +100,12 @@
     --ring: 3 53% 31%;
     --radius: 0.25rem; /* 4px cards; buttons use 2px via --radius-btn */
     --radius-btn: 2px;
+
+    /* Fine paper grain — a tileable fractal-noise texture (greyscale) laid under
+       the app so the parchment/ink reads as real paper stock rather than a flat
+       fill. Subtle by design (§14 #10 is flat; this is texture, not gradient/glow,
+       amended for a premium feel). Reused by .app-canvas + card surfaces. */
+    --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)' opacity='0.055'/%3E%3C/svg%3E");
   }
 
   /* ── NIGHT — ink (the same almanac by lamplight) ───── */
@@ -242,25 +248,66 @@
     border-color: hsl(var(--border-strong));
   }
 
-  /* Floating card depth — soft, warm layered shadows so a card reads as raised
-     off the parchment, with a subtle lift on hover. Amends the flat Almanac
-     aesthetic (§14 #10) for the dashboard cards per an explicit request for a
-     3D/floating look. Defined AFTER .glass so it wins over .glass's box-shadow:none
-     when both classes are applied. */
+  /* ── App canvas — textured parchment/ink backdrop ──
+     The page reads as real paper: a fine grain, a soft ambient light from the
+     top (sunlit by day, lamplit by night), and a gentle edge vignette to frame
+     the content. Content sits ON this (opaque card surfaces cover the grain), so
+     the texture only shows in the page gutters — like ink on stock. Amends the
+     flat §14 #10 rule for a premium feel; texture only, no glass/blur. */
+  .app-canvas {
+    background-color: hsl(var(--background));
+    background-image:
+      radial-gradient(120% 78% at 50% -12%, hsl(39 55% 72% / 0.16), transparent 58%),
+      radial-gradient(125% 125% at 50% 46%, transparent 60%, hsl(28 34% 16% / 0.1)),
+      var(--paper-grain);
+    background-repeat: no-repeat, no-repeat, repeat;
+    background-size:
+      100% 100%,
+      100% 100%,
+      160px 160px;
+    background-attachment: fixed, fixed, fixed;
+  }
+  [data-theme='dark'] .app-canvas {
+    background-image:
+      radial-gradient(120% 80% at 50% -14%, hsl(36 62% 46% / 0.12), transparent 55%),
+      radial-gradient(130% 130% at 50% 48%, transparent 52%, hsl(0 0% 0% / 0.4)), var(--paper-grain);
+  }
+
+  /* Floating, letterpressed card — a soft warm shadow raises it off the paper and
+     a hairline top-highlight gives an embossed edge. Lifts on hover. Defined AFTER
+     .glass so it wins over .glass's box-shadow:none when both classes are used.
+     Amends flat §14 #10 per an explicit request for a 3D/floating look. */
   .card-float {
     box-shadow:
+      inset 0 1px 0 hsl(42 55% 98% / 0.5),
       0 1px 2px hsl(28 30% 16% / 0.06),
       0 6px 14px -4px hsl(28 30% 16% / 0.14),
       0 18px 34px -12px hsl(28 30% 16% / 0.18);
     transition:
-      box-shadow 200ms ease,
-      transform 200ms ease;
+      box-shadow 220ms ease,
+      transform 220ms ease;
   }
   .card-float:hover {
     box-shadow:
+      inset 0 1px 0 hsl(42 55% 98% / 0.6),
       0 2px 4px hsl(28 30% 16% / 0.08),
       0 10px 22px -6px hsl(28 30% 16% / 0.18),
       0 26px 46px -14px hsl(28 30% 16% / 0.22);
+    transform: translateY(-2px);
+  }
+  [data-theme='dark'] .card-float {
+    box-shadow:
+      inset 0 1px 0 hsl(37 41% 87% / 0.05),
+      0 1px 2px hsl(0 0% 0% / 0.3),
+      0 8px 18px -4px hsl(0 0% 0% / 0.42),
+      0 22px 40px -12px hsl(0 0% 0% / 0.5);
+  }
+  [data-theme='dark'] .card-float:hover {
+    box-shadow:
+      inset 0 1px 0 hsl(37 41% 87% / 0.08),
+      0 2px 5px hsl(0 0% 0% / 0.34),
+      0 12px 26px -6px hsl(0 0% 0% / 0.5),
+      0 30px 52px -14px hsl(0 0% 0% / 0.58);
     transform: translateY(-2px);
   }
 

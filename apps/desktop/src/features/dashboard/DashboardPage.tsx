@@ -506,7 +506,19 @@ export function DashboardPage() {
                 <CompositeReadout composite={stats.compositeScore} />
               </>
             ) : (
-              <div className="h-[200px] w-[200px] animate-pulse rounded-full bg-surface" />
+              <div className="flex h-[200px] w-[200px] flex-col items-center justify-center gap-3">
+                <div
+                  className={cn(
+                    'flex h-28 w-28 items-center justify-center rounded-full border-2 border-dashed border-border-strong/60',
+                    loading && 'animate-pulse',
+                  )}
+                >
+                  <span className="stat-number text-3xl text-text-muted/50">—</span>
+                </div>
+                <p className="text-caption text-text-muted/70">
+                  {loading ? 'Loading…' : 'Select an account'}
+                </p>
+              </div>
             )}
           </motion.div>
 
