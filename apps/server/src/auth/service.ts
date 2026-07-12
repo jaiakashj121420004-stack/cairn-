@@ -23,6 +23,7 @@ import type { Db } from '../db/client'
 import type { EmailProvider } from '../email'
 import type { Env } from '../env'
 import type { AppLogger } from '../logger'
+import type { BreachedPasswordChecker } from './breached-password'
 import type { AuthSession, SignupResult } from '@cairn/shared-types'
 import type { LoginInput, SignupInput } from '@cairn/shared-zod'
 
@@ -55,6 +56,8 @@ export interface AuthServiceDeps {
   readonly env: Env
   readonly email: EmailProvider
   readonly logger: AppLogger
+  /** Optional breached-password screen (ASVS 2.1.7). Omitted ⇒ no check (tests / HIBP_CHECK=off). */
+  readonly breachedPasswordCheck?: BreachedPasswordChecker
 }
 
 export class AuthService {
@@ -62,12 +65,41 @@ export class AuthService {
   private readonly env: Env
   private readonly email: EmailProvider
   private readonly logger: AppLogger
+  private readonly breachedPasswordCheck: BreachedPasswordChecker | undefined
 
   constructor(deps: AuthServiceDeps) {
     this.db = deps.db
     this.env = deps.env
     this.email = deps.email
     this.logger = deps.logger
+    this.breachedPasswordCheck = deps.breachedPasswordCheck
+  }
+
+  /**
+   * Reject a password that appears in a known breach corpus (ASVS 2.1.7 / O11). No-op when
+   * no checker is wired (HIBP_CHECK=off / tests). The check itself fails open — see
+   * {@link BreachedPasswordChecker} — so this only ever throws on a *confirmed* breach hit.
+   * Called for every signup (both real and existing-email paths, so it can't be used to
+   * enumerate accounts) and every password reset, before the password is hashed.
+   */
+  /** The account email for a user id, or null if the user no longer exists. */
+  async emailForUser(userId: string): Promise<string | null> {
+    const rows = await this.db
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+    return rows[0]?.email ?? null
+  }
+
+  private async assertPasswordAllowed(password: string): Promise<void> {
+    if (!this.breachedPasswordCheck) return
+    if (await this.breachedPasswordCheck.isBreached(password)) {
+      throw new AppError(
+        ERROR_CODES.PASSWORD_BREACHED,
+        'This password has appeared in a known data breach. Choose a different one.',
+      )
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -80,6 +112,10 @@ export class AuthService {
    * Argon2id hash either way — so the response cannot be used to enumerate accounts.
    */
   async signup(input: SignupInput, _ctx: RequestContext): Promise<SignupResult> {
+    // Screen the password before anything else, so a breached-password rejection is
+    // identical whether or not the email already exists (no account enumeration).
+    await this.assertPasswordAllowed(input.password)
+
     const existing = await this.findUserByEmail(input.email)
     if (existing) {
       // Equalize timing with the real path, then send an "account exists" notice
@@ -223,6 +259,7 @@ export class AuthService {
    * which is re-wrapped client-side via the recovery-phrase flow (docs/security.md §5).
    */
   async resetPassword(token: string, newPassword: string): Promise<{ userId: string }> {
+    await this.assertPasswordAllowed(newPassword)
     const passwordHash = await hashPassword(newPassword, this.env.PASSWORD_PEPPER)
     const userId = await this.db.transaction(async (tx) => {
       const id = await consumeEmailToken(tx, 'reset', token)

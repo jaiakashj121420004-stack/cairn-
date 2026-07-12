@@ -3,6 +3,7 @@ import { Select } from '../../../components/ui'
 import { useToast } from '../../../components/ui'
 import { cn } from '../../../lib/cn'
 import { ipc } from '../../../lib/ipc'
+import { HelpLegalCard } from '../HelpLegalCard'
 
 type Theme = 'system' | 'light' | 'dark'
 type WeekStart = 'monday' | 'sunday'
@@ -143,6 +144,8 @@ export function GeneralTab() {
           <span className="text-text-secondary"> whether</span> the rules apply.
         </p>
       </div>
+
+      <HelpLegalCard />
     </div>
   )
 }

@@ -1,0 +1,63 @@
+name: billing-sweep
+
+# Time-based subscription expiry sweep (CLAUDE.md §20.5, docs/billing.md §3).
+#
+# `past_due → canceled` (after the 14-day hard grace) and lapsed `trial → canceled` are
+# NOT webhook-driven — a scheduler must trigger them. This job POSTs the admin-token-gated
+# `/admin/billing/sweep` endpoint on the deployed API, which runs `sweepExpiredGrace` and
+# invalidates the affected users' entitlement caches. Lazy expiry in `deriveSubscription`
+# already keeps gating correct between runs, so the exact cadence is not safety-critical;
+# this just makes the terminal state durable and auditable.
+#
+# Requires two repo secrets:
+#   CAIRN_API_URL     — base URL of the deployed API (e.g. https://api.cairn.app)
+#   CAIRN_ADMIN_TOKEN — the server's ADMIN_TOKEN (≥ 32 chars)
+# Until both are set the job is skipped LOUDLY (a warning, not a silent green) so it can
+# ship ahead of production and be turned on by setting two secrets.
+
+on:
+  schedule:
+    # Every 6 hours, on the hour.
+    - cron: '0 */6 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  sweep:
+    name: Run subscription grace/trial sweep
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the sweep target is configured
+        id: configured
+        run: |
+          if [ -z "${{ secrets.CAIRN_API_URL }}" ] || [ -z "${{ secrets.CAIRN_ADMIN_TOKEN }}" ]; then
+            echo "::warning::CAIRN_API_URL and/or CAIRN_ADMIN_TOKEN are not set — skipping the billing sweep. \
+          Configure both secrets once the API is deployed (see docs/go-live-checklist.md). Until then, lazy \
+          expiry in deriveSubscription keeps gating correct; only the durable terminal state is deferred."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: POST /admin/billing/sweep
+        if: steps.configured.outputs.skip == 'false'
+        env:
+          API_URL: ${{ secrets.CAIRN_API_URL }}
+          ADMIN_TOKEN: ${{ secrets.CAIRN_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Capture body + HTTP status separately so a non-2xx fails the job loudly.
+          HTTP_CODE=$(curl -sS -o response.json -w '%{http_code}' \
+            -X POST "${API_URL%/}/admin/billing/sweep" \
+            -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+            -H 'content-type: application/json')
+          echo "HTTP $HTTP_CODE"
+          cat response.json || true
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::billing sweep returned HTTP $HTTP_CODE (expected 200). See response above."
+            exit 1
+          fi
+          SWEPT=$(node -e "process.stdout.write(String((JSON.parse(require('fs').readFileSync('response.json','utf8')).data||{}).swept ?? 'unknown'))")
+          echo "Swept $SWEPT subscription(s) to their terminal state."

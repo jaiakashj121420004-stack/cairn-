@@ -38,7 +38,7 @@ Evidence paths are relative to repo root. Requirements that are **Level 3-only**
 | # | Requirement | Status | Evidence |
 |---|---|---|---|
 | 2.1.1–2.1.9 | Password policy: ≥12 chars, no composition/rotation rules, allow all chars + paste | ✅ | `packages/shared-zod/` signup schema (length min); Argon2 input is peppered HMAC so no length cap |
-| 2.1.7 | Breached-password check (top-N / HIBP) | ⏳ | Tracked: add HIBP k-anonymity check — **O11** (see note) |
+| 2.1.7 | Breached-password check (top-N / HIBP) | ✅ | HIBP k-anonymity screen at signup + reset (`auth/breached-password.ts`, wired in `auth/service.ts`; fail-open; `HIBP_CHECK` env). Tests: `tests/unit/breached-password.test.ts`, `tests/integration/breached-password.test.ts` |
 | 2.2.1 | Anti-automation on auth (rate-limit / lockout) | ✅ | per-IP + per-identifier limits, `auth/routes.ts:30-38`, `lib/rate-limit.ts` |
 | 2.2.2 | Weak authenticators (SMS) not default | ✅ | Email + password + magic link only; no SMS |
 | 2.2.3 | Secure notifications on security events | ✅ | Transactional email on verify/reset (`email/*`); audit on reuse |
@@ -164,7 +164,8 @@ Evidence paths are relative to repo root. Requirements that are **Level 3-only**
 | 1.14 / 10.3 | Signed/notarized release artifacts | O5 |
 | 14.2 | First green Trivy + Socket.dev CI run / app install | O1, O2 |
 | 9.x / DAST | First ZAP baseline against staging | O4 |
-| 2.1.7 | **O11 (new):** breached-password (HIBP k-anonymity) check at signup/reset — owner Jai Akash, deadline 2026-07-09 | O11 |
 | 2.8 / 3.6 | TOTP MFA + federated re-auth — deferred past v2.0 launch | O9 |
+
+> **O11 CLOSED (2026-07-12):** breached-password (HIBP k-anonymity) check shipped at signup + reset — `auth/breached-password.ts` + `auth/service.ts`, fail-open, `HIBP_CHECK` env toggle, unit + integration tested.
 
 > No ASVS L2 row above is left blank or hand-waved. Rows marked 🚫 carry the reason inline; rows marked ⏳ carry an `O#` that lives in `docs/threat-model.md §8` with an owner and a deadline.

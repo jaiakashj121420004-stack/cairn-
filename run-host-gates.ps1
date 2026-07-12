@@ -198,14 +198,45 @@ $env:CORS_ORIGINS    = 'http://localhost:5173'
 $env:COOKIE_SECURE   = 'false'
 $base = "http://127.0.0.1:$ApiPort"
 
+function Stop-PortListeners {
+  param([int]$Port)
+  # Kill whatever is listening on $Port. taskkill /T on the launch cmd PID can miss an
+  # orphaned node child, leaving a stale server that answers the next /health + doc probes —
+  # which is how the ENABLE_API_DOCS=false run kept seeing a docs-enabled server (200, not
+  # 404). Killing by port is the reliable backstop. Get-NetTCPConnection throws when nothing
+  # is listening; swallow it.
+  try {
+    $owners = (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction Stop).OwningProcess |
+      Sort-Object -Unique
+    foreach ($procId in $owners) {
+      if ($procId -and $procId -ne 0) {
+        Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
+      }
+    }
+  } catch { }
+}
+
 function Start-DocsServer {
   param([string]$EnableDocs)
+  # Guarantee a clean port first, so the health poll below can't be satisfied by a survivor
+  # from the previous phase (which would serve its own ENABLE_API_DOCS state, not this one).
+  Stop-PortListeners -Port $ApiPort
   $env:ENABLE_API_DOCS = $EnableDocs
   $out = Join-Path $logDir "server-docs-$EnableDocs-$stamp.out.log"
   # Launch through cmd.exe: `pnpm` on Windows is a .cmd/.ps1 shim, which Start-Process
   # cannot exec directly (InvalidOperationException) — cmd.exe resolves it via PATHEXT.
+  #
+  # Set ENABLE_API_DOCS *inside* the child cmd (`set VAR=val&& …`) rather than relying on
+  # Start-Process to inherit the freshly-set parent `$env:`. That inheritance proved
+  # unreliable here: the ENABLE_API_DOCS=false server kept serving docs (200 instead of 404)
+  # because the child fell back to the schema default ('true'). Setting it in-process makes
+  # the value unambiguous. NOTE: there is deliberately NO space before `&&` — `set X=false &&`
+  # would capture a trailing space ("false "), which the Zod enum(['true','false']) rejects,
+  # crashing boot. `$EnableDocs` is only ever the literal 'true'/'false', so no quoting is
+  # needed; Start-Process passes the whole string as one quoted arg to `cmd /c`.
+  $inner = "set ENABLE_API_DOCS=$EnableDocs&& pnpm --filter @cairn/server run start"
   $proc = Start-Process -FilePath $env:ComSpec `
-    -ArgumentList @('/c', 'pnpm', '--filter', '@cairn/server', 'run', 'start') `
+    -ArgumentList @('/c', $inner) `
     -NoNewWindow -PassThru -RedirectStandardOutput $out -RedirectStandardError "$out.err"
   # Poll /health until the server is listening (up to ~40s; covers migrate-on-boot).
   foreach ($i in 1..40) {
@@ -223,6 +254,9 @@ function Stop-DocsServer {
     # the whole tree by PID, so no node child keeps port $ApiPort bound for the next run.
     taskkill /PID $Proc.Id /T /F *> $null
   }
+  # Backstop: taskkill /T can miss an orphaned node child, so also kill by port. Without this
+  # the next phase's health poll can bind to a survivor and read the wrong docs state.
+  Stop-PortListeners -Port $ApiPort
 }
 
 # 3a. ENABLE_API_DOCS=true — the three doc routes serve, with relaxed CSP only on them.

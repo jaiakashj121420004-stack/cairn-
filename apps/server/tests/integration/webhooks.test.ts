@@ -14,6 +14,7 @@ import {
   makeRazorpaySubscriptionEvent,
   makeStripeSignature,
   makeStripeSubscriptionEvent,
+  postJson,
   postRaw,
   razorpayWebhookSecret,
   resetState,
@@ -491,6 +492,43 @@ describe('POST /webhooks/dodo', () => {
     const webhookRow = rows.find((r) => r.event === 'webhook.dodo.subscription.active')
     expect(webhookRow).toBeDefined()
     expect(webhookRow?.severity).toBe('info')
+  })
+})
+
+// ── Admin billing sweep ───────────────────────────────────────────────────────────────
+
+describe('POST /admin/billing/sweep', () => {
+  it('transitions an expired past_due subscription to canceled/free and reports the count', async () => {
+    const { userId } = await createVerifiedUser(ctx)
+    // Seed a past_due row whose 14-day hard grace has already elapsed.
+    await ctx.handle.db.insert(subscriptions).values({
+      userId,
+      entitlement: 'pro',
+      status: 'past_due',
+      graceUntil: new Date(Date.now() - 60_000),
+      currentPeriodEnd: new Date(Date.now() - 60_000),
+    })
+
+    const res = await postJson(
+      ctx.app,
+      '/admin/billing/sweep',
+      {},
+      `Bearer ${ctx.env.ADMIN_TOKEN ?? ''}`,
+    )
+    expect(res.statusCode).toBe(200)
+    expect((res.json() as { data: { swept: number } }).data.swept).toBeGreaterThanOrEqual(1)
+
+    const rows = await ctx.handle.db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.userId, userId))
+    expect(rows[0]?.status).toBe('canceled')
+    expect(rows[0]?.entitlement).toBe('free')
+  })
+
+  it('rejects a missing/invalid admin token', async () => {
+    const res = await postJson(ctx.app, '/admin/billing/sweep', {}, 'Bearer wrong-token')
+    expect(res.statusCode).toBe(401)
   })
 })
 

@@ -6,6 +6,45 @@ Update this file at the end of every wave. -->
 
 Tracks what is actually built/verified vs planned. Last reviewed **2026-05-31** (Wave 1.5 remediation: all §17.6 issues resolved, five gates green; re-verified same date with Wave 2 event-bus work in working tree — all gates still green, 258 tests). Update at the end of every wave.
 
+### 2026-07-12 — Launch-readiness batch (post-P4): deploy-enablement, security, legal, polish
+
+A code-only push to close the gap between "code complete" and "ready to wire + launch",
+scoped so everything validates on the **five non-Docker gates** (no more Docker/Postgres
+loop). All new tests are DB-free or use injected fakes. **Not yet gate-run / committed.**
+
+- **Grace-sweep wired (prod correctness gap):** `sweepExpiredGrace` existed but nothing called
+  it — subs never actually transitioned `past_due→canceled`. Added token-gated `POST
+  /admin/billing/sweep` (`admin/routes.ts`, reuses the admin-token guard, invalidates swept
+  users, audits) + a scheduled `.github/workflows/billing-sweep.yml` (every 6h, skips loudly
+  until `CAIRN_API_URL`/`CAIRN_ADMIN_TOKEN` secrets set). Integration test in `webhooks.test.ts`.
+- **ASVS O11 CLOSED — breached-password screening:** HIBP k-anonymity check at signup + reset
+  (`auth/breached-password.ts`, fail-open, `HIBP_CHECK` env, injectable for tests), wired via
+  `AuthService.assertPasswordAllowed`, new `PASSWORD_BREACHED` error code (400). Unit test
+  (mocked fetch) + integration test (fake checker). asvs-checklist + threat-model updated.
+- **Deploy-enablement scripts** (`apps/server/src/scripts/`, run via tsx, typechecked):
+  `preflight.ts` (`pnpm preflight` — env doctor: HTTPS, secure cookie, billing provider, admin
+  token, email, DB reachable), `setup-dodo.ts` (`pnpm dodo:setup` — validate key, list/match
+  Pro products, print paste-ready env), `verify-billing.ts` (`pnpm verify:billing <url>` —
+  /health 200, unsigned webhook 400, /billing/status 401). Package scripts added.
+- **Deploy-as-code:** `railway.json` (builds the existing Dockerfile, healthcheck /health) +
+  `docs/go-live-checklist.md` (the ordered wiring-day runbook).
+- **Web `/auth/me`:** new authed endpoint returns identity+entitlement; `session.ts restore()`
+  now rehydrates email/entitlement on page reload instead of a bare signed-in flag. Shared
+  `meOutputSchema`; unit/integration tested.
+- **In-app Help & Legal (#15, #29):** `HelpLegalCard` in Settings → General (feedback mailto +
+  privacy/terms/status links) via `window.open` (main.ts already allows https/mailto only);
+  `lib/brand.ts` single source for support email + doc URLs (cairn.app placeholders).
+- **Legal + comms drafts:** `docs/legal/{privacy-policy,terms-of-service,refund-policy,
+  subprocessors,article-30-records}.md`, root `CHANGELOG.md`, `docs/launch/{announcement,
+  soft-launch-invite}.md`. All flagged DRAFT / needs legal review.
+- **docs-smoke harness fix** (`run-host-gates.ps1`): set `ENABLE_API_DOCS` inside the child
+  cmd + kill-by-port backstop (the disabled server had been racing a survivor). Validation
+  blocked only by the host Docker/WinNAT flakiness, not code.
+
+**NEXT:** Akash runs the 5 non-Docker gates (typecheck/lint/test:unit/build/e2e) — these don't
+need Docker — then commits. Server integration tests (sweep, HIBP, /auth/me) validate when
+Docker cooperates. Then the go-live wiring per `docs/go-live-checklist.md`.
+
 ### 2026-07-12 — P4 Dodo Payments billing COMPLETE — all gates green (except pre-existing docs-smoke)
 
 Dodo Payments added as an **additive** `BillingProvider` (Stripe/Razorpay stubs untouched) and made the **default gateway for every country** when configured. Akash-confirmed scope: routing = Dodo-default-else-IN→Razorpay/else→Stripe; **price $15/mo + $150/yr** (₹1,299/mo, ₹12,990/yr GST-incl., 2 months free on annual); env-placeholder Dodo IDs (no secrets in source); deploy now planned (`docs/deployment.md`, supersedes the "local-only" deferral).

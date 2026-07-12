@@ -1,5 +1,5 @@
 import { ERROR_CODES, err, ok, type Entitlement, type Result } from '@cairn/shared-types'
-import { loginSchema, signupSchema } from '@cairn/shared-zod'
+import { loginSchema, signupSchema, type MeOutput } from '@cairn/shared-zod'
 import { create } from 'zustand'
 import { core, onAuthLost, vault } from './transport-http'
 
@@ -76,10 +76,23 @@ export const useSession = create<SessionState>((set, get) => ({
       set({ status: 'signedOut', user: null, vaultUnlocked: false })
       return
     }
-    // Refresh installed a token but we don't get claims back from refresh alone here;
-    // a follow-up `/auth/me`-style call would populate them. We mark signed-in with
-    // minimal claims; the entitlement gate re-checks on the next authed call.
-    set({ status: 'signedIn' })
+    // Refresh installs a token but returns no claims; fetch the profile to rehydrate
+    // email + entitlement. If /auth/me fails we still mark signed-in (the entitlement gate
+    // re-checks on the next authed call), so a transient blip never forces a re-login.
+    const me = await core.call<MeOutput>('GET', '/auth/me')
+    if (me.ok) {
+      set({
+        status: 'signedIn',
+        user: {
+          userId: me.data.userId,
+          email: me.data.email,
+          emailVerified: me.data.emailVerified,
+          entitlement: me.data.entitlement,
+        },
+      })
+    } else {
+      set({ status: 'signedIn' })
+    }
   },
 
   async signup(email, password) {

@@ -40,6 +40,12 @@ const envSchema = z.object({
   JWT_ISSUER: z.string().default('cairn'),
   JWT_AUDIENCE: z.string().default('cairn-client'),
 
+  /**
+   * Breached-password screening (HIBP k-anonymity) at signup + reset (ASVS 2.1.7, O11).
+   * `on` in production; set `off` for hermetic tests / offline dev so no network call is made.
+   */
+  HIBP_CHECK: z.enum(['on', 'off']).default('on'),
+
   /** Access-token lifetime in seconds. Capped at 15 min per CLAUDE.md §2.13. */
   ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().max(900).default(900),
   /** Refresh-token lifetime in days. */

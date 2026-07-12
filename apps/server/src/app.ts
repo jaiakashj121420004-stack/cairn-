@@ -4,6 +4,7 @@ import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import rateLimit from '@fastify/rate-limit'
 import Fastify from 'fastify'
+import { createHibpChecker } from './auth/breached-password'
 import { AuthService } from './auth/service'
 import { EntitlementService } from './billing/entitlement-service'
 import { createBillingProviders } from './billing/registry'
@@ -15,6 +16,7 @@ import { buildLogger } from './logger'
 import { registerRoutes } from './routes/index'
 import { httpRequestDurationMs, httpRequestsTotal } from './telemetry/metrics'
 import { captureException } from './telemetry/sentry'
+import type { BreachedPasswordChecker } from './auth/breached-password'
 import type { BillingProviders } from './billing/provider'
 import type { Db } from './db/client'
 import type { EmailProvider } from './email'
@@ -42,6 +44,8 @@ export interface BuildAppOptions {
   readonly billingProviders?: BillingProviders
   /** Defaults to a fresh service over `db`. Tests may inject one with a controllable cache. */
   readonly entitlements?: EntitlementService
+  /** Defaults to the env-selected HIBP checker (or none). Tests inject a fake (no network). */
+  readonly breachedPasswordCheck?: BreachedPasswordChecker
 }
 
 export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> {
@@ -111,7 +115,18 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   const limiter = new RateLimiter(store)
 
   const email = opts.emailProvider ?? createEmailProvider(env, app.log)
-  const authService = new AuthService({ db, env, email, logger: app.log })
+  // Breached-password screening is on in production, off for hermetic tests / offline dev
+  // (HIBP_CHECK). Omitting the dep entirely ⇒ no check (see AuthService.assertPasswordAllowed).
+  const breachedPasswordCheck =
+    opts.breachedPasswordCheck ??
+    (env.HIBP_CHECK === 'on' ? createHibpChecker({ logger: app.log }) : undefined)
+  const authService = new AuthService({
+    db,
+    env,
+    email,
+    logger: app.log,
+    ...(breachedPasswordCheck ? { breachedPasswordCheck } : {}),
+  })
   const billingProviders = opts.billingProviders ?? createBillingProviders(env)
   const entitlements = opts.entitlements ?? new EntitlementService(db)
 

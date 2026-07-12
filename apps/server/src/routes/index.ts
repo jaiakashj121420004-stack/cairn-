@@ -46,5 +46,5 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     billingProviders: deps.billingProviders,
     entitlements: deps.entitlements,
   })
-  registerAdminRoutes(app, { db: deps.db, env: deps.env })
+  registerAdminRoutes(app, { db: deps.db, env: deps.env, entitlements: deps.entitlements })
 }

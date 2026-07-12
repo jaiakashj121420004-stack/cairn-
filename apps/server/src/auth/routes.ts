@@ -5,6 +5,7 @@ import {
   loginSchema,
   magicConsumeSchema,
   magicRequestSchema,
+  meOutputSchema,
   resetPasswordOutputSchema,
   resetPasswordSchema,
   signupSchema,
@@ -15,6 +16,7 @@ import { parseBody, sendError, sendOk, sendValidated, toAppError } from '../lib/
 import { HOUR, MINUTES_15 } from '../lib/rate-limit'
 import { signupTotal, signupVerifiedTotal } from '../telemetry/metrics'
 import { clearRefreshCookie, readRefreshCookie, setRefreshCookie } from './cookies'
+import { authedUser, makeRequireAuth } from './middleware'
 import type { AuthService, RequestContext } from './service'
 import type { Env } from '../env'
 import type { RateLimiter, RateLimitRule } from '../lib/rate-limit'
@@ -194,6 +196,24 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
   const notImplemented = (_req: FastifyRequest, reply: FastifyReply): void => {
     sendError(reply, new AppError(ERROR_CODES.NOT_IMPLEMENTED, 'OAuth is not implemented yet'))
   }
+  // GET /auth/me — the current session's identity + entitlement. Lets the web client
+  // rehydrate on page load: a refresh mints a fresh access token but returns no claims, so
+  // the client calls this once to repopulate email/entitlement (§18.5).
+  app.get('/auth/me', { preHandler: [makeRequireAuth(env)] }, async (req, reply) => {
+    try {
+      const claims = authedUser(req)
+      const email = await authService.emailForUser(claims.userId)
+      sendValidated(reply, meOutputSchema, {
+        userId: claims.userId,
+        email,
+        emailVerified: claims.emailVerified,
+        entitlement: claims.entitlement,
+      })
+    } catch (err) {
+      sendError(reply, toAppError(err))
+    }
+  })
+
   app.get('/auth/oauth/apple', notImplemented)
   app.get('/auth/oauth/google', notImplemented)
 }

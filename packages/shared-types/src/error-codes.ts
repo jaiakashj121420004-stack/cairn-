@@ -19,6 +19,8 @@ export const ERROR_CODES = {
   FORBIDDEN: 'FORBIDDEN',
   /** Login failed — wrong email or password. Deliberately indistinguishable. */
   INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
+  /** The chosen password appears in a known breach corpus (HIBP) — pick another (ASVS 2.1.7). */
+  PASSWORD_BREACHED: 'PASSWORD_BREACHED',
   /** A verify/magic/refresh token was missing, malformed, consumed, or expired. */
   INVALID_TOKEN: 'INVALID_TOKEN',
   /** The endpoint requires a verified email address and the caller has none. */

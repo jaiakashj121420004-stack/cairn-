@@ -91,3 +91,16 @@ export const resetPasswordOutputSchema = z.object({
   reset: z.literal(true),
 })
 export type ResetPasswordOutput = z.infer<typeof resetPasswordOutputSchema>
+
+/**
+ * GET /auth/me — the current session's identity + entitlement. Used to rehydrate the web
+ * client on page load after a refresh mints a fresh access token (the refresh alone returns
+ * no claims). Carries no secret.
+ */
+export const meOutputSchema = z.object({
+  userId: z.string(),
+  email: z.string().nullable(),
+  emailVerified: z.boolean(),
+  entitlement: z.enum(['free', 'trial', 'pro']),
+})
+export type MeOutput = z.infer<typeof meOutputSchema>

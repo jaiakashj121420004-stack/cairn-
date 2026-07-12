@@ -5,6 +5,7 @@ import { auditLog, emailTokens } from '../../src/db/schema'
 import { sha256Hex } from '../../src/lib/crypto-random'
 import {
   createTestContext,
+  createVerifiedUser,
   getWithAuth,
   postJson,
   refreshCookieFrom,
@@ -227,6 +228,29 @@ describe('magic link', () => {
     const res = await postJson(ctx.app, '/auth/magic-request', { email: uniqueEmail() })
     expect(res.statusCode).toBe(200)
     expect(res.json().data.sent).toBe(true)
+  })
+})
+
+describe('GET /auth/me', () => {
+  it('returns the current identity + entitlement for a valid token', async () => {
+    const { accessToken, userId, email } = await createVerifiedUser(ctx)
+    const res = await getWithAuth(ctx.app, '/auth/me', accessToken)
+    expect(res.statusCode).toBe(200)
+    const data = res.json().data as {
+      userId: string
+      email: string | null
+      emailVerified: boolean
+      entitlement: string
+    }
+    expect(data.userId).toBe(userId)
+    expect(data.email).toBe(email)
+    expect(data.emailVerified).toBe(true)
+    expect(data.entitlement).toBe('free')
+  })
+
+  it('401s without a token', async () => {
+    const res = await getWithAuth(ctx.app, '/auth/me')
+    expect(res.statusCode).toBe(401)
   })
 })
 

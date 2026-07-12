@@ -8,6 +8,7 @@ import { loadEnv, resetEnvCache } from '../../src/env'
 import { MemoryEmailProvider } from '../../src/email'
 import { MemoryRateLimitStore } from '../../src/lib/rate-limit'
 import { subscriptions } from '../../src/db/schema'
+import type { BreachedPasswordChecker } from '../../src/auth/breached-password'
 import type { BillingProviders } from '../../src/billing/provider'
 import type { DbHandle } from '../../src/db/client'
 import type { Env } from '../../src/env'
@@ -47,6 +48,8 @@ export interface TestContext {
 /** Optional per-context overrides (e.g. inject fake billing providers — no network). */
 export interface TestContextOptions {
   readonly billingProviders?: BillingProviders
+  /** Inject a fake breached-password checker (no network) to exercise the O11 path. */
+  readonly breachedPasswordCheck?: BreachedPasswordChecker
 }
 
 /** Build a fully wired app against the test database. Call once per file in `beforeAll`. */
@@ -61,6 +64,8 @@ export async function createTestContext(opts: TestContextOptions = {}): Promise<
     EMAIL_PROVIDER: 'memory',
     COOKIE_SECURE: 'false',
     CORS_ORIGINS: 'http://localhost:5173',
+    // Hermetic: no HIBP network call, and the xkcd test password is itself breached.
+    HIBP_CHECK: 'off',
     ACCESS_TOKEN_TTL_SECONDS: '900',
     REFRESH_TOKEN_TTL_DAYS: '30',
     // Admin token — used by admin route tests.
@@ -88,6 +93,7 @@ export async function createTestContext(opts: TestContextOptions = {}): Promise<
     emailProvider: email,
     rateLimitStore: store,
     ...(opts.billingProviders ? { billingProviders: opts.billingProviders } : {}),
+    ...(opts.breachedPasswordCheck ? { breachedPasswordCheck: opts.breachedPasswordCheck } : {}),
   })
   await app.ready()
 
