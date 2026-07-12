@@ -6,6 +6,7 @@ import {
   calculateDurationMinutes,
   type PnlInputs,
 } from '../../electron/services/pnl-calculator'
+import { derivePipValueFromTick } from '../../electron/services/pricing'
 
 // Bounds chosen to stay well inside decimal.js' 20-significant-figure precision so
 // the final integer round is never ambiguous: prices ~1e7 ticks, lots ≤ 1000 std
@@ -215,6 +216,69 @@ describe('R-multiple is scale-invariant (multiply entry/SL/TP/exit by k → R un
     })
     expect(scaled.pnlCents).toBe(base.pnlCents * 7)
     expect(scaled.pnlR).toBe(base.pnlR) // unchanged
+  })
+})
+
+describe('calculatePnl — tick-native path (multi-asset M2b)', () => {
+  it('ES future: 2-point winner, 1 contract, tick 0.25 = $12.50 ($50/point)', () => {
+    const r = calculatePnl({
+      direction: 'long',
+      entryPrice: 5_000_000, // 5000.00 (pipDecimal 2 → ×10^3)
+      exitPrice: 5_002_000, // 5002.00 → +2000 tenths (2 points)
+      lotSize: 100, // 1 contract
+      slPips: 400,
+      pipValuePerStandardLotCents: 50, // derived value; unused on the tick path
+      accountSizeCents: 10_000_000,
+      tickSizeStored: 250, // 0.25 × 10^3
+      tickValueCents: 1250, // $12.50 / tick
+    })
+    expect(r.pnlCents).toBe(10_000) // 2 points × $50 = $100
+  })
+
+  it('falls back to the pip path when the tick spec is absent or zero', () => {
+    const base: PnlInputs = {
+      direction: 'long',
+      entryPrice: 110_000,
+      exitPrice: 110_500,
+      lotSize: 100,
+      slPips: 250,
+      pipValuePerStandardLotCents: 1000,
+      accountSizeCents: 10_000_000,
+    }
+    expect(calculatePnl({ ...base, tickSizeStored: null, tickValueCents: null }).pnlCents).toBe(
+      50_000,
+    )
+    expect(calculatePnl({ ...base, tickSizeStored: 0, tickValueCents: 1250 }).pnlCents).toBe(50_000)
+  })
+
+  it('tick path ≡ pip path cent-for-cent on the exact-pip domain (property)', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 100_000, max: 200_000 }), // entry (stored)
+        fc.integer({ min: -5000, max: 5000 }), // price move (tenths)
+        fc.integer({ min: 1, max: 1000 }), // lotSize (×100)
+        // tickSize ∈ {1,2,5,10}: each divides 10, so tickValue×10 is always an exact
+        // multiple ⇒ the derived pip value is a whole cent (no derivation rounding).
+        fc.constantFrom(1, 2, 5, 10),
+        fc.integer({ min: 1, max: 1_000_000 }), // tickValueCents
+        arbDirection,
+        (entry, move, lotSize, tickSizeStored, tickValueCents, direction) => {
+          const pipValue = derivePipValueFromTick(tickSizeStored, tickValueCents)
+          const common: PnlInputs = {
+            direction,
+            entryPrice: entry,
+            exitPrice: entry + move,
+            lotSize,
+            slPips: 100,
+            pipValuePerStandardLotCents: pipValue,
+            accountSizeCents: 10_000_000,
+          }
+          const viaTicks = calculatePnl({ ...common, tickSizeStored, tickValueCents })
+          const viaPips = calculatePnl(common)
+          expect(viaTicks.pnlCents).toBe(viaPips.pnlCents)
+        },
+      ),
+    )
   })
 })
 

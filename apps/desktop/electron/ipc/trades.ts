@@ -608,6 +608,8 @@ export function registerTradeHandlers(): void {
         slPips: trade.slPips,
         pipValuePerStandardLotCents: pair.pipValuePerStandardLotCents,
         accountSizeCents: account.accountSizeCents,
+        tickSizeStored: pair.tickSize,
+        tickValueCents: pair.tickValueCents,
       })
       const durationMinutes = calculateDurationMinutes(
         trade.openedAt ?? trade.actualEntryTime,
@@ -770,6 +772,8 @@ export function registerTradeHandlers(): void {
         slPips: trade.slPips,
         pipValuePerStandardLotCents: pair.pipValuePerStandardLotCents,
         accountSizeCents: account.accountSizeCents,
+        tickSizeStored: pair.tickSize,
+        tickValueCents: pair.tickValueCents,
       })
       const durationMinutes = calculateDurationMinutes(
         trade.openedAt ?? trade.actualEntryTime,
@@ -980,6 +984,8 @@ export function registerTradeHandlers(): void {
         slPips: trade.slPips,
         pipValuePerStandardLotCents: pair.pipValuePerStandardLotCents,
         accountSizeCents: account.accountSizeCents,
+        tickSizeStored: pair.tickSize,
+        tickValueCents: pair.tickValueCents,
       })
       // pnlR is already integer-encoded (R × 100) to match trades.pnl_r.
       const pnlR =

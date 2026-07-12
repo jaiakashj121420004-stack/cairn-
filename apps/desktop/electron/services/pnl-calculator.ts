@@ -18,6 +18,12 @@ export interface PnlInputs {
   slPips: number // stored integer (pips × 10)
   pipValuePerStandardLotCents: number // e.g. 1000 for EURUSD ($10/pip)
   accountSizeCents: number
+  // Contract spec (optional). When BOTH are present and tickSizeStored > 0, P&L is
+  // computed TICK-NATIVE — exact, with no intermediate rounding of a pip value.
+  // Omitted (pip-configured pairs) → the pip path below, unchanged. The two paths
+  // are algebraically identical when pipValue = tickValueCents × 10 / tickSizeStored.
+  tickSizeStored?: number | null // min price increment in stored units
+  tickValueCents?: number | null // money (cents) per tick per standard lot
 }
 
 export interface PnlResult {
@@ -43,6 +49,8 @@ export function calculatePnl(inputs: PnlInputs): PnlResult {
     slPips,
     pipValuePerStandardLotCents,
     accountSizeCents,
+    tickSizeStored,
+    tickValueCents,
   } = inputs
 
   // Price difference in stored units — each unit is 0.1 pip (1 "tenth")
@@ -51,11 +59,18 @@ export function calculatePnl(inputs: PnlInputs): PnlResult {
       ? new Decimal(exitPrice).minus(entryPrice)
       : new Decimal(entryPrice).minus(exitPrice)
 
-  // pnlCents = tenths × (lots × 100) × pipValueCents / (10 tenths/pip × 100 lot-scale)
-  //          = signedTenths × lotSize × pipValuePerStandardLotCents / 1000
-  const pnlCents = roundToInt(
-    signedTenths.times(lotSize).times(pipValuePerStandardLotCents).div(1000),
-  )
+  // Tick-native path (contract-spec pairs): pnl = signedTenths × lots × tickValueCents
+  //   / (tickSizeStored × 100). Pip path (default): signedTenths × lotSize ×
+  //   pipValuePerStandardLotCents / 1000. Both go through decimal.js with one round.
+  const pnlCents =
+    tickSizeStored != null && tickValueCents != null && tickSizeStored > 0
+      ? roundToInt(
+          signedTenths
+            .times(lotSize)
+            .times(tickValueCents)
+            .div(new Decimal(tickSizeStored).times(100)),
+        )
+      : roundToInt(signedTenths.times(lotSize).times(pipValuePerStandardLotCents).div(1000))
 
   // R = signed_pnl_pips / sl_pips; both in tenths so the ratio cancels
   const pnlR = slPips > 0 ? roundToInt(signedTenths.times(100).div(slPips)) : 0
