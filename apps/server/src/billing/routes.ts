@@ -43,10 +43,19 @@ const TRIAL_DAYS = 14
 const DAY_MS = 86_400_000
 
 /**
- * Select the regional gateway from the checkout country (CLAUDE.md §3.1d, §20.6):
- * India routes to Razorpay (UPI / INR / GST); everywhere else to Stripe (Stripe Tax).
+ * Select the gateway for a checkout (CLAUDE.md §3.1d, §20.6, docs/billing.md §4).
+ *
+ * Dodo Payments is a Merchant-of-Record that handles India GST **and** international tax
+ * from the address it collects at checkout, so when it is configured it is the default
+ * gateway for EVERY country. When Dodo is absent we fall back to the regional split: India
+ * → Razorpay (UPI / INR / GST), everywhere else → Stripe (Stripe Tax). The client never
+ * names a provider (§20.9) — this choice is entirely server-side.
  */
-function providerForCountry(country: string): BillingProviderName {
+export function selectBillingProvider(
+  country: string,
+  providers: BillingProviders,
+): BillingProviderName {
+  if (providers.dodo) return 'dodo'
   return country === 'IN' ? 'razorpay' : 'stripe'
 }
 
@@ -106,7 +115,7 @@ export function registerBillingRoutes(app: FastifyInstance, deps: BillingRouteDe
     try {
       const userId = authedUser(req).userId
       const input = parseBody(checkoutInputSchema, req.body)
-      const providerName = providerForCountry(input.country)
+      const providerName = selectBillingProvider(input.country, billingProviders)
       const provider = providerOrThrow(providerName)
 
       const userRows = await db

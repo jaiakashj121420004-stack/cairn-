@@ -173,7 +173,7 @@ export const subscriptions = pgTable(
     currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
     /** Grace-period hard cutoff after a failed renewal (CLAUDE.md §20). */
     graceUntil: timestamp('grace_until', { withTimezone: true }),
-    /** Which provider owns this subscription (`stripe` | `razorpay`), once known. */
+    /** Which provider owns this subscription (`stripe` | `razorpay` | `dodo`), once known. */
     provider: text('provider').$type<WebhookProvider>(),
     /** Provider-side customer id — needed to open the billing portal. */
     providerCustomerId: text('provider_customer_id'),
@@ -270,7 +270,7 @@ export const vaultMeta = pgTable('vault_meta', {
 })
 
 /** Supported webhook providers. */
-export const WEBHOOK_PROVIDERS = ['stripe', 'razorpay'] as const
+export const WEBHOOK_PROVIDERS = ['stripe', 'razorpay', 'dodo'] as const
 export type WebhookProvider = (typeof WEBHOOK_PROVIDERS)[number]
 
 /**

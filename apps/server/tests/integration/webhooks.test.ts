@@ -6,7 +6,10 @@ import { auditLogOutputSchema, webhookAckSchema } from '../../src/lib/contracts'
 import {
   createTestContext,
   createVerifiedUser,
+  dodoWebhookSecret,
   getWithAuth,
+  makeDodoHeaders,
+  makeDodoWebhookEvent,
   makeRazorpaySignature,
   makeRazorpaySubscriptionEvent,
   makeStripeSignature,
@@ -63,6 +66,19 @@ async function sendRazorpay(
 ): Promise<{ statusCode: number; json: () => unknown }> {
   const signature = sig ?? makeRazorpaySignature(body, razorpayWebhookSecret(ctx))
   return postRaw(ctx.app, '/webhooks/razorpay', body, { 'x-razorpay-signature': signature })
+}
+
+async function sendDodo(
+  body: string,
+  opts: { id?: string; timestamp?: number; headers?: Record<string, string> } = {},
+): Promise<{ statusCode: number; json: () => unknown }> {
+  if (opts.headers) return postRaw(ctx.app, '/webhooks/dodo', body, opts.headers)
+  // Build the signature opts without explicit `undefined` values (exactOptionalPropertyTypes).
+  const sigOpts: { id?: string; timestamp?: number } = {}
+  if (opts.id !== undefined) sigOpts.id = opts.id
+  if (opts.timestamp !== undefined) sigOpts.timestamp = opts.timestamp
+  const headers = makeDodoHeaders(body, dodoWebhookSecret(ctx), sigOpts)
+  return postRaw(ctx.app, '/webhooks/dodo', body, headers)
 }
 
 // ── Stripe webhook ────────────────────────────────────────────────────────────────────
@@ -357,6 +373,124 @@ describe('POST /webhooks/razorpay', () => {
       .from(subscriptions)
       .where(eq(subscriptions.userId, userId))
     expect(subs[0]?.entitlement).toBe('free')
+  })
+})
+
+// ── Dodo webhook ──────────────────────────────────────────────────────────────────────
+
+describe('POST /webhooks/dodo', () => {
+  it('accepts a validly-signed event (happy path)', async () => {
+    const body = JSON.stringify(
+      makeDodoWebhookEvent('subscription.active', { subscription_id: 'sub_dodo_1', metadata: {} }),
+    )
+    const res = await sendDodo(body)
+    expect(res.statusCode).toBe(200)
+    expect((res.json() as { data: { received: boolean } }).data.received).toBe(true)
+  })
+
+  it('rejects a tampered signature with 400', async () => {
+    const body = JSON.stringify(makeDodoWebhookEvent('subscription.active', { metadata: {} }))
+    const headers = makeDodoHeaders(body, dodoWebhookSecret(ctx))
+    const tampered = { ...headers, 'webhook-signature': 'v1,ZGVhZGJlZWZkZWFkYmVlZg==' }
+    const res = await sendDodo(body, { headers: tampered })
+    expect(res.statusCode).toBe(400)
+    expect((res.json() as { error: { code: string } }).error.code).toBe('VALIDATION_FAILED')
+  })
+
+  it('rejects a delivery with missing signature headers with 400', async () => {
+    const body = JSON.stringify(makeDodoWebhookEvent('subscription.active', {}))
+    const res = await postRaw(ctx.app, '/webhooks/dodo', body, {})
+    expect(res.statusCode).toBe(400)
+  })
+
+  it('idempotency: replaying the same webhook-id inserts only one row and one state change', async () => {
+    const { userId } = await createVerifiedUser(ctx)
+    const body = JSON.stringify(
+      makeDodoWebhookEvent('subscription.active', {
+        subscription_id: 'sub_dodo_dup',
+        metadata: { cairn_user_id: userId },
+      }),
+    )
+    // Same webhook-id + timestamp for both deliveries (a provider retry).
+    const headers = makeDodoHeaders(body, dodoWebhookSecret(ctx), { id: 'evt_dodo_dup' })
+
+    const first = await sendDodo(body, { headers })
+    expect(first.statusCode).toBe(200)
+    expect((first.json() as { data: { duplicate: boolean } }).data.duplicate).toBe(false)
+
+    const second = await sendDodo(body, { headers })
+    expect(second.statusCode).toBe(200)
+    expect((second.json() as { data: { duplicate: boolean } }).data.duplicate).toBe(true)
+
+    const rows = await ctx.handle.db
+      .select()
+      .from(webhookEvents)
+      .where(eq(webhookEvents.provider, 'dodo'))
+    expect(rows).toHaveLength(1)
+  })
+
+  it('subscription.active → entitlement set to pro', async () => {
+    const { userId } = await createVerifiedUser(ctx)
+    const body = JSON.stringify(
+      makeDodoWebhookEvent('subscription.active', {
+        subscription_id: 'sub_dodo_active',
+        customer: { customer_id: 'cus_dodo' },
+        metadata: { cairn_user_id: userId },
+        next_billing_date: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+      }),
+    )
+    await sendDodo(body)
+
+    const subs = await ctx.handle.db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.userId, userId))
+    expect(subs).toHaveLength(1)
+    expect(subs[0]?.entitlement).toBe('pro')
+    expect(subs[0]?.provider).toBe('dodo')
+  })
+
+  it('refund.succeeded → entitlement reverted to free (immediate revoke)', async () => {
+    const { userId } = await createVerifiedUser(ctx)
+    await sendDodo(
+      JSON.stringify(
+        makeDodoWebhookEvent('subscription.active', {
+          subscription_id: 'sub_dodo_refund',
+          metadata: { cairn_user_id: userId },
+        }),
+      ),
+    )
+
+    await sendDodo(
+      JSON.stringify(
+        makeDodoWebhookEvent('refund.succeeded', {
+          subscription_id: 'sub_dodo_refund',
+          metadata: { cairn_user_id: userId },
+        }),
+      ),
+    )
+
+    const subs = await ctx.handle.db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.userId, userId))
+    expect(subs[0]?.entitlement).toBe('free')
+  })
+
+  it('audit_log receives a row for each processed Dodo event', async () => {
+    const { userId } = await createVerifiedUser(ctx)
+    const body = JSON.stringify(
+      makeDodoWebhookEvent('subscription.active', {
+        subscription_id: 'sub_dodo_audit',
+        metadata: { cairn_user_id: userId },
+      }),
+    )
+    await sendDodo(body)
+
+    const rows = await ctx.handle.db.select().from(auditLog)
+    const webhookRow = rows.find((r) => r.event === 'webhook.dodo.subscription.active')
+    expect(webhookRow).toBeDefined()
+    expect(webhookRow?.severity).toBe('info')
   })
 })
 

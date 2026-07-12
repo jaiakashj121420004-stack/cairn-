@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto'
 import { randomBytes } from 'node:crypto'
+import { signDodoPayload } from '../../src/billing/dodo-signature'
 import { buildApp } from '../../src/app'
 import { createDb } from '../../src/db/client'
 import { runMigrations } from '../../src/db/migrate'
@@ -69,6 +70,9 @@ export async function createTestContext(opts: TestContextOptions = {}): Promise<
     STRIPE_WEBHOOK_SECRET: randomBytes(32).toString('hex'),
     // Razorpay
     RAZORPAY_WEBHOOK_SECRET: randomBytes(32).toString('hex'),
+    // Dodo — Standard Webhooks secret (`whsec_<base64>`). API key/product omitted so the
+    // Dodo provider is not instantiated here; the webhook route reads this secret directly.
+    DODO_WEBHOOK_SECRET: `whsec_${randomBytes(24).toString('base64')}`,
   })
 
   // Silence Postgres NOTICEs (e.g. "IF NOT EXISTS … already exists, skipping") so
@@ -220,6 +224,13 @@ export function razorpayWebhookSecret(ctx: TestContext): string {
   return secret
 }
 
+/** The Dodo webhook secret for the test env, asserted present. */
+export function dodoWebhookSecret(ctx: TestContext): string {
+  const secret = ctx.env.DODO_WEBHOOK_SECRET
+  if (!secret) throw new Error('DODO_WEBHOOK_SECRET is not set in the test env')
+  return secret
+}
+
 /** Pull the first `token=<hex>` value out of a captured email body. */
 export function tokenFromEmail(body: string): string {
   const match = /token=([a-f0-9]+)/.exec(body)
@@ -310,6 +321,40 @@ export function makeRazorpaySubscriptionEvent(
         entity: { object: 'subscription', ...subscriptionData },
       },
     },
+  }
+}
+
+// ── Dodo signature helpers ────────────────────────────────────────────────────────────
+
+/**
+ * Build the three Standard Webhooks headers Dodo sends (`webhook-id`, `webhook-timestamp`,
+ * `webhook-signature`) for a raw body. Mirrors `verifyDodoSignature` exactly — no network.
+ * The `webhook-id` doubles as the idempotency key; pass a fixed one to test replay.
+ */
+export function makeDodoHeaders(
+  rawBody: string,
+  secret: string,
+  opts: { id?: string; timestamp?: number } = {},
+): Record<string, string> {
+  const id = opts.id ?? `evt_${randomBytes(8).toString('hex')}`
+  const timestamp = opts.timestamp ?? Math.floor(Date.now() / 1000)
+  return {
+    'webhook-id': id,
+    'webhook-timestamp': String(timestamp),
+    'webhook-signature': signDodoPayload(id, timestamp, rawBody, secret),
+  }
+}
+
+/** Build a minimal Dodo webhook event payload (Standard Webhooks envelope). */
+export function makeDodoWebhookEvent(
+  eventType: string,
+  data: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    business_id: 'biz_test',
+    type: eventType,
+    timestamp: new Date().toISOString(),
+    data: { payload_type: 'Subscription', ...data },
   }
 }
 

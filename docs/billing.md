@@ -1,6 +1,6 @@
 # docs/billing.md — Billing, Entitlements & Subscriptions
 
-**Status:** v2.0 Stage 6 (server slice). Binding companion to **CLAUDE.md §2.14, §3.1d, §20** and the locked decisions §14 #23–#24.
+**Status:** v2.0 Stage 6 (server slice) + P4 Dodo Payments (default MoR gateway). Binding companion to **CLAUDE.md §2.14, §3.1d, §20** and the locked decisions §14 #23–#24.
 **Source of truth** for the plan matrix, the entitlement contract, the §20.5 state machine, tax handling, retention, and the "how to add a provider" recipe.
 
 A subscription's canonical state always lives in the Postgres `subscription` table, written by the webhook receivers. No hot path ever calls a provider API (§2.14). The renderer only ever speaks `Feature` strings and a country code — it never names a provider (§20.9).
@@ -19,6 +19,7 @@ Plans are defined in `apps/server/src/billing/plans.ts`. Features are plain stri
 | `analytics_advanced` |  ❌  | ✅  | Expanded reports / insight surfacing.              |
 | `cloud_sync`         |  ❌  | ✅  | E2E-encrypted vault push/pull. **Gated at /vault.** |
 | `multi_device`       |  ❌  | ✅  | More than one enrolled device.                     |
+| `pre_trade_gate`     |  ❌  | ✅  | Paid read-only MT5/cTrader pre-trade discipline gate. |
 
 `pro` holds the wildcard `['*']`, so adding a new feature string grants it to Pro automatically; decide explicitly whether Free gets it. Adding a SKU **extends this matrix and nothing else** (§20.9) — no per-feature priced add-ons that bypass the matrix.
 
@@ -97,7 +98,8 @@ Time-based transitions (`past_due → canceled`, lapsed-`trial → canceled`) ar
 
 `POST /billing/checkout` accepts `{ country, plan, interval }`:
 
-- `country` — ISO-3166 alpha-2, normalised upper-case. Geo-detected client-side (Cloudflare `CF-IPCountry` header on web; a country dropdown on desktop). The **server** chooses the gateway: `country === 'IN'` → **Razorpay**, else → **Stripe**. The client never names a provider (§20.9). The chosen region is stored on the `subscription` row (`billing_region`); the gateway is implied by `provider`.
+- `country` — ISO-3166 alpha-2, normalised upper-case. Geo-detected client-side (Cloudflare `CF-IPCountry` header on web; a country dropdown on desktop). The **server** chooses the gateway (`selectBillingProvider`, `billing/routes.ts`): when **Dodo Payments** is configured it is the default for **every** country (a Merchant of Record that handles India GST + international tax in one); otherwise `country === 'IN'` → **Razorpay**, else → **Stripe**. The client never names a provider (§20.9). The chosen region is stored on the `subscription` row (`billing_region`); the gateway is implied by `provider`.
+- **interval → product/price id.** Each provider selects the id matching the interval: Stripe `STRIPE_PRICE_ID`/`_ANNUAL`, Razorpay `RAZORPAY_PLAN_ID`/`_ANNUAL`, Dodo `DODO_PRODUCT_ID`/`DODO_PRODUCT_ID_ANNUAL`. A missing annual id falls back to monthly. Headline price: **$15/mo, $150/yr** (₹1,299/mo, ₹12,990/yr GST-inclusive for India) — 2 months free on annual.
 - `plan` — `pro` (default).
 - `interval` — `monthly` (default) or `annual`. The provider selects the matching price/plan id (`STRIPE_PRICE_ID` / `STRIPE_PRICE_ID_ANNUAL`, `RAZORPAY_PLAN_ID` / `RAZORPAY_PLAN_ID_ANNUAL`). When an annual id is not configured, checkout falls back to the monthly price.
 
@@ -107,7 +109,7 @@ When checkout starts, the server **immediately** seeds a `subscription` row in `
 
 Other endpoints:
 
-- `POST /billing/portal` — Stripe customers get the Stripe Customer Portal; Razorpay has no hosted portal, so management happens in-app / via support (its `openPortal` returns `NOT_IMPLEMENTED`).
+- `POST /billing/portal` — Stripe customers get the Stripe Customer Portal; Dodo customers get the Dodo hosted portal (`POST /customers/{id}/customer-portal/session` → `{ link }`); Razorpay has no hosted portal, so management happens in-app / via support (its `openPortal` returns `NOT_IMPLEMENTED`).
 - `POST /billing/cancel` — calls the provider; the resulting webhook is the source of truth that flips state. We do not optimistically mutate.
 - `GET /billing/status` — canonical `{ plan, state, features, current_period_end }` read; no provider call.
 
@@ -131,6 +133,7 @@ The client maps `UPGRADE_REQUIRED` to the upgrade modal with honest copy: **sync
 
 Cairn never generates a tax document itself — the provider delivers receipts and invoices directly.
 
+- **Dodo Payments (default, all regions):** Dodo is a **Merchant of Record** — it is the seller of record, so it computes and remits India GST **and** international VAT / sales tax from the address collected on its hosted checkout, and issues the compliant invoice itself. Configure the Pro product price in the Dodo dashboard; whether the headline is tax-inclusive or tax-added follows the product/region config there. Because Dodo is MoR, Cairn carries no tax-registration burden in the regions Dodo covers — this is the reason it is the default gateway.
 - **Non-India (Stripe):** Stripe Tax computes VAT / sales tax. Checkout sets `automatic_tax: { enabled: true }`; when an existing customer is reused we set `customer_update: { address: 'auto' }` so Stripe collects the address it needs. Enable Stripe Tax in the dashboard and register tax obligations there. Map the Pro price to the **SaaS / electronically-supplied-services** tax code (Stripe `txcd_10103001` "Software as a service (SaaS) — business use", or the consumer SaaS code as appropriate for the registration); record the chosen code alongside the price in the dashboard. Prices are entered **tax-exclusive**; Stripe adds tax on top at checkout.
 - **India (Razorpay):** Razorpay collects **GST**. The INR Pro price is configured **GST-inclusive** on the Razorpay plan (the displayed INR amount already contains 18% GST), so the user sees the final price; Razorpay breaks out the GST line on its invoice. The `plan_id` referenced in the matrix is the same logical Pro plan — only the regional gateway differs, selected by the user's country at checkout.
 
@@ -151,21 +154,23 @@ Cairn never generates a tax document itself — the provider delivers receipts a
 
 Every delivery, in order: **(1)** verify the HMAC signature before any DB read — a bad/missing signature is `400` with no state change (the most important security test); **(2)** dedupe via the `webhook_event(provider, external_id)` unique index — `INSERT … ON CONFLICT DO NOTHING`; a duplicate acks `200` without re-applying side effects; **(3)** write a receipt audit row and dispatch through the state machine; **(4)** invalidate the user's entitlement cache. Webhook routes opt out of the per-IP rate limit (provider IPs burst on retries); abuse is contained by signature verification + the idempotency ledger.
 
-| Internal event      | Stripe                                                        | Razorpay                                  |
-| ------------------- | ------------------------------------------------------------ | ----------------------------------------- |
-| entry / seed        | `customer.subscription.created` (trialing/active)            | `subscription.activated`                  |
-| `payment_succeeded` | `invoice.paid` / `invoice.payment_succeeded`                 | `subscription.charged`                    |
-| `payment_failed`    | `invoice.payment_failed` (or sub status past_due/unpaid)     | `subscription.halted` / `.pending`        |
-| `canceled`          | `customer.subscription.deleted`                              | `subscription.cancelled` / `.expired`     |
-| `refunded`          | `charge.refunded` / `refund.created`                         | `refund.created` / `refund.processed`     |
+| Internal event      | Stripe                                                        | Razorpay                                  | Dodo Payments                             |
+| ------------------- | ------------------------------------------------------------ | ----------------------------------------- | ----------------------------------------- |
+| entry / seed        | `customer.subscription.created` (trialing/active)            | `subscription.activated`                  | `subscription.active`                     |
+| `payment_succeeded` | `invoice.paid` / `invoice.payment_succeeded`                 | `subscription.charged`                    | `subscription.renewed`                    |
+| `payment_failed`    | `invoice.payment_failed` (or sub status past_due/unpaid)     | `subscription.halted` / `.pending`        | `subscription.on_hold` / `.failed`        |
+| `canceled`          | `customer.subscription.deleted`                              | `subscription.cancelled` / `.expired`     | `subscription.cancelled` / `.expired`     |
+| `refunded`          | `charge.refunded` / `refund.created`                         | `refund.created` / `refund.processed`     | `refund.succeeded`                        |
 
-User resolution: Stripe stamps `cairn_user_id` into `subscription_data.metadata` at checkout; invoice/charge events also resolve by `provider_subscription_id` / `provider_customer_id` lookup. Razorpay carries `cairn_user_id` in subscription `notes`.
+User resolution: Stripe stamps `cairn_user_id` into `subscription_data.metadata` at checkout; invoice/charge events also resolve by `provider_subscription_id` / `provider_customer_id` lookup. Razorpay carries `cairn_user_id` in subscription `notes`. Dodo carries `cairn_user_id` in the checkout `metadata` (echoed in the webhook `data.metadata`), and also resolves by `subscription_id` / `customer_id`.
+
+Dodo signatures follow the **Standard Webhooks** spec: headers `webhook-id`, `webhook-timestamp`, `webhook-signature`, and an HMAC-SHA256 over `${id}.${timestamp}.${rawBody}` keyed by the base64 signing secret (`billing/dodo-signature.ts`). The `webhook-id` is the idempotency `external_id`. A timestamp outside a 5-minute tolerance is rejected (replay defence).
 
 ---
 
 ## 9. How to add a new BillingProvider
 
-The Razorpay implementation (`billing/razorpay-provider.ts`) is the **worked example** — copy its shape.
+The Razorpay (`billing/razorpay-provider.ts`) and Dodo (`billing/dodo-provider.ts`) implementations are the **worked examples** — copy their shape. Dodo additionally shows the **Standard Webhooks** signature pattern (`billing/dodo-signature.ts`), which many modern gateways (and MoR providers) share.
 
 1. **Implement the interface** (`billing/provider.ts`):
    ```ts
@@ -196,12 +201,17 @@ The `EntitlementService` needs **no** changes — it reads the `subscription` ta
 
 | Var | Purpose |
 | --- | --- |
+| `DODO_API_KEY`, `DODO_WEBHOOK_SECRET`, `DODO_PRODUCT_ID` | Dodo Payments (monthly). Required to enable Dodo — the default gateway when present. |
+| `DODO_PRODUCT_ID_ANNUAL` | Optional Dodo annual product; falls back to monthly. |
+| `DODO_ENVIRONMENT` | `test` (test.dodopayments.com) or `live`. Defaults to `test`. |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID` | Stripe (monthly). Required to enable Stripe. |
 | `STRIPE_PRICE_ID_ANNUAL` | Optional Stripe annual price; falls back to monthly. |
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_PLAN_ID`, `RAZORPAY_WEBHOOK_SECRET` | Razorpay (monthly). Required to enable Razorpay. |
 | `RAZORPAY_PLAN_ID_ANNUAL` | Optional Razorpay annual plan; falls back to monthly. |
 | `BILLING_SUCCESS_URL`, `BILLING_CANCEL_URL`, `BILLING_PORTAL_RETURN_URL` | Redirect targets; default under `APP_URL`. |
 | `BILLING_UPGRADE_URL` | Where a 402 sends the user; defaults to `APP_URL/pricing`. |
+
+Each provider is instantiated only when **all** of its required secrets are present (`billing/registry.ts`), so a deployment can ship with any subset. `dodo wh listen` (Dodo CLI) forwards test-mode webhooks to `http://localhost:3000/webhooks/dodo` during local development.
 
 ---
 

@@ -3,6 +3,7 @@ import { ERROR_CODES } from '@cairn/shared-types'
 import { eq } from 'drizzle-orm'
 import Stripe from 'stripe'
 import { applyLifecycleEvent, seedSubscription } from '../billing/apply'
+import { verifyDodoSignature } from '../billing/dodo-signature'
 import { subscriptions, webhookEvents } from '../db/schema'
 import { appendAudit } from '../lib/audit'
 import { webhookAckSchema } from '../lib/contracts'
@@ -13,6 +14,7 @@ import { webhookReceivedTotal } from '../telemetry/metrics'
 import type { LifecycleEvent } from '../billing/apply'
 import type { EntitlementService } from '../billing/entitlement-service'
 import type { Db } from '../db/client'
+import type { WebhookProvider } from '../db/schema'
 import type { Env } from '../env'
 import type { FastifyInstance } from 'fastify'
 
@@ -174,6 +176,69 @@ export function registerWebhookRoutes(app: FastifyInstance, deps: WebhookRouteDe
         sendError(reply, toAppError(err))
       }
     })
+
+    // ── Dodo Payments ────────────────────────────────────────────────────────────
+    //
+    // Dodo follows the Standard Webhooks spec: three headers (`webhook-id`,
+    // `webhook-timestamp`, `webhook-signature`) and an HMAC-SHA256 over
+    // `${id}.${timestamp}.${body}` (verified by `verifyDodoSignature`, §2.13). The
+    // `webhook-id` is Dodo's own unique delivery id, so it is the idempotency external id.
+
+    webhookApp.post('/webhooks/dodo', { config: { rateLimit: false } }, async (req, reply) => {
+      try {
+        if (!env.DODO_WEBHOOK_SECRET) {
+          throw new AppError(ERROR_CODES.NOT_IMPLEMENTED, 'dodo webhooks not configured')
+        }
+
+        const rawBody = req.body as Buffer
+        // Signature (+ timestamp tolerance) verified BEFORE any DB read (§20.4). A bad or
+        // missing signature throws VALIDATION_FAILED ⇒ 400 with no state change.
+        const { id: externalId } = verifyDodoSignature(
+          rawBody,
+          req.headers,
+          env.DODO_WEBHOOK_SECRET,
+        )
+
+        let parsed: DodoWebhookEvent
+        try {
+          parsed = JSON.parse(rawBody.toString('utf8')) as DodoWebhookEvent
+        } catch {
+          throw new AppError(ERROR_CODES.VALIDATION_FAILED, 'invalid webhook body')
+        }
+        const eventType = parsed.type ?? 'unknown'
+
+        const inserted = await db
+          .insert(webhookEvents)
+          .values({
+            provider: 'dodo',
+            externalId,
+            eventType,
+            payload: parsed as unknown as Record<string, unknown>,
+          })
+          .onConflictDoNothing()
+          .returning({ id: webhookEvents.id })
+
+        if (inserted.length === 0) {
+          webhookReceivedTotal.add(1, { provider: 'dodo', outcome: 'duplicate' })
+          sendValidated(reply, webhookAckSchema, { received: true, duplicate: true })
+          return
+        }
+
+        await appendAudit(db, {
+          event: `webhook.dodo.${eventType}`,
+          severity: 'info',
+          detail: { provider: 'dodo', event_type: eventType, external_id: externalId },
+        })
+
+        const userId = await dispatchDodoEvent(db, parsed)
+        if (userId) await entitlements.invalidate(userId)
+
+        webhookReceivedTotal.add(1, { provider: 'dodo', outcome: 'accepted' })
+        sendValidated(reply, webhookAckSchema, { received: true, duplicate: false })
+      } catch (err) {
+        sendError(reply, toAppError(err))
+      }
+    })
   })
 }
 
@@ -194,7 +259,7 @@ async function runLifecycle(
   input: {
     userId: string
     event: LifecycleEvent
-    provider: 'stripe' | 'razorpay'
+    provider: WebhookProvider
     providerSubscriptionId?: string | null
     currentPeriodEnd?: Date | null
   },
@@ -453,7 +518,149 @@ async function dispatchRazorpayEvent(db: Db, event: RazorpayWebhookEvent): Promi
   }
 }
 
+// ── Dodo event dispatcher ────────────────────────────────────────────────────────────
+
+/** Convert a provider ISO-8601 datetime string to a Date, or null. */
+function isoToDate(value: string | null | undefined): Date | null {
+  if (typeof value !== 'string') return null
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+/** Resolve a Cairn user id from the metadata hint, else by provider subscription/customer id. */
+async function resolveDodoUser(
+  db: Db,
+  hint: { userId?: string | null; subscriptionId?: string | null; customerId?: string | null },
+): Promise<string | null> {
+  if (hint.userId) return hint.userId
+  if (hint.subscriptionId) {
+    const rows = await db
+      .select({ userId: subscriptions.userId })
+      .from(subscriptions)
+      .where(eq(subscriptions.providerSubscriptionId, hint.subscriptionId))
+      .limit(1)
+    if (rows[0]) return rows[0].userId
+  }
+  if (hint.customerId) {
+    const rows = await db
+      .select({ userId: subscriptions.userId })
+      .from(subscriptions)
+      .where(eq(subscriptions.providerCustomerId, hint.customerId))
+      .limit(1)
+    if (rows[0]) return rows[0].userId
+  }
+  return null
+}
+
+/**
+ * Map a verified Dodo webhook to the internal lifecycle (§20.5, docs/billing.md §8):
+ *   subscription.active               → seed active (entry)
+ *   subscription.renewed              → payment_succeeded
+ *   subscription.on_hold / .failed    → payment_failed
+ *   subscription.cancelled / .expired → canceled
+ *   refund.succeeded                  → refunded (immediate revoke)
+ * Returns the affected user id (for cache invalidation), or null if the event was ignored.
+ */
+async function dispatchDodoEvent(db: Db, event: DodoWebhookEvent): Promise<string | null> {
+  const data = event.data ?? {}
+  const subId = data.subscription_id ?? null
+  const customerId = data.customer?.customer_id ?? null
+  const metadataUserId = data.metadata?.['cairn_user_id'] ?? null
+  const periodEnd = isoToDate(data.next_billing_date)
+
+  switch (event.type) {
+    case 'subscription.active': {
+      const userId = await resolveDodoUser(db, {
+        userId: metadataUserId,
+        subscriptionId: subId,
+        customerId,
+      })
+      if (!userId) return null
+      await seedSubscription(db, {
+        userId,
+        status: 'active',
+        provider: 'dodo',
+        providerCustomerId: customerId,
+        providerSubscriptionId: subId,
+        currentPeriodEnd: periodEnd,
+      })
+      return userId
+    }
+    case 'subscription.renewed': {
+      const userId = await resolveDodoUser(db, {
+        userId: metadataUserId,
+        subscriptionId: subId,
+        customerId,
+      })
+      if (!userId) return null
+      return runLifecycle(db, {
+        userId,
+        event: 'payment_succeeded',
+        provider: 'dodo',
+        providerSubscriptionId: subId,
+        currentPeriodEnd: periodEnd,
+      })
+    }
+    case 'subscription.on_hold':
+    case 'subscription.failed': {
+      const userId = await resolveDodoUser(db, {
+        userId: metadataUserId,
+        subscriptionId: subId,
+        customerId,
+      })
+      if (!userId) return null
+      return runLifecycle(db, {
+        userId,
+        event: 'payment_failed',
+        provider: 'dodo',
+        providerSubscriptionId: subId,
+        currentPeriodEnd: periodEnd,
+      })
+    }
+    case 'subscription.cancelled':
+    case 'subscription.expired': {
+      const userId = await resolveDodoUser(db, {
+        userId: metadataUserId,
+        subscriptionId: subId,
+        customerId,
+      })
+      if (!userId) return null
+      return runLifecycle(db, {
+        userId,
+        event: 'canceled',
+        provider: 'dodo',
+        providerSubscriptionId: subId,
+        currentPeriodEnd: periodEnd,
+      })
+    }
+    case 'refund.succeeded': {
+      const userId = await resolveDodoUser(db, {
+        userId: metadataUserId,
+        subscriptionId: subId,
+        customerId,
+      })
+      if (!userId) return null
+      return runLifecycle(db, { userId, event: 'refunded', provider: 'dodo' })
+    }
+    default:
+      // Audit-logged by the caller; no state change.
+      return null
+  }
+}
+
 // ── Local types ──────────────────────────────────────────────────────────────────────
+
+/** Minimal shape of a Dodo (Standard Webhooks) event payload we consume (§20.4). */
+interface DodoWebhookEvent {
+  type?: string
+  data?: {
+    payload_type?: string
+    subscription_id?: string
+    customer?: { customer_id?: string }
+    metadata?: Record<string, string>
+    next_billing_date?: string
+  }
+}
 
 /** Minimal shape of a Razorpay webhook event payload. */
 interface RazorpayWebhookEvent {

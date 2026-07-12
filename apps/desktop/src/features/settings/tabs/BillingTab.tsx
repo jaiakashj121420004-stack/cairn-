@@ -15,6 +15,10 @@ import type { BillingInterval, BillingStatusOutput } from '@cairn/shared-zod'
  * Checkout and the billing portal open in the user's default browser — the hosted payment
  * page must never render inside the Electron window. The canonical subscription state is
  * read from `/billing/status`; we never optimistically mutate on cancel (§2.14, §20.5).
+ *
+ * The server picks the gateway from the country: when Dodo Payments is configured it is the
+ * default for every country (it handles India GST + international tax); otherwise IN →
+ * Razorpay / INR, else Stripe / USD. This tab still only sends {country, interval} (§20.9).
  */
 
 const COUNTRIES = [
@@ -36,8 +40,8 @@ const INTERVALS = [
 
 /** Display prices mirror the provider dashboard config (docs/billing.md §6); see web billing.ts. */
 const PRICE: Record<'USD' | 'INR', { monthly: string; annual: string }> = {
-  USD: { monthly: '$12 / mo', annual: '$108 / yr' },
-  INR: { monthly: '₹999 / mo (incl. GST)', annual: '₹8,999 / yr (incl. GST)' },
+  USD: { monthly: '$15 / mo', annual: '$150 / yr' },
+  INR: { monthly: '₹1,299 / mo (incl. GST)', annual: '₹12,990 / yr (incl. GST)' },
 }
 
 const STATE_COPY: Record<BillingStatusOutput['state'], string> = {

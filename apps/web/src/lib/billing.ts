@@ -78,18 +78,22 @@ export interface RegionPricing {
 const USD_PRICING: RegionPricing = {
   currency: 'USD',
   taxInclusive: false,
-  monthly: 12,
-  annual: 108, // $9/mo billed yearly
+  monthly: 15,
+  annual: 150, // $12.50/mo billed yearly (2 months free)
 }
 
 const INR_PRICING: RegionPricing = {
   currency: 'INR',
   taxInclusive: true,
-  monthly: 999,
-  annual: 8_999, // ≈₹750/mo billed yearly, GST-inclusive
+  monthly: 1_299,
+  annual: 12_990, // ₹1,082/mo billed yearly (2 months free), GST-inclusive
 }
 
-/** India is served by Razorpay in INR; everywhere else by Stripe in USD (§20.6). */
+/**
+ * Region display currency. When Dodo Payments is the gateway (its default) it handles both
+ * India GST and international tax; otherwise India → Razorpay (INR), else Stripe (USD). The
+ * display currency tracks the region regardless of which gateway ultimately charges (§20.6).
+ */
 export function pricingForCountry(country: string): RegionPricing {
   return country.toUpperCase() === 'IN' ? INR_PRICING : USD_PRICING
 }

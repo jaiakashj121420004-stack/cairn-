@@ -6,7 +6,7 @@ import { z } from 'zod'
  * `/billing/*` HTTP surface, reused at both the server boundary and the client.
  */
 
-export const billingProviderSchema = z.enum(['stripe', 'razorpay'])
+export const billingProviderSchema = z.enum(['stripe', 'razorpay', 'dodo'])
 export type BillingProviderName = z.infer<typeof billingProviderSchema>
 
 /** The single purchasable plan today. The matrix (§20.3) is the source of truth. */
@@ -18,8 +18,10 @@ export type BillingInterval = z.infer<typeof billingIntervalSchema>
 
 /**
  * ISO 3166-1 alpha-2 country code, normalised to upper-case. The server routes the
- * checkout to a regional gateway from this (`IN` ⇒ Razorpay, else Stripe) — the client
- * never names a provider (§20.9: no hard-coded provider ids in the renderer).
+ * checkout to a gateway from this and the configured providers — when Dodo Payments is
+ * configured it is the default for every country (it handles both India GST and
+ * international tax); otherwise `IN` ⇒ Razorpay, else Stripe. The client never names a
+ * provider (§20.9: no hard-coded provider ids in the renderer).
  */
 export const countrySchema = z
   .string()

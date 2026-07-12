@@ -6,6 +6,18 @@ Update this file at the end of every wave. -->
 
 Tracks what is actually built/verified vs planned. Last reviewed **2026-05-31** (Wave 1.5 remediation: all §17.6 issues resolved, five gates green; re-verified same date with Wave 2 event-bus work in working tree — all gates still green, 258 tests). Update at the end of every wave.
 
+### 2026-07-12 — P4 Dodo Payments billing COMPLETE — all gates green (except pre-existing docs-smoke)
+
+Dodo Payments added as an **additive** `BillingProvider` (Stripe/Razorpay stubs untouched) and made the **default gateway for every country** when configured. Akash-confirmed scope: routing = Dodo-default-else-IN→Razorpay/else→Stripe; **price $15/mo + $150/yr** (₹1,299/mo, ₹12,990/yr GST-incl., 2 months free on annual); env-placeholder Dodo IDs (no secrets in source); deploy now planned (`docs/deployment.md`, supersedes the "local-only" deferral).
+
+**Shipped (server):** `billing/dodo-signature.ts` (Standard Webhooks HMAC over `id.timestamp.body`, base64 secret, timing-safe compare, 5-min replay tolerance); `billing/dodo-provider.ts` (`DodoBillingProvider` → `/checkouts`, hosted customer-portal, `PATCH` cancel); `drizzle/0005_dodo_webhook_provider.sql` (widen `webhook_event.provider` CHECK to include `'dodo'` — idempotent DROP+guarded ADD); `POST /webhooks/dodo` + `dispatchDodoEvent` in `webhooks/routes.ts` (verify → `onConflictDoNothing` dedupe → audit → §20.5 state machine → cache invalidate; maps `subscription.active/renewed/on_hold/failed/cancelled/expired` + `refund.succeeded`); `selectBillingProvider()` in `billing/routes.ts` (exported, provider-aware); registry wiring; widened types (`provider.ts` name union + `BillingProviders`, `schema.ts` `WEBHOOK_PROVIDERS`, shared-zod `billingProviderSchema`, `env.ts` `DODO_*`); `apps/server/.env.example` billing section (Dodo + backfilled Stripe/Razorpay).
+
+**Shipped (client/docs):** BillingTab + web `billing.ts` price copy ($15/$150, ₹1,299/₹12,990); `docs/billing.md` (matrix +`pre_trade_gate`, routing, MoR tax, webhook table +Dodo column, config, how-to); CLAUDE.md §2.14 + §14 #23 + provider table (+Provider #3 Dodo); new `docs/deployment.md` runbook.
+
+**Tests (mandatory §2.13 present):** `tests/unit/dodo-provider.test.ts` (signature accept/reject/tamper/mutated-body/missing-headers/stale-timestamp + checkout monthly/annual/fallback/no-url); `tests/unit/billing-routing.test.ts` (selector, 4 cases); `tests/integration/webhooks.test.ts` Dodo block (valid, tampered→400, missing-headers→400, idempotency replay = one row, `subscription.active`→pro, `refund.succeeded`→free, audit row) + helpers `makeDodoHeaders`/`makeDodoWebhookEvent`/`dodoWebhookSecret`/`signDodoPayload`/`DODO_WEBHOOK_SECRET`.
+
+**Gates (`run-host-gates.ps1`, 2026-07-12, Postgres on host port 5433):** typecheck **PASS**, lint **PASS**, test:unit **PASS**, build **PASS**, e2e **PASS**, `@cairn/server` full suite **PASS** (Dodo webhook/idempotency/refund tests included). Two P4 nits caught + fixed on the first run: an `exactOptionalPropertyTypes` violation in the `sendDodo` test helper and an `import/order` on the new `WebhookProvider` type import. **`docs routes smoke` is RED — pre-existing and unrelated** (the `ENABLE_API_DOCS=false` path serves docs; failed **identically** before and after the P4 fixes, and was already logged red on the 2026-07-12 UI round above). Not a P4 regression; tracked separately.
+
 ### 2026-07-12 — UI / design-polish round (post-P3), all committed + build-green
 
 Three commits on `feat/rules-engine`, then a recovery:

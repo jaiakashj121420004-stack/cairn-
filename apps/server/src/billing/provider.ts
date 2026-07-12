@@ -51,7 +51,7 @@ export interface WebhookEvent {
 export type CancelWhen = 'now' | 'period_end'
 
 export interface BillingProvider {
-  readonly name: 'stripe' | 'razorpay' | string
+  readonly name: 'stripe' | 'razorpay' | 'dodo' | string
   createCustomer(input: CreateCustomerInput): Promise<ProviderCustomer>
   createCheckout(input: CheckoutInput): Promise<{ url: string }>
   openPortal(input: PortalInput): Promise<{ url: string }>
@@ -60,4 +60,4 @@ export interface BillingProvider {
 }
 
 /** The set of billing providers available to the server, keyed by name. */
-export type BillingProviders = Partial<Record<'stripe' | 'razorpay', BillingProvider>>
+export type BillingProviders = Partial<Record<'stripe' | 'razorpay' | 'dodo', BillingProvider>>

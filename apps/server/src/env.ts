@@ -102,6 +102,20 @@ const envSchema = z.object({
   STRIPE_PRICE_ID_ANNUAL: z.string().optional(),
   /** Razorpay annual plan id. Optional; checkout falls back to the monthly plan. */
   RAZORPAY_PLAN_ID_ANNUAL: z.string().optional(),
+  /**
+   * Dodo Payments API key (bearer token). Required to enable Dodo billing + checkout.
+   * When Dodo is configured it becomes the default gateway for every country (it handles
+   * both India GST and international tax), superseding the Stripe/Razorpay country routing.
+   */
+  DODO_API_KEY: z.string().optional(),
+  /** Dodo webhook signing secret (Standard Webhooks, `whsec_…`). Required to verify signatures. */
+  DODO_WEBHOOK_SECRET: z.string().optional(),
+  /** Dodo subscription product id for the monthly Pro plan. Required for Dodo checkout. */
+  DODO_PRODUCT_ID: z.string().optional(),
+  /** Dodo subscription product id for the annual Pro plan. Optional; falls back to monthly. */
+  DODO_PRODUCT_ID_ANNUAL: z.string().optional(),
+  /** Dodo API mode: `test` (test.dodopayments.com) or `live` (live.dodopayments.com). Defaults to `test`. */
+  DODO_ENVIRONMENT: z.enum(['test', 'live']).default('test'),
 
   // ── Admin ─────────────────────────────────────────────────────────────────────────────
   /**
