@@ -37,7 +37,12 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: latest
+          # Pinned (not "latest"): pnpm 11.x dropped Node 20 support (requires the
+          # node:sqlite built-in, Node >=22.13) and floating "latest" silently broke
+          # both prior release attempts (v0.2.0, v0.2.1) — every matrix job failed
+          # identically at `pnpm install` (ERR_UNKNOWN_BUILTIN_MODULE). .nvmrc pins
+          # Node 20; this pnpm version matches security.yml's already-working pin.
+          version: '10.33.0'
 
       - uses: actions/setup-node@v4
         with:

@@ -67,7 +67,11 @@ jobs:
       - uses: pnpm/action-setup@v4
         if: steps.configured.outputs.skip == 'false'
         with:
-          version: latest
+          # Pinned (not "latest"): pnpm 11.x dropped Node 20 support (requires the
+          # node:sqlite built-in, Node >=22.13) — floating "latest" was silently
+          # failing every scheduled run at `pnpm install` (ERR_UNKNOWN_BUILTIN_MODULE).
+          # .nvmrc pins Node 20; this matches security.yml's already-working pin.
+          version: '10.33.0'
 
       - uses: actions/setup-node@v4
         if: steps.configured.outputs.skip == 'false'
