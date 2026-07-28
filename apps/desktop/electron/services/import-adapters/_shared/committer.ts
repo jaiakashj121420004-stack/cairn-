@@ -11,6 +11,7 @@ import { eq } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 import * as schema from '../../../db/schema'
 import { computeMaeMfe } from '../../mae-mfe'
+import { calculatePnl } from '../../pnl-calculator'
 import { enqueueSyncOp } from '../../sync'
 import {
   encodePrice,
@@ -20,7 +21,11 @@ import {
   calcRR,
   calcRiskCents,
 } from './encoder'
-import type { ImportCandidate, ImportCommitResult } from '../../../../shared/types/index'
+import type {
+  ImportCandidate,
+  ImportCommitResult,
+  TradeDirection,
+} from '../../../../shared/types/index'
 import type { CairnDb } from '../../../db/index'
 
 /**
@@ -76,6 +81,38 @@ export interface BuiltCandidateRows {
 }
 
 /**
+ * Price-derived $ P&L for one closed leg (the whole trade, or a single partial),
+ * using the exact same decimal-safe pip-path formula `pnl-calculator.ts` uses
+ * for manually-logged trades (reused here, not re-implemented, so there is one
+ * source of truth for "$ from price + lot + pip value" — CLAUDE.md §2.5/§19.5).
+ *
+ * Used ONLY for live-captured fills (`options.settledImport === false`): a
+ * streamed BrokerEvent carries no broker-settled dollar figure (no commission/
+ * swap visibility), so this is a same-model estimate from the fill's own
+ * prices — not a guess, and not silently 0 while `pnlR` is already correct. A
+ * later statement import still wins per `STATEMENT_MONETARY_FIELDS` (§6).
+ */
+function priceDerivedPnlCents(
+  direction: TradeDirection,
+  entryTick: number,
+  exitTick: number,
+  lotSizeInt: number,
+  slTenths: number,
+  pipValuePerStandardLotCents: number,
+  accountSizeCents: number,
+): number {
+  return calculatePnl({
+    direction,
+    entryPrice: entryTick,
+    exitPrice: exitTick,
+    lotSize: lotSizeInt,
+    slPips: slTenths,
+    pipValuePerStandardLotCents,
+    accountSizeCents,
+  }).pnlCents
+}
+
+/**
  * Encode a single resolved candidate into its trades + trade_partials rows.
  *
  * Pure: no DB access, no side effects, no time read (caller passes `nowMs` via
@@ -104,7 +141,22 @@ export function buildCandidateRows(
   const riskCents = calcRiskCents(slTenths, lotSizeInt, pair.pipValuePerStandardLotCents)
 
   const exitTick = c.exitPrice ? encodePrice(c.exitPrice, pair.pipDecimal) : null
-  const grossPnlCents = encodeCents(c.pnlAmount)
+  // Live fills carry no settled statement figure (accumulator.ts stubs
+  // pnlAmount:'0') — compute it from price data instead of trusting that stub.
+  // Statement imports (settledImport true/omitted) keep using the broker's
+  // actual settled amount, which also reflects commission/swap this can't see.
+  const grossPnlCents =
+    exitTick !== null && options.settledImport === false
+      ? priceDerivedPnlCents(
+          c.direction,
+          entryTick,
+          exitTick,
+          lotSizeInt,
+          slTenths,
+          pair.pipValuePerStandardLotCents,
+          account.accountSizeCents,
+        )
+      : encodeCents(c.pnlAmount)
   const signedDiff =
     exitTick !== null
       ? c.direction === 'long'
@@ -207,7 +259,21 @@ export function buildCandidateRows(
   const partials = c.partialExits.map((partial) => {
     const partialTick = encodePrice(partial.exitPrice, pair.pipDecimal)
     const partialLots = encodeLots(partial.volumeLots)
-    const partialCents = encodeCents(partial.pnlAmount)
+    // Same reasoning as grossPnlCents above: a live partial has no settled
+    // statement figure yet, so derive it from price instead of trusting the
+    // accumulator's '0' stub.
+    const partialCents =
+      options.settledImport === false
+        ? priceDerivedPnlCents(
+            c.direction,
+            entryTick,
+            partialTick,
+            partialLots,
+            slTenths,
+            pair.pipValuePerStandardLotCents,
+            account.accountSizeCents,
+          )
+        : encodeCents(partial.pnlAmount)
     const partialDiff = c.direction === 'long' ? partialTick - entryTick : entryTick - partialTick
     const partialPnlR = slTenths > 0 ? Math.round((partialDiff * 100) / slTenths) : null
     const pctBps = totalLots > 0 ? Math.round((partialLots * 10000) / totalLots) : 0

@@ -223,6 +223,10 @@ describe('broker ingest — recorded sequence', () => {
     expect(trade.entryPrice).toBe(108_500) // 1.08500 × 10^5
     expect(trade.exitPrice).toBe(108_700)
     expect(trade.slPips).toBe(100) // |1.08500 − 1.08400| × 10^5
+    // $ P&L is derived from price data for live captures (no statement yet to
+    // supply a settled figure): 20 pips × 0.10 lot × $10/pip/lot = $20.00.
+    expect(trade.pnlCents).toBe(2_000)
+    expect(trade.pnlR).toBe(200) // 20 pips move / 10 pips SL = 2.00R
 
     const partials = db
       .select()
@@ -234,6 +238,9 @@ describe('broker ingest — recorded sequence', () => {
     expect(partials[0]?.exitPrice).toBe(108_600) // 1.08600 × 10^5
     expect(partials[0]?.closePercentBps).toBe(5000) // 0.05 / 0.10 = 50.00%
     expect(partials[0]?.externalRef).toBe(`${TRADE_ID}_p0`)
+    // Same price-derived model applied to the partial's own lot size:
+    // 10 pips × 0.05 lot × $10/pip/lot = $5.00.
+    expect(partials[0]?.pnlCents).toBe(500)
 
     // Dashboard refresh events on the Wave 2 bus.
     expect(emitted.map((e) => e.name)).toEqual([
@@ -467,9 +474,11 @@ describe('broker ingest ↔ statement reconciliation (spec §6)', () => {
     const svc = makeService(db, [])
     for (const event of makeSequence()) expect(svc.apply(event).ok).toBe(true)
 
-    // Live capture carries no settled P&L (spec §6) and is not statement-stamped.
+    // Live capture carries no *settled* P&L (spec §6) and is not statement-stamped
+    // yet — but it does already show a price-derived estimate ($20.00, same
+    // fixture as the earlier test), not a bare $0.00.
     const before = liveTrade(db)
-    expect(before.pnlCents).toBe(0)
+    expect(before.pnlCents).toBe(2_000)
     expect(before.importedAt).toBeNull()
     const liveExitTime = before.exitTime
 

@@ -137,8 +137,12 @@ export function foldEvent(
  * partials carry their own derived refs so they upsert independently.
  *
  * `pnlAmount`/`commission`/`swap` are "0": live `BrokerEvent`s carry no settled
- * P&L. On reconciliation a later statement import (which does) wins for monetary
- * fields (spec §6). `pnlR` is still derived from prices in the committer.
+ * P&L (no broker-side commission/swap visibility). This stub is not taken at
+ * face value, though — `_shared/committer.ts` (`options.settledImport === false`)
+ * derives the actual $ P&L, same as `pnlR`, from this candidate's own prices via
+ * the shared `pnl-calculator.ts` formula. On reconciliation, a later statement
+ * import still wins for monetary fields (spec §6), since it reflects the
+ * broker's true settled amount that a price-only estimate cannot see.
  */
 export function toCandidate(state: AccumulatedTrade): ImportCandidate {
   return {
