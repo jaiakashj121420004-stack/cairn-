@@ -1,0 +1,671 @@
+<!doctype html>
+<!--
+  Cairn — Connect to MetaTrader 5 & cTrader (interactive checklist).
+  Self-contained, no external dependencies. Checkbox progress is saved in this
+  browser via localStorage so you can close and reopen the file without losing
+  your place. Open directly in any browser (double-click the file).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cairn — Connect to MetaTrader 5 &amp; cTrader</title>
+<style>
+  :root {
+    --paper: #faf6ee;
+    --paper-elevated: #f2ead9;
+    --ink: #2b2118;
+    --muted: #6b5d49;
+    --ox: #7c2a24;
+    --ox-soft: #f4e4e0;
+    --line: #e4d9c6;
+    --ok: #3f6b3f;
+    --warn-bg: #fbeee0;
+    --warn-border: #c98a3a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: Georgia, 'Times New Roman', serif;
+    line-height: 1.6;
+  }
+  .wrap {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 40px 24px 100px;
+  }
+  header.masthead {
+    border-bottom: 3px double var(--ox);
+    padding-bottom: 18px;
+    margin-bottom: 8px;
+  }
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.75rem;
+    color: var(--ox);
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+  }
+  h1 {
+    font-size: 2.1rem;
+    margin: 6px 0 4px;
+    letter-spacing: -0.01em;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.98rem;
+    margin: 0;
+  }
+
+  /* Progress */
+  .progress-shell {
+    position: sticky;
+    top: 0;
+    background: var(--paper);
+    z-index: 10;
+    padding: 14px 0 10px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 28px;
+  }
+  .progress-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .progress-track {
+    flex: 1;
+    height: 10px;
+    background: var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--ox);
+    width: 0%;
+    transition: width 0.25s ease;
+  }
+  .progress-label {
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    color: var(--ox);
+    font-weight: bold;
+    white-space: nowrap;
+    min-width: 64px;
+    text-align: right;
+  }
+  .progress-reset {
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 5px 10px;
+    cursor: pointer;
+  }
+  .progress-reset:hover { border-color: var(--ox); color: var(--ox); }
+
+  /* Section cards */
+  section.part {
+    margin-bottom: 40px;
+  }
+  .part-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid var(--ox);
+    padding-bottom: 8px;
+    margin-bottom: 6px;
+  }
+  .part-header h2 {
+    margin: 0;
+    font-size: 1.45rem;
+  }
+  .part-badge {
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .part-desc {
+    color: var(--muted);
+    font-size: 0.95rem;
+    margin: 8px 0 20px;
+  }
+
+  .callout {
+    background: var(--paper-elevated);
+    border-left: 3px solid var(--ox);
+    padding: 12px 16px;
+    margin: 14px 0;
+    font-size: 0.93rem;
+  }
+  .callout.warn {
+    background: var(--warn-bg);
+    border-left-color: var(--warn-border);
+  }
+  .callout strong.tag {
+    color: var(--ox);
+  }
+
+  /* Checklist */
+  .step {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 10px 8px;
+    border-radius: 8px;
+    margin-bottom: 2px;
+  }
+  .step:hover { background: var(--paper-elevated); }
+  .step input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    margin-top: 3px;
+    border: 2px solid var(--muted);
+    border-radius: 5px;
+    cursor: pointer;
+    position: relative;
+    background: var(--paper);
+  }
+  .step input[type="checkbox"]:checked {
+    background: var(--ox);
+    border-color: var(--ox);
+  }
+  .step input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 1px;
+    width: 6px;
+    height: 11px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  .step label {
+    cursor: pointer;
+    font-size: 0.98rem;
+  }
+  .step.checked label {
+    color: var(--muted);
+    text-decoration: line-through;
+    text-decoration-color: var(--line);
+  }
+  .step .sub {
+    display: block;
+    color: var(--muted);
+    font-size: 0.88rem;
+    margin-top: 3px;
+    text-decoration: none !important;
+  }
+  code, .mono {
+    font-family: 'Courier New', monospace;
+    background: var(--paper-elevated);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.9em;
+    color: var(--ink);
+  }
+  .step .sub code { display: inline-block; margin: 2px 0; }
+
+  /* Troubleshooting */
+  details.trouble {
+    margin-top: 22px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--paper-elevated);
+  }
+  details.trouble summary {
+    cursor: pointer;
+    padding: 12px 16px;
+    font-weight: bold;
+    color: var(--ox);
+    list-style: none;
+  }
+  details.trouble summary::-webkit-details-marker { display: none; }
+  details.trouble summary::before {
+    content: '▸ ';
+  }
+  details.trouble[open] summary::before {
+    content: '▾ ';
+  }
+  .trouble-body { padding: 0 16px 16px; }
+  table.trouble-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+  table.trouble-table th, table.trouble-table td {
+    border: 1px solid var(--line);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  table.trouble-table th { background: var(--paper); }
+
+  footer {
+    margin-top: 50px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-align: center;
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--line);
+    margin: 36px 0;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">Cairn &middot; Broker Integration Guide</div>
+    <h1>Connecting Cairn to MetaTrader 5 &amp; cTrader</h1>
+    <p class="subtitle">A step-by-step checklist. Check items off as you go — your progress is saved automatically in this browser.</p>
+  </header>
+
+  <div class="progress-shell">
+    <div class="progress-row">
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-label" id="progressLabel">0%</div>
+      <button class="progress-reset" id="resetBtn">Reset checklist</button>
+    </div>
+  </div>
+
+  <div class="callout">
+    <strong class="tag">Two things happen when you connect a broker:</strong> (1) <strong>the connection</strong> — Cairn and your broker start talking, and (2) <strong>account mapping</strong> — you tell Cairn which of your Cairn accounts a broker account belongs to. Until you map it, fills are held and no trade is created. Cairn never guesses.
+  </div>
+
+  <!-- PART 0 -->
+  <section class="part" data-part="part0">
+    <div class="part-header">
+      <h2>Part 0 — Before you start</h2>
+      <span class="part-badge">fresh installs only</span>
+    </div>
+    <p class="part-desc">If this is a brand-new Cairn install with no accounts yet, account mapping later on has nothing to bind to.</p>
+
+    <div class="step" data-id="p0-1">
+      <input type="checkbox" id="p0-1" />
+      <label for="p0-1">Open <strong>Cairn → Accounts</strong> (left sidebar)</label>
+    </div>
+    <div class="step" data-id="p0-2">
+      <input type="checkbox" id="p0-2" />
+      <label for="p0-2">Create at least one account (any name — e.g. "Demo" — any starting balance/phase)
+        <span class="sub">Once one exists, come back and start Part A below.</span>
+      </label>
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+  <!-- PART A -->
+  <section class="part" data-part="partA">
+    <div class="part-header">
+      <h2>Part A — MetaTrader 5</h2>
+      <span class="part-badge">do this first — no waiting</span>
+    </div>
+    <p class="part-desc">MT5 has no way for outside apps to talk to it over the internet, so Cairn uses a small helper file called an <strong>Expert Advisor (EA)</strong> that lives inside your MT5 terminal and reports your fills to Cairn over a connection that never leaves your computer.</p>
+
+    <h3>A1 — Open the Cairn screen you'll need</h3>
+    <div class="step" data-id="a1-1">
+      <input type="checkbox" id="a1-1" />
+      <label for="a1-1">Open <strong>Cairn</strong></label>
+    </div>
+    <div class="step" data-id="a1-2">
+      <input type="checkbox" id="a1-2" />
+      <label for="a1-2">Go to <strong>Settings → Integrations</strong></label>
+    </div>
+    <div class="step" data-id="a1-3">
+      <input type="checkbox" id="a1-3" />
+      <label for="a1-3">Scroll to the <strong>MetaTrader 5 bridge</strong> section and leave it open
+        <span class="sub">You'll see a <strong>Pairing token</strong> (long random code) and a <strong>Listener address</strong> like <code>127.0.0.1:53127</code>. The token is MT5's password to talk to Cairn.</span>
+      </label>
+    </div>
+
+    <h3>A2 — Install the EA into MT5 (one click)</h3>
+    <div class="step" data-id="a2-1">
+      <input type="checkbox" id="a2-1" />
+      <label for="a2-1">Open your MT5 terminal (any installed one — MetaTrader 5, or a broker-branded one like BridgeMarkets / Eightcap / Goat Funded / MavenTrade — they all work the same way)</label>
+    </div>
+    <div class="step" data-id="a2-2">
+      <input type="checkbox" id="a2-2" />
+      <label for="a2-2">In Cairn's MT5 panel, click <strong>Install Cairn EA</strong>
+        <span class="sub">This installs the bridge into <strong>every</strong> MT5 terminal Cairn detects on your machine at once — it doesn't matter which one you actually open and use.</span>
+      </label>
+    </div>
+    <div class="step" data-id="a2-3">
+      <input type="checkbox" id="a2-3" />
+      <label for="a2-3">Confirm <code>CairnBridge.mq5</code> (and possibly <code>CairnBridge.ex5</code>) appears in the Experts folder that opens</label>
+    </div>
+
+    <div class="callout">
+      <strong class="tag">If Cairn didn't detect your terminal:</strong> open MT5 first, then click <strong>Install Cairn EA</strong> again. Still nothing? Do it manually — MT5: <strong>File → Open Data Folder → MQL5 → Experts</strong> — and copy <code>CairnBridge.mq5</code> there yourself.
+    </div>
+    <div class="callout">
+      <strong class="tag">Accidentally deleted CairnBridge?</strong> No need to hunt for the file — just click <strong>Install Cairn EA</strong> in Cairn again. It re-copies both files fresh, every time.
+    </div>
+
+    <h3>A3 — Compile it inside MT5</h3>
+    <div class="callout">
+      Skip this whole step if the Experts folder already shows a <code>CairnBridge.ex5</code> file — that means it's pre-compiled and ready.
+    </div>
+    <div class="step" data-id="a3-1">
+      <input type="checkbox" id="a3-1" />
+      <label for="a3-1">In MT5, press <strong>F4</strong> (or <strong>Tools → MetaQuotes Language Editor</strong>) to open MetaEditor</label>
+    </div>
+    <div class="step" data-id="a3-2">
+      <input type="checkbox" id="a3-2" />
+      <label for="a3-2">In the Navigator panel, open <strong>Experts → CairnBridge.mq5</strong></label>
+    </div>
+    <div class="step" data-id="a3-3">
+      <input type="checkbox" id="a3-3" />
+      <label for="a3-3">Press <strong>F7</strong> to compile — the bottom bar should say <code>0 errors, 0 warnings</code>
+        <span class="sub">If you see errors, don't attach the EA — something didn't copy correctly. Redo A2.</span>
+      </label>
+    </div>
+    <div class="step" data-id="a3-4">
+      <input type="checkbox" id="a3-4" />
+      <label for="a3-4">Close MetaEditor — <strong>CairnBridge</strong> should now appear under Navigator → Expert Advisors in MT5</label>
+    </div>
+
+    <h3>A4 — ⚠️ Allow the local connection <span style="font-weight:normal; color:var(--muted); font-size:0.85rem;">(the step people miss)</span></h3>
+    <div class="callout warn">
+      MT5 blocks any outside connection by default, even a local one. This step is mandatory.
+    </div>
+    <div class="step" data-id="a4-1">
+      <input type="checkbox" id="a4-1" />
+      <label for="a4-1">In MT5: <strong>Tools → Options → Expert Advisors</strong> tab</label>
+    </div>
+    <div class="step" data-id="a4-2">
+      <input type="checkbox" id="a4-2" />
+      <label for="a4-2">Tick <strong>Allow algorithmic trading</strong>
+        <span class="sub">This is MT5's generic master switch for any EA — it does not mean the Cairn bridge can trade for you. It can't; it has no order-placing code at all.</span>
+      </label>
+    </div>
+    <div class="step" data-id="a4-3">
+      <input type="checkbox" id="a4-3" />
+      <label for="a4-3">Tick <strong>Allow WebRequest for listed URL</strong> (wording varies by version) and add exactly: <code>127.0.0.1</code></label>
+    </div>
+    <div class="step" data-id="a4-4">
+      <input type="checkbox" id="a4-4" />
+      <label for="a4-4">Click <strong>OK</strong></label>
+    </div>
+
+    <h3>A5 — Attach the EA to a chart and paste the token</h3>
+    <div class="step" data-id="a5-1">
+      <input type="checkbox" id="a5-1" />
+      <label for="a5-1">Open any chart in MT5 (any symbol — the EA sees your whole account, not just one chart)</label>
+    </div>
+    <div class="step" data-id="a5-2">
+      <input type="checkbox" id="a5-2" />
+      <label for="a5-2">Drag <strong>CairnBridge</strong> from Navigator → Expert Advisors onto the chart</label>
+    </div>
+    <div class="step" data-id="a5-3">
+      <input type="checkbox" id="a5-3" />
+      <label for="a5-3">In the dialog's <strong>Inputs</strong> tab, set:
+        <span class="sub">
+          <code>InpToken</code> → paste the pairing token from Cairn (Copy button in Cairn's MT5 panel)<br/>
+          <code>InpPort</code> → the port Cairn showed you (default <code>53127</code>)<br/>
+          <code>InpHost</code> → leave as <code>127.0.0.1</code><br/>
+          <code>InpHeartbeatSec</code> → leave as <code>5</code>
+        </span>
+      </label>
+    </div>
+    <div class="step" data-id="a5-4">
+      <input type="checkbox" id="a5-4" />
+      <label for="a5-4">Click <strong>OK</strong> and look for a 🙂 smiley icon in the chart's top-right corner
+        <span class="sub">A sad/frowning icon or red ✕ means something's wrong — see Troubleshooting below.</span>
+      </label>
+    </div>
+
+    <h3>A6 — Confirm it worked</h3>
+    <div class="step" data-id="a6-1">
+      <input type="checkbox" id="a6-1" />
+      <label for="a6-1">Switch back to <strong>Cairn → Settings → Integrations</strong></label>
+    </div>
+    <div class="step" data-id="a6-2">
+      <input type="checkbox" id="a6-2" />
+      <label for="a6-2">Within 5–10 seconds, the dot next to <strong>MetaTrader 5</strong> turns green: "Listening on 127.0.0.1:&lt;port&gt;"</label>
+    </div>
+    <div class="step" data-id="a6-3">
+      <input type="checkbox" id="a6-3" />
+      <label for="a6-3">The MT5 panel's indicator changes to <strong>EA connected</strong>, and "last event" starts ticking</label>
+    </div>
+
+    <div class="callout">
+      <strong class="tag">A note on login errors:</strong> the EA bridge and your MT5 account login are separate things. A Journal message like <code>authorization on MetaQuotes-Demo failed (Invalid account)</code> is a broker-login problem — it does <strong>not</strong> stop the EA from running or reaching Cairn. The heartbeat will work even while logged out; you just won't see real fills until you're logged into a valid account.
+    </div>
+
+    <details class="trouble">
+      <summary>MT5 Troubleshooting</summary>
+      <div class="trouble-body">
+        <table class="trouble-table">
+          <tr><th>Problem</th><th>Fix</th></tr>
+          <tr><td>Indicator stuck on "Disconnected — waiting for EA"</td><td>Check the smiley face on the chart isn't sad/red. Confirm <code>InpPort</code> matches Cairn's listener port exactly. Confirm <code>127.0.0.1</code> is allowed (A4) and algo trading is on.</td></tr>
+          <tr><td>Experts tab shows <code>SocketConnect ... failed</code></td><td>Step A4 wasn't saved properly — redo it, then remove the EA from the chart and drag it back on.</td></tr>
+          <tr><td>"Token rejected" in the Experts log</td><td>Re-copy the token from Cairn (it may have changed) and re-paste into <code>InpToken</code> — no leading/trailing spaces.</td></tr>
+          <tr><td><code>0 errors, 0 warnings</code> doesn't appear in MetaEditor</td><td>The file didn't copy fully — delete it from <code>MQL5/Experts</code> and click <strong>Install Cairn EA</strong> again.</td></tr>
+          <tr><td>Journal shows <code>authorization ... failed (Invalid account)</code></td><td>This is your MT5 login, unrelated to the Cairn bridge. Re-enter your demo credentials/server (right-click account in Navigator → Login), or open a fresh demo via File → Open an Account.</td></tr>
+          <tr><td>CairnBridge disappeared from Navigator → Expert Advisors</td><td>It was deleted. Go back to Cairn → Settings → Integrations → <strong>Install Cairn EA</strong> and click it again.</td></tr>
+        </table>
+      </div>
+    </details>
+  </section>
+
+  <hr class="divider" />
+
+  <!-- PART B -->
+  <section class="part" data-part="partB">
+    <div class="part-header">
+      <h2>Part B — cTrader</h2>
+      <span class="part-badge">takes longer — Spotware approval needed</span>
+    </div>
+    <p class="part-desc">Unlike MT5, cTrader has an official API, but you first register a small "application" with cTrader's parent company, <strong>Spotware</strong>, and wait for their approval. Budget a few business days — the Cairn side takes two minutes, the waiting is on Spotware.</p>
+
+    <h3>B1 — Register a free application with Spotware</h3>
+    <div class="step" data-id="b1-1">
+      <input type="checkbox" id="b1-1" />
+      <label for="b1-1">Go to Spotware's <strong>Open API</strong> developer portal and sign in with your cTrader account</label>
+    </div>
+    <div class="step" data-id="b1-2">
+      <input type="checkbox" id="b1-2" />
+      <label for="b1-2">Create a new application (any name, e.g. "Cairn")</label>
+    </div>
+    <div class="step" data-id="b1-3">
+      <input type="checkbox" id="b1-3" />
+      <label for="b1-3">Set the <strong>Redirect URI</strong> to exactly: <code>http://127.0.0.1:53129/ctrader/callback</code></label>
+    </div>
+    <div class="step" data-id="b1-4">
+      <input type="checkbox" id="b1-4" />
+      <label for="b1-4">Under scopes, select <strong>accounts</strong> (read-only) — no trading/write scopes needed</label>
+    </div>
+    <div class="step" data-id="b1-5">
+      <input type="checkbox" id="b1-5" />
+      <label for="b1-5">Submit and copy the <strong>Client ID</strong> and <strong>Client Secret</strong> somewhere safe (the secret is shown only once)</label>
+    </div>
+
+    <div class="callout warn">
+      New Spotware apps usually start "pending" and can't complete login until Spotware activates them (KYC/review, typically a few business days). If B3 fails immediately saying the app isn't active, that's why — nothing wrong on your end.
+    </div>
+
+    <h3>B2 — Paste your credentials into Cairn</h3>
+    <div class="step" data-id="b2-1">
+      <input type="checkbox" id="b2-1" />
+      <label for="b2-1">In Cairn: <strong>Settings → Integrations → cTrader</strong></label>
+    </div>
+    <div class="step" data-id="b2-2">
+      <input type="checkbox" id="b2-2" />
+      <label for="b2-2">Paste your <strong>Client ID</strong> and <strong>Client secret</strong> into the fields shown</label>
+    </div>
+    <div class="step" data-id="b2-3">
+      <input type="checkbox" id="b2-3" />
+      <label for="b2-3">Click <strong>Save credentials</strong>
+        <span class="sub">Stored in your OS's secure keychain — never as plain text, never in Cairn's database.</span>
+      </label>
+    </div>
+
+    <h3>B3 — Connect your account</h3>
+    <div class="step" data-id="b3-1">
+      <input type="checkbox" id="b3-1" />
+      <label for="b3-1">Choose <strong>Environment</strong>: Demo while testing, Live when ready</label>
+    </div>
+    <div class="step" data-id="b3-2">
+      <input type="checkbox" id="b3-2" />
+      <label for="b3-2">Click <strong>Connect cTrader</strong> — this opens Spotware's login page in your browser</label>
+    </div>
+    <div class="step" data-id="b3-3">
+      <input type="checkbox" id="b3-3" />
+      <label for="b3-3">Log in and approve access (read-only)</label>
+    </div>
+    <div class="step" data-id="b3-4">
+      <input type="checkbox" id="b3-4" />
+      <label for="b3-4">You're redirected back — Cairn's connection indicator should turn green ("Connected")</label>
+    </div>
+    <div class="step" data-id="b3-5">
+      <input type="checkbox" id="b3-5" />
+      <label for="b3-5">If multiple cTrader accounts exist, pick the right one from the new Account dropdown</label>
+    </div>
+    <div class="step" data-id="b3-6">
+      <input type="checkbox" id="b3-6" />
+      <label for="b3-6">Click <strong>Test connection</strong> to confirm</label>
+    </div>
+
+    <details class="trouble">
+      <summary>cTrader Troubleshooting</summary>
+      <div class="trouble-body">
+        <table class="trouble-table">
+          <tr><th>Problem</th><th>Fix</th></tr>
+          <tr><td>Browser error: app isn't active/approved</td><td>Spotware hasn't finished reviewing your application (B1). Wait a day or two — nothing to fix on your side.</td></tr>
+          <tr><td>"Account linked — live streaming is unavailable in this build"</td><td>The account connected, but live streaming isn't available yet in this Cairn build — a known limitation, not a mistake you made.</td></tr>
+          <tr><td>Can't find Client ID/Secret fields</td><td>They only show up if not already configured. Click <strong>Clear credentials</strong> first, then re-enter.</td></tr>
+          <tr><td>Nothing happens after clicking Connect cTrader</td><td>Your browser may have blocked the popup/redirect. Try again, or copy the URL directly into your browser.</td></tr>
+        </table>
+      </div>
+    </details>
+  </section>
+
+  <hr class="divider" />
+
+  <!-- PART C -->
+  <section class="part" data-part="partC">
+    <div class="part-header">
+      <h2>Part C — Account mapping</h2>
+      <span class="part-badge">same for both brokers</span>
+    </div>
+    <p class="part-desc">The last step, and it's identical for MT5 and cTrader.</p>
+
+    <div class="step" data-id="c-1">
+      <input type="checkbox" id="c-1" />
+      <label for="c-1">In Cairn: <strong>Settings → Integrations</strong> → scroll to <strong>Account mapping</strong></label>
+    </div>
+    <div class="step" data-id="c-2">
+      <input type="checkbox" id="c-2" />
+      <label for="c-2">Place (or wait for) one trade on the connected broker account
+        <span class="sub">Within seconds it appears under "Waiting to be mapped" with a count of held events.</span>
+      </label>
+    </div>
+    <div class="step" data-id="c-3">
+      <input type="checkbox" id="c-3" />
+      <label for="c-3">Use the dropdown to pick which of your <strong>Cairn accounts</strong> this broker account belongs to</label>
+    </div>
+    <div class="step" data-id="c-4">
+      <input type="checkbox" id="c-4" />
+      <label for="c-4">Click <strong>Bind</strong></label>
+    </div>
+
+    <div class="callout">
+      From here on, every fill from that broker account automatically creates a Cairn trade — a <strong>draft awaiting reflection</strong> by default, or a <strong>fully logged trade</strong> if "When a broker fill arrives" is set to <strong>Fully auto-logged</strong>. To fix a wrong binding later, find it under "Mapped accounts" and change the dropdown, or click <strong>Remove</strong>.
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+  <section class="part">
+    <div class="part-header"><h2>What "connected" actually gets you</h2></div>
+    <p>Once mapped, Cairn will auto-fill the mechanical facts of every trade (pair, direction, lot size, entry/stop/target, exit, partials) — no manual re-entry — and warn you in real time, calmly, if your live position drifts from your own rules: stop moved against you, size increased mid-trade, target cut short, over-trading past your daily limit, trading after a loss-limit lockout, or trading outside your configured session hours.</p>
+    <p><strong>It will never place, modify, or close a trade for you</strong> — both bridges are read-only by design, permanently.</p>
+  </section>
+
+  <footer>
+    Both bridges are optional. Cairn's manual trade log works exactly the same with or without a broker connected — connecting one just removes the retyping.
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  var STORAGE_KEY = 'cairn-broker-guide-progress-v1';
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('.step input[type="checkbox"]'));
+
+  function loadState() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveState(state) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) { /* ignore */ }
+  }
+
+  function updateProgress() {
+    var total = boxes.length;
+    var checked = boxes.filter(function (b) { return b.checked; }).length;
+    var pct = total === 0 ? 0 : Math.round((checked / total) * 100);
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressLabel').textContent = pct + '% (' + checked + '/' + total + ')';
+  }
+
+  function applyCheckedClass(box) {
+    var step = box.closest('.step');
+    if (step) step.classList.toggle('checked', box.checked);
+  }
+
+  var state = loadState();
+  boxes.forEach(function (box) {
+    var id = box.id;
+    if (state[id]) {
+      box.checked = true;
+      applyCheckedClass(box);
+    }
+    box.addEventListener('change', function () {
+      state[id] = box.checked;
+      saveState(state);
+      applyCheckedClass(box);
+      updateProgress();
+    });
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', function () {
+    if (!confirm('Reset all checklist progress?')) return;
+    boxes.forEach(function (box) {
+      box.checked = false;
+      applyCheckedClass(box);
+    });
+    state = {};
+    saveState(state);
+    updateProgress();
+  });
+
+  updateProgress();
+})();
+</script>
+</body>
+</html>

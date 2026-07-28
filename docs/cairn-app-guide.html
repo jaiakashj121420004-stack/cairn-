@@ -1,0 +1,1119 @@
+<!doctype html>
+<!--
+  Cairn — the complete app guide & marketing site.
+  Self-contained single file. Styled in Cairn's own Nvexis "The Almanac" v3.0
+  design language (oxblood on parchment, Day + Night). No build step — open
+  directly in a browser. Fonts load from Google Fonts CDN.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cairn — The Discipline-First Trading Journal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Spectral:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ============ THEME TOKENS ============ */
+  :root, html[data-theme="day"] {
+    --bg: #ECE4D6;
+    --surface: #F4EEE2;
+    --surface-elevated: #F8F3E9;
+    --border: #CDBFA8;
+    --border-strong: #B8A98E;
+    --text: #221A14;
+    --text-secondary: #4A3F35;
+    --text-muted: #5E5346;
+    --ox: #7A2A26;
+    --ox-fill: #7A2A26;
+    --on-ox: #F7F1E6;
+    --accent-a: #221A14;
+    --accent-b: #5E5346;
+    --warning: #8A6A2E;
+    --danger: #B23A2E;
+    --free-pill-bg: #E4DCC9;
+    --free-pill-text: #4A3F35;
+    --pro-pill-bg: #7A2A26;
+    --pro-pill-text: #F7F1E6;
+    --shadow: 0 1px 2px rgba(34,26,20,0.06), 0 6px 20px rgba(34,26,20,0.05);
+  }
+  html[data-theme="night"] {
+    --bg: #181210;
+    --surface: #211917;
+    --surface-elevated: #271E1B;
+    --border: #3A2E29;
+    --border-strong: #4A3B34;
+    --text: #ECE2D2;
+    --text-secondary: #C9BBA8;
+    --text-muted: #9E9082;
+    --ox: #C24A40;
+    --ox-fill: #8E332D;
+    --on-ox: #F7F1E6;
+    --accent-a: #ECE2D2;
+    --accent-b: #9E9082;
+    --warning: #C7A24E;
+    --danger: #D8634A;
+    --free-pill-bg: #2C2320;
+    --free-pill-text: #C9BBA8;
+    --pro-pill-bg: #8E332D;
+    --pro-pill-text: #F7F1E6;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Spectral', Georgia, serif;
+    line-height: 1.65;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  h1, h2, h3, h4, .display {
+    font-family: 'Fraunces', Georgia, serif;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  .mono, code, .fig {
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+  }
+  a { color: var(--ox); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  p { color: var(--text-secondary); }
+  ::selection { background: var(--ox); color: var(--on-ox); }
+
+  /* ============ LAYOUT SHELL ============ */
+  .shell { display: flex; min-height: 100vh; }
+
+  nav.sidebar {
+    width: 248px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 28px 18px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 2px;
+  }
+  .brand .mark {
+    font-family: 'Fraunces', serif;
+    font-weight: 700;
+    font-size: 1.5rem;
+    color: var(--ox);
+  }
+  .brand-sub {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 26px;
+  }
+  .navgroup { margin-bottom: 20px; }
+  .navgroup-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 8px 10px;
+  }
+  .navlink {
+    display: block;
+    padding: 8px 10px;
+    border-radius: 7px;
+    font-size: 0.92rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    margin-bottom: 2px;
+    border-left: 3px solid transparent;
+  }
+  .navlink:hover { background: var(--surface-elevated); text-decoration: none; }
+  .navlink.active {
+    background: var(--surface-elevated);
+    color: var(--ox);
+    font-weight: 600;
+    border-left-color: var(--ox);
+  }
+  .theme-toggle {
+    margin-top: 20px;
+    display: flex;
+    gap: 6px;
+  }
+  .theme-btn {
+    flex: 1;
+    padding: 7px 0;
+    text-align: center;
+    border: 1px solid var(--border-strong);
+    border-radius: 7px;
+    background: var(--surface-elevated);
+    color: var(--text-secondary);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+  }
+  .theme-btn.active { background: var(--ox); color: var(--on-ox); border-color: var(--ox); }
+  .sidebar-footer {
+    margin-top: 30px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  main.content {
+    flex: 1;
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 56px 48px 120px;
+    width: 100%;
+  }
+  .page { display: none; }
+  .page.active { display: block; animation: fadein 0.25s ease; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: translateY(0);} }
+
+  /* ============ TYPE ELEMENTS ============ */
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 0.72rem;
+    color: var(--ox);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  h1.page-title { font-size: 2.5rem; margin: 0 0 6px; }
+  h2.section-title {
+    font-size: 1.65rem;
+    margin: 56px 0 8px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--ox);
+  }
+  h2.section-title:first-of-type { margin-top: 0; }
+  h3.sub-title { font-size: 1.2rem; margin: 30px 0 6px; color: var(--ox); }
+  .lede { font-size: 1.12rem; color: var(--text-secondary); max-width: 700px; }
+
+  /* ============ PILLS / BADGES ============ */
+  .pill {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    padding: 3px 9px;
+    border-radius: 20px;
+    vertical-align: middle;
+  }
+  .pill.free { background: var(--free-pill-bg); color: var(--free-pill-text); }
+  .pill.pro { background: var(--pro-pill-bg); color: var(--pro-pill-text); }
+  .pill.both { background: var(--surface-elevated); border: 1px solid var(--border-strong); color: var(--text-secondary); }
+
+  /* ============ CARDS ============ */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+  }
+  .card h4 {
+    margin: 0 0 6px;
+    font-size: 1.05rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .card p { margin: 6px 0 0; font-size: 0.94rem; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin: 20px 0;
+  }
+  .grid .card { margin-bottom: 0; }
+  .icon-tile {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: var(--ox);
+    color: var(--on-ox);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-bottom: 10px;
+  }
+
+  .callout {
+    background: var(--surface-elevated);
+    border-left: 4px solid var(--ox);
+    border-radius: 4px;
+    padding: 14px 18px;
+    margin: 20px 0;
+    font-size: 0.94rem;
+  }
+  .callout.warn { border-left-color: var(--warning); }
+  .callout.danger { border-left-color: var(--danger); }
+  .callout strong.tag { color: var(--ox); }
+  .callout p { margin: 0; }
+  .callout p + p { margin-top: 8px; }
+
+  table.spec {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 18px 0;
+    font-size: 0.9rem;
+  }
+  table.spec th, table.spec td {
+    border: 1px solid var(--border);
+    padding: 9px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  table.spec th { background: var(--surface-elevated); font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  table.spec td.num, table.spec td.center { font-family: 'IBM Plex Mono', monospace; text-align: center; }
+  table.spec tr:nth-child(even) td { background: color-mix(in srgb, var(--surface-elevated) 40%, transparent); }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 44px 0; }
+
+  /* ============ HOME HERO ============ */
+  .hero {
+    text-align: center;
+    padding: 20px 0 30px;
+    border-bottom: 3px double var(--ox);
+    margin-bottom: 40px;
+  }
+  .hero .display {
+    font-size: 3.2rem;
+    font-weight: 600;
+    margin: 10px 0 6px;
+  }
+  .hero .tagline {
+    font-size: 1.25rem;
+    font-style: italic;
+    color: var(--text-secondary);
+    font-family: 'Fraunces', serif;
+    margin-bottom: 22px;
+  }
+  .hero-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 22px; }
+  .btn {
+    display: inline-block;
+    padding: 11px 22px;
+    border-radius: 9px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    border: 1px solid var(--ox);
+  }
+  .btn.primary { background: var(--ox); color: var(--on-ox); }
+  .btn.secondary { background: transparent; color: var(--ox); }
+  .btn:hover { opacity: 0.88; text-decoration: none; }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin: 34px 0;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    text-align: center;
+  }
+  .stat-card .num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 1.9rem;
+    font-weight: 600;
+    color: var(--ox);
+  }
+  .stat-card .lbl {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  .ring-wrap { display: flex; justify-content: center; margin: 30px 0; }
+  .ring {
+    width: 180px; height: 180px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: conic-gradient(var(--ox) 0deg, var(--ox) 0deg, var(--border) 0deg);
+    position: relative;
+    animation: ringfill 1.8s ease forwards;
+  }
+  @keyframes ringfill {
+    from { background: conic-gradient(var(--ox) 0deg, var(--border) 0deg); }
+    to { background: conic-gradient(var(--ox) 360deg, var(--border) 360deg); }
+  }
+  .ring-inner {
+    width: 148px; height: 148px;
+    border-radius: 50%;
+    background: var(--bg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .ring-inner .score { font-family: 'IBM Plex Mono', monospace; font-size: 2.3rem; font-weight: 600; color: var(--ox); }
+  .ring-inner .label { font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
+
+  .quote-strip {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 1.15rem;
+    text-align: center;
+    color: var(--text-secondary);
+    max-width: 640px;
+    margin: 40px auto;
+  }
+
+  /* voice examples */
+  .voice-pair { display: flex; gap: 14px; flex-wrap: wrap; margin: 14px 0; }
+  .voice-box { flex: 1; min-width: 240px; padding: 12px 14px; border-radius: 9px; font-size: 0.9rem; }
+  .voice-box.bad { background: color-mix(in srgb, var(--danger) 12%, var(--surface)); border: 1px solid var(--danger); }
+  .voice-box.good { background: color-mix(in srgb, var(--ox) 10%, var(--surface)); border: 1px solid var(--ox); }
+  .voice-box .k { font-family: 'IBM Plex Mono', monospace; font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase; display: block; margin-bottom: 4px; opacity: 0.75; }
+
+  /* toast mockup */
+  .toast-mock {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface-elevated);
+    border: 1px solid var(--warning);
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-size: 0.86rem;
+    color: var(--text);
+    margin: 10px 0;
+  }
+  .toast-mock .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warning); flex-shrink: 0; }
+
+  details.expand {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    margin: 14px 0;
+  }
+  details.expand summary {
+    cursor: pointer;
+    padding: 13px 16px;
+    font-weight: 600;
+    color: var(--ox);
+    list-style: none;
+  }
+  details.expand summary::-webkit-details-marker { display: none; }
+  details.expand summary::before { content: '▸  '; }
+  details.expand[open] summary::before { content: '▾  '; }
+  .expand-body { padding: 0 16px 16px; }
+
+  footer.site-footer {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* responsive */
+  @media (max-width: 880px) {
+    .shell { flex-direction: column; }
+    nav.sidebar { width: 100%; height: auto; position: relative; }
+    main.content { padding: 32px 20px 80px; }
+    .stat-row { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <nav class="sidebar">
+    <div class="brand"><span class="mark">Cairn</span></div>
+    <div class="brand-sub">Discipline &middot; Logged</div>
+
+    <div class="navgroup">
+      <div class="navgroup-label">Start here</div>
+      <div class="navlink" data-page="home">Home</div>
+      <div class="navlink" data-page="features">All Features</div>
+      <div class="navlink" data-page="compare">Free vs Pro</div>
+      <div class="navlink" data-page="pricing">Pricing</div>
+    </div>
+
+    <div class="navgroup">
+      <div class="navgroup-label">Core systems</div>
+      <div class="navlink" data-page="accounts">Accounts &amp; Phases</div>
+      <div class="navlink" data-page="rules">Rule Engine</div>
+      <div class="navlink" data-page="killzones">Killzones &amp; Customization</div>
+      <div class="navlink" data-page="analytics">Analytics &amp; Insights</div>
+    </div>
+
+    <div class="navgroup">
+      <div class="navgroup-label">Journaling tools</div>
+      <div class="navlink" data-page="notebook">Notebook, Calendar &amp; Playbooks</div>
+      <div class="navlink" data-page="security">Security &amp; Data</div>
+    </div>
+
+    <div class="navgroup">
+      <div class="navgroup-label">Broker connection</div>
+      <div class="navlink" data-page="broker">Connect MT5 &amp; cTrader</div>
+    </div>
+
+    <div class="theme-toggle">
+      <div class="theme-btn" data-theme-btn="day">☀ Day</div>
+      <div class="theme-btn" data-theme-btn="night">☾ Night</div>
+    </div>
+
+    <div class="sidebar-footer">Designed &amp; built by Jai Akash</div>
+  </nav>
+
+  <main class="content">
+
+    <!-- ================= HOME ================= -->
+    <section class="page" id="page-home">
+      <div class="hero">
+        <div class="eyebrow">A Discipline-First Trading Journal</div>
+        <div class="display">Cairn</div>
+        <div class="tagline">"A cairn marks the trail. Each stone is deliberate. Each stone stays where it's placed."</div>
+        <p class="lede" style="margin:0 auto;">Most trading journals are a record of what you did. Cairn is a system that changes what you do — it blocks the bad trade in real time, captures the honest truth about the good ones, and turns weeks of data into behavior change you can actually feel.</p>
+        <div class="hero-ctas">
+          <span class="btn primary" data-goto="features">Explore every feature</span>
+          <span class="btn secondary" data-goto="compare">Free vs Pro</span>
+          <span class="btn secondary" data-goto="broker">Connect MT5 / cTrader</span>
+        </div>
+      </div>
+
+      <div class="ring-wrap">
+        <div class="ring"><div class="ring-inner"><div class="score">100</div><div class="label">Elite</div></div></div>
+      </div>
+      <p style="text-align:center; color: var(--text-muted); font-size: 0.85rem; margin-top:-16px;">The Discipline Ring — the first number you see every time you open Cairn.</p>
+
+      <div class="stat-row">
+        <div class="stat-card"><div class="num">3</div><div class="lbl">Jobs Cairn Does</div></div>
+        <div class="stat-card"><div class="num">12+</div><div class="lbl">Built-in Rules</div></div>
+        <div class="stat-card"><div class="num">5</div><div class="lbl">Seeded Killzones</div></div>
+        <div class="stat-card"><div class="num">2</div><div class="lbl">Live Broker Bridges</div></div>
+      </div>
+
+      <h2 class="section-title">The problem Cairn is built to solve</h2>
+      <p class="lede">If you've ever thought: <em>"I know the rule. I broke the rule. I lost. I promised to follow the rule. I broke it again"</em> — that loop is a discipline-and-process problem, not a knowledge gap. Roughly 80% discipline, 20% knowledge. You already know how to take a good trade. What's missing is a system that prevents the bad ones. Cairn is that system — an external discipline layer that replaces willpower with structure.</p>
+
+      <div class="grid">
+        <div class="card">
+          <div class="icon-tile">1</div>
+          <h4>Prevent, in real time</h4>
+          <p>Rule violations get blocked <em>before</em> the click, not detected afterwards in a report you'll skim once and forget.</p>
+        </div>
+        <div class="card">
+          <div class="icon-tile">2</div>
+          <h4>Capture honest data</h4>
+          <p>Every trade records the complete, honest truth — with no escape hatch for laziness or tilt. Fields that need self-awareness can't be skipped or defaulted away.</p>
+        </div>
+        <div class="card">
+          <div class="icon-tile">3</div>
+          <h4>Change behavior weekly</h4>
+          <p>That data becomes insight that actually shifts what you do next week — not a vanity dashboard you check once a month.</p>
+        </div>
+      </div>
+
+      <h2 class="section-title">What Cairn is not</h2>
+      <div class="grid">
+        <div class="card"><h4>Not a charting tool</h4><p>You trade on TradingView and MT5/cTrader. Cairn is the discipline layer around your existing setup, not a chart replacement.</p></div>
+        <div class="card"><h4>Not a social platform</h4><p>No feeds, no sharing, no leaderboard comparisons. This is between you and your own rules.</p></div>
+        <div class="card"><h4>Not a coach</h4><p>Cairn enforces <em>your own</em> pre-committed rules. It gives no trading advice, no signals, no opinions on your setups.</p></div>
+        <div class="card"><h4>Not tied to any prop firm</h4><p>Prop firms are configured as generic, user-named "firms" with your own rule sets — nothing is hardcoded to any specific company.</p></div>
+      </div>
+
+      <h2 class="section-title">The voice</h2>
+      <p class="lede">Cairn talks like a respected mentor: direct, calm, honest. Never cutesy, never alarmist, never patronizing. It's a small detail that shows up everywhere in the app.</p>
+      <div class="voice-pair">
+        <div class="voice-box bad"><span class="k">Not this</span>"Oops! You've hit your daily limit! 🎉"</div>
+        <div class="voice-box good"><span class="k">This</span>"Daily loss limit reached. Session closed."</div>
+      </div>
+      <div class="voice-pair">
+        <div class="voice-box bad"><span class="k">Not this</span>"Are you sure you want to move your stop loss?"</div>
+        <div class="voice-box good"><span class="k">This</span>"You are moving SL against you. This violates Rule 4 on this account. Proceed anyway?"</div>
+      </div>
+
+      <div class="quote-strip">"A nicer report vs. a rule that prevents a bad trade → prevent the bad trade. A faster log entry vs. a field that forces self-awareness → force the self-awareness."</div>
+
+      <footer class="site-footer">Designed &amp; built by Jai Akash. Local-first, forever free at its core.</footer>
+    </section>
+
+    <!-- ================= FEATURES ================= -->
+    <section class="page" id="page-features">
+      <div class="eyebrow">Everything In The App</div>
+      <h1 class="page-title">All Features, In Detail</h1>
+      <p class="lede">Every screen, panel, and system in Cairn — what it does, how you use it day to day, and whether it's Free or Pro. If you're brand new to trading, read this top to bottom; if you're experienced, skim the bold names and the <span class="pill pro">PRO</span> tags.</p>
+
+      <h2 class="section-title">Getting started</h2>
+
+      <div class="card">
+        <h4>Onboarding <span class="pill free">FREE</span></h4>
+        <p>A guided first-launch flow: welcome screen → create your first prop firm entry (or skip — a "Custom" firm always exists) → build an account template (size, drawdown rules, profit target) → create your first account → review the default pairs/setups/killzones → pick Day or Night theme → choose a backup folder. Takes a few minutes; everything you set can be changed later in Settings.</p>
+      </div>
+
+      <div class="card">
+        <h4>Dashboard <span class="pill free">FREE</span></h4>
+        <p>Your home screen. Row 1 is a hero stats strip: the Discipline Ring, your active account's equity/drawdown/profit-target progress, today's trade count and P&amp;L, and a rolling R-multiple expectancy sparkline over your last 20 trades. Below that: one-click actions ("Log Session Bias", "New Trade", "Review Last Trade", "Open Playbook"), your 10 most recent trades, today's session-bias card, and a weekly rule-adherence preview widget. Numbers animate in with a count-up on every load.</p>
+      </div>
+
+      <div class="card">
+        <h4>Session Bias Entry <span class="pill free">FREE</span></h4>
+        <p>Before your first trade of the day (if the <code>require_htf_bias_logged</code> rule is on), you log your daily/4H/1H directional bias with a one-line reason for each, an optional HTF liquidity target, a DXY bias, optional SMT notes, a free-text session plan, and key price levels. The moment you submit your first trade, this entire card <strong>locks</strong> — no retroactively rewriting your morning narrative to match what actually happened.</p>
+      </div>
+
+      <h2 class="section-title">Trading through Cairn</h2>
+
+      <div class="card">
+        <h4>New Trade — the Pre-Trade Gate <span class="pill free">FREE</span></h4>
+        <p>A slide-over panel that is the heart of "prevention over detection." It auto-fills context (account, phase, session bias, trade count today, current daily P&amp;L, active cooldowns), then walks you through pair, setup, killzone (auto-detected from the clock, overridable), direction, and your three prices — entry, stop, target. As you type, it live-computes SL/TP in pips, your risk:reward ratio (color-coded red/amber/green), your lot size from your risk %, and your dollar risk. One-tap confluence checkboxes (MSS confirmed, HTF bias aligned, DXY aligned, SMT confirmed) capture your reasoning. A required invalidation field ("this trade is wrong if…", minimum 20 characters) forces you to state your out <em>before</em> you're in. Three emotion sliders (calm / urgency / need-this-to-work) capture your state of mind. At the bottom, a live rule-check panel shows every relevant rule as ✓ pass / ⚠ warning / ✗ block — if anything blocks, the submit button is disabled and red. If everything's clear, it's <strong>"Ready to Trade."</strong> Confirming asks one honest question: "Order placed in broker?" — only then does the session lock and the trade go live.</p>
+      </div>
+
+      <div class="card">
+        <h4>Trade Modification <span class="pill free">FREE</span></h4>
+        <p>While a trade is open, you can move your SL/TP, close manually, or log a partial close — all from the trade detail view. Try to widen your stop against the position and the <code>no_sl_widening</code> rule fires immediately. Every modification is permanently logged.</p>
+      </div>
+
+      <div class="card">
+        <h4>Post-Trade Log (Close Trade) <span class="pill free">FREE</span></h4>
+        <p>Exit price/time/reason (TP / SL / Manual / BE / Timeout / Partial-then-full), optional MAE/MFE in pips, and auto-computed P&amp;L in $, R, and %, plus duration. A required honesty section asks plainly: did you follow your plan exactly? Did you move your SL? Did you enter before MSS confirmed? A rules-broken checklist lets you tick anything the engine didn't already auto-detect. A short post-trade reflection (calm score, one sentence on what you did right, one on what you did wrong, free tags) and up to 4 optional screenshots close the loop. None of the honesty fields default to "clean" — you either answer them or the trade is explicitly marked unreviewed.</p>
+      </div>
+
+      <div class="card">
+        <h4>Trade Log &amp; Trade Detail <span class="pill free">FREE</span></h4>
+        <p>A full, filterable history — by date, account, pair, setup, killzone, mode (live/sim/backtest), clean vs. dirty, win/loss/BE, and tags — with a fully sortable, user-configurable column set. Click into any trade for the complete record: every field, a screenshot gallery, exactly which rules were evaluated at submit time, related trades from the same day, and export/duplicate/delete actions. Bulk-export any selection to CSV.</p>
+      </div>
+
+      <h2 class="section-title">Deep-dive systems (own pages in this guide)</h2>
+      <div class="grid">
+        <div class="card"><h4>Accounts &amp; Phases</h4><p>Prop-firm challenges, templates, drawdown rules, phase progression.</p><span class="btn secondary" data-goto="accounts">Open page →</span></div>
+        <div class="card"><h4>Rule Engine</h4><p>Every built-in rule, overrides, cooldowns, hard locks.</p><span class="btn secondary" data-goto="rules">Open page →</span></div>
+        <div class="card"><h4>Killzones &amp; Customization</h4><p>Sessions, pairs, setups — everything is user-configurable.</p><span class="btn secondary" data-goto="killzones">Open page →</span></div>
+        <div class="card"><h4>Analytics &amp; Insights</h4><p>Six analytics tabs, composite score, A–F grades, the local insight engine.</p><span class="btn secondary" data-goto="analytics">Open page →</span></div>
+      </div>
+
+      <h2 class="section-title">Journaling &amp; reference tools</h2>
+      <div class="grid">
+        <div class="card"><h4>Notebook <span class="pill free">FREE</span></h4><p>Free-form markdown notes with templates for a trading plan, a watchlist, and a weekly review. Pin what matters; search across everything.</p></div>
+        <div class="card"><h4>Calendar view <span class="pill free">FREE</span></h4><p>A month grid colored by daily P&amp;L. Click any day to jump straight to its trades.</p></div>
+        <div class="card"><h4>Playbooks <span class="pill free">FREE</span></h4><p>Saved setup templates that pre-fill pair, setup, killzone, required confluence, default risk %, and an invalidation chip — one tap loads the whole scaffold.</p></div>
+        <div class="card"><h4>Command palette (⌘K) <span class="pill free">FREE</span></h4><p>Jump anywhere instantly — new trade, close trade, jump to account, log bias, any settings tab, or load a playbook by name.</p></div>
+        <div class="card"><h4>Review screen <span class="pill free">FREE</span></h4><p>Home for your deferred-reflection queue (trades awaiting honesty review) and the local insight engine's pattern callouts.</p></div>
+        <div class="card"><h4>Help / Playbook reference <span class="pill free">FREE</span></h4><p>A local markdown reference for ICT/SMC concepts plus your own notes — a quick-lookup, not a tutorial, for thinking during a trade.</p></div>
+      </div>
+
+      <h2 class="section-title">Import, capture &amp; broker connection</h2>
+      <div class="grid">
+        <div class="card"><h4>Statement file import <span class="pill free">FREE</span></h4><p>Bulk-import closed trades from MT5, cTrader, or TradingView export files (HTML/CSV) — no manual retyping, no paid data feed.</p></div>
+        <div class="card"><h4>Live MT5 &amp; cTrader capture <span class="pill free">FREE</span></h4><p>A read-only bridge auto-logs your fills in real time as you trade. See the full connection guide →</p><span class="btn secondary" data-goto="broker">Connect a broker</span></div>
+        <div class="card"><h4>On-chart pre-trade gate <span class="pill pro">PRO</span></h4><p>"Cairn Buy / Cairn Sell" buttons drawn directly on your MT5 chart, with a live SL-pips/R:R readout, that hand off to Cairn's rule check before you execute.</p></div>
+        <div class="card"><h4>Live rule-violation warnings <span class="pill free">FREE</span></h4><p>Even on broker-placed trades, Cairn's rule engine watches your live position and raises calm, non-blocking warnings the instant you drift from your own rules.</p></div>
+      </div>
+
+      <h2 class="section-title">Settings &amp; data ownership</h2>
+      <div class="grid">
+        <div class="card"><h4>Full Settings suite <span class="pill free">FREE</span></h4><p>General, Rules (per account), Pairs, Setups, Killzones, Prop Firms, Account Templates, Backups, Data, Integrations, Alerts, Shortcuts — all in one tabbed screen.</p></div>
+        <div class="card"><h4>Backups <span class="pill free">FREE</span></h4><p>Point Cairn at any folder (including a Dropbox/Google Drive sync folder), pick a schedule, and restore from any prior backup.</p></div>
+        <div class="card"><h4>Data export &amp; reset <span class="pill free">FREE</span></h4><p>Export everything to JSON/CSV, open your raw data folder in the OS file explorer, or do a fully typed-confirmation destructive reset.</p></div>
+        <div class="card"><h4>Cloud sync &amp; multi-device <span class="pill pro">PRO</span></h4><p>End-to-end-encrypted vault sync across devices and the web app — see Security &amp; Data →</p></div>
+      </div>
+
+      <footer class="site-footer">Everything above the Pro tags runs fully offline, forever, at no cost.</footer>
+    </section>
+
+    <!-- ================= ACCOUNTS & PHASES ================= -->
+    <section class="page" id="page-accounts">
+      <div class="eyebrow">Core System</div>
+      <h1 class="page-title">Accounts &amp; Phases</h1>
+      <p class="lede">In Cairn, an <strong>account</strong> is one prop-firm challenge attempt (or your own live/personal account) — its own balance, its own drawdown rules, its own rule configuration, its own trade history. You can run as many accounts side by side as you actually have.</p>
+
+      <h2 class="section-title">Prop firms — generic, never hardcoded</h2>
+      <p>Cairn never mentions a specific prop firm by name anywhere in the interface. Instead, you create your own "firm" entries (or use the built-in "Custom" one) and name them however you like. A firm just carries a default step count — 1, 2, or 3 — that new account templates for it default to.</p>
+
+      <h2 class="section-title">Account templates</h2>
+      <p>A template is a reusable blueprint so you don't re-enter the same numbers for every new challenge. Build one once, spin up new accounts from it in seconds. A template captures every one of these fields:</p>
+      <table class="spec">
+        <tr><th>Field</th><th>What it controls</th></tr>
+        <tr><td>Step count</td><td>1, 2, or 3-step challenge structure.</td></tr>
+        <tr><td>Account size</td><td>Starting balance for this challenge tier.</td></tr>
+        <tr><td>Leverage</td><td>e.g. 30:1, 50:1, 100:1 — used in every lot-size calculation.</td></tr>
+        <tr><td>Daily drawdown type &amp; value</td><td>Percent of balance, percent of equity, or a fixed dollar amount.</td></tr>
+        <tr><td>Total drawdown type &amp; value</td><td>Same three types, for the overall account-wide limit.</td></tr>
+        <tr><td>Drawdown basis</td><td>Measured from initial balance, the high-water mark, or the previous day's close — exactly matches how your firm actually calculates it.</td></tr>
+        <tr><td>Profit target per phase</td><td>Separate target % for Phase 1, Phase 2, and Phase 3 if applicable.</td></tr>
+        <tr><td>Min / max trading days</td><td>Some firms require a minimum number of active trading days, or cap the challenge window.</td></tr>
+        <tr><td>Weekend holding allowed</td><td>Whether you're permitted to carry positions into the weekend.</td></tr>
+        <tr><td>News trading allowed</td><td>Whether trading through high-impact news is permitted.</td></tr>
+        <tr><td>Consistency rule %</td><td>Caps any single day's profit as a percentage of total profit, if your firm enforces one.</td></tr>
+      </table>
+      <p>Templates can be exported and imported as JSON, so you can back one up or share it between setups.</p>
+
+      <h2 class="section-title">Phases</h2>
+      <p>Every account tracks a <code>current_phase</code>: <strong>1</strong>, <strong>2</strong>, <strong>3</strong> if your firm uses a third step, or <strong>0</strong> once you're funded. Cairn shows your phase progress right on the Dashboard and Accounts screen — current equity vs. starting balance, drawdown used vs. available, and profit-target progress, all updating live as you trade.</p>
+
+      <h2 class="section-title">Account lifecycle</h2>
+      <p>Each account carries a status: <strong>active</strong>, <strong>passed</strong>, <strong>failed</strong> (with a required reason), <strong>paused</strong>, or <strong>retired</strong>/archived. The Accounts screen lists every account you've ever run — display name, firm, size, phase, current equity, drawdown used/available, profit-target progress, days alive, trades taken, and clean-trade rate — click any row to switch the whole app's context to that account.</p>
+
+      <h2 class="section-title">Accounts &amp; Phases analytics</h2>
+      <p>A dedicated analytics tab (see the Analytics page) turns your account history into a ladder: every account chronologically, a rolling Phase 1 / Phase 2 / overall funded pass-rate trend, total challenge cost spent vs. payouts earned, a breakdown of which rule gets broken most often right before a failure, a distribution of how many days accounts typically survive, and auto-generated pattern insights like <em>"70% of your blown accounts broke max_trades_per_day within 48h of failure."</em></p>
+
+      <div class="callout">
+        <strong class="tag">How to use it day to day:</strong>
+        <p>Settings → Account Templates to build your blueprint once. Settings → Prop Firms if you want to label which firm it's for. Accounts → New Account to spin up a real challenge attempt from that template (or fully custom). Everything else — phase tracking, drawdown math, profit-target progress — updates itself as you log trades.</p>
+      </div>
+
+      <span class="pill free">FREE</span> <span style="font-size:0.85rem; color:var(--text-muted);">Accounts, templates, and phase tracking are all part of the free, local-forever core of Cairn.</span>
+    </section>
+
+    <!-- ================= RULE ENGINE ================= -->
+    <section class="page" id="page-rules">
+      <div class="eyebrow">Core System — The Moat</div>
+      <h1 class="page-title">The Rule Engine</h1>
+      <p class="lede">This is the single most important system in Cairn, and it's entirely free. Its job is simple to state and hard to build: enforce <em>your own</em> pre-committed rules, in real time, before the damage is done.</p>
+
+      <h2 class="section-title">Three checkpoints</h2>
+      <div class="grid">
+        <div class="card"><h4>1. Pre-trade gate</h4><p>Every rule relevant to a new trade is evaluated live as you fill out the New Trade panel — before you can submit.</p></div>
+        <div class="card"><h4>2. Trade-modification gate</h4><p>Try to move a stop loss against your position or add size mid-trade, and the relevant rule fires immediately.</p></div>
+        <div class="card"><h4>3. Session gate</h4><p>Account-level checks — daily loss limits, cooldowns, trade counts — evaluated continuously across your whole session.</p></div>
+      </div>
+
+      <h2 class="section-title">The full rule catalog</h2>
+      <p>Every rule below is independently enabled, disabled, and configured per account in <strong>Settings → Rules</strong>. Severity is either <strong>blocking</strong> (stops the trade cold), <strong>warning</strong> (lets you proceed but makes you look at it), or <strong>logged</strong> (recorded silently for analytics).</p>
+
+      <h3 class="sub-title">Risk rules</h3>
+      <table class="spec">
+        <tr><th>Rule</th><th>What it does</th><th>Default</th></tr>
+        <tr><td class="mono">max_risk_per_trade_pct</td><td>Computes risk from your SL distance and lot size; blocks if it exceeds your configured %.</td><td class="center">1%</td></tr>
+        <tr><td class="mono">max_daily_loss_pct</td><td>Sums today's closed P&amp;L; if it crosses your limit, the session blocks.</td><td class="center">2%</td></tr>
+        <tr><td class="mono">max_overall_daily_loss_hard_stop_pct</td><td>A hard lock — even the override system can't bypass this one.</td><td class="center">3%</td></tr>
+        <tr><td class="mono">min_rr_ratio</td><td>Blocks if your planned risk:reward falls below the configured minimum.</td><td class="center">2.0</td></tr>
+        <tr><td class="mono">position_size_matches_plan</td><td>Warns if your actual lot size differs from the calculated one.</td><td class="center">—</td></tr>
+      </table>
+
+      <h3 class="sub-title">Process rules</h3>
+      <table class="spec">
+        <tr><th>Rule</th><th>What it does</th><th>Default</th></tr>
+        <tr><td class="mono">require_mss_confirmation</td><td>The MSS-confirmed checkbox must be ticked before you can submit.</td><td class="center">On</td></tr>
+        <tr><td class="mono">require_invalidation_text</td><td>Your "this trade is wrong if…" field must be filled with a minimum length.</td><td class="center">20 chars</td></tr>
+        <tr><td class="mono">require_htf_bias_logged</td><td>You must log your session bias before any trade that day.</td><td class="center">On</td></tr>
+        <tr><td class="mono">no_sl_widening</td><td>Blocks any attempt to move your stop loss against an open position.</td><td class="center">On</td></tr>
+        <tr><td class="mono">require_killzone</td><td>Blocks entries taken outside your configured killzone windows.</td><td class="center">On (London + NY AM)</td></tr>
+        <tr><td class="mono">require_dxy_check</td><td>Warns if you haven't logged a DXY bias for the session.</td><td class="center">—</td></tr>
+      </table>
+
+      <h3 class="sub-title">Behavior rules</h3>
+      <table class="spec">
+        <tr><th>Rule</th><th>What it does</th><th>Default</th></tr>
+        <tr><td class="mono">max_trades_per_day</td><td>A hard cap on how many trades you can take today.</td><td class="center">2</td></tr>
+        <tr><td class="mono">cooldown_after_loss_minutes</td><td>Blocks new entries for a set number of minutes after any loss.</td><td class="center">30 min</td></tr>
+        <tr><td class="mono">daily_stop_after_losses</td><td>Auto-locks the whole session after N consecutive losses.</td><td class="center">2</td></tr>
+        <tr><td class="mono">no_revenge_trade_window</td><td>Flags or blocks a new trade on the same pair taken too soon after a loss on it.</td><td class="center">—</td></tr>
+        <tr><td class="mono">emotional_state_gate</td><td>Warns (with a typed acknowledgment to proceed) if your urgency or "need this to work" sliders run too hot.</td><td class="center">urgency &gt; 7</td></tr>
+      </table>
+
+      <h3 class="sub-title">Timing rules</h3>
+      <table class="spec">
+        <tr><th>Rule</th><th>What it does</th><th>Default</th></tr>
+        <tr><td class="mono">weekend_holding_blocked</td><td>Blocks carrying open trades into the weekend if your firm doesn't allow it.</td><td class="center">Per template</td></tr>
+        <tr><td class="mono">min_trading_days_check</td><td>Shows your progress toward a phase's minimum required trading days.</td><td class="center">Per template</td></tr>
+      </table>
+
+      <div class="callout warn">
+        <strong class="tag">Every evaluation is logged</strong> — passes, warnings, blocks, and overrides all write to <code>rule_violations</code>. That's the raw behavioral dataset the Analytics and Insight Engine pages run on.
+      </div>
+
+      <h2 class="section-title">The override system</h2>
+      <p>Some rules allow an override — but Cairn makes it deliberately effortful, on purpose. A modal shows exactly which rule is firing and why, the current value vs. the threshold, and requires you to <strong>type</strong> (not click) the word <span class="mono">OVERRIDE</span> plus a written reason of at least 30 characters. The event is logged permanently as <code>outcome: 'user_overrode'</code>, and the trade is tagged <strong>not clean</strong>, forever — no analytic will ever quietly call it a clean trade.</p>
+
+      <div class="toast-mock"><span class="dot"></span>You are moving SL against you. This violates Rule 4 on this account. Proceed anyway?</div>
+
+      <h2 class="section-title">Cooldowns</h2>
+      <p>When a cooldown triggers, a persistent countdown banner appears and new trades are blocked until it clears — either the timer runs out, or (for consecutive-loss cooldowns) you type the exact phrase <em>"I am trading my plan, not my emotions."</em> There's no quiet dismiss button.</p>
+
+      <h2 class="section-title">Hard locks</h2>
+      <p>Some limits can never be overridden — the hard daily-drawdown stop is the clearest example. Once triggered, the session enters a <strong>locked</strong> state: the Dashboard shows it plainly, trade entry is disabled everywhere, and the app tells you exactly which rule fired and when it clears.</p>
+
+      <h2 class="section-title">Session states</h2>
+      <table class="spec">
+        <tr><th>State</th><th>Meaning</th></tr>
+        <tr><td class="mono">idle</td><td>No session started yet today.</td></tr>
+        <tr><td class="mono">active</td><td>Session running, trades can be taken.</td></tr>
+        <tr><td class="mono">paused</td><td>You paused it manually.</td></tr>
+        <tr><td class="mono">locked</td><td>A rule triggered a lock — read-only until it clears.</td></tr>
+      </table>
+
+      <div class="callout">
+        <strong class="tag">How to customize:</strong>
+        <p>Settings → Rules (per account, with global defaults) — toggle any rule on/off, edit its config value, reset everything to defaults, or export/import your whole rule profile as JSON to reuse across accounts.</p>
+      </div>
+
+      <span class="pill free">FREE</span> <span style="font-size:0.85rem; color:var(--text-muted);">The entire rule engine — every rule, override, cooldown, and hard lock — is free, forever. This is Cairn's moat, and it is never paywalled.</span>
+    </section>
+
+    <!-- ================= KILLZONES & CUSTOMIZATION ================= -->
+    <section class="page" id="page-killzones">
+      <div class="eyebrow">Core System</div>
+      <h1 class="page-title">Killzones &amp; Customization</h1>
+      <p class="lede">A <strong>killzone</strong> is simply a time window that historically sees higher volume and volatility — the idea being that trading inside these windows gives you a statistical edge over trading in dead, directionless hours. If you're new to this: think of it as "the hours when the market actually tends to move."</p>
+
+      <h2 class="section-title">Default killzones</h2>
+      <p>Seeded on first launch (all times UTC — displayed converted to your own timezone):</p>
+      <table class="spec">
+        <tr><th>Killzone</th><th>Window (UTC)</th></tr>
+        <tr><td>Asia</td><td class="mono">00:00 – 05:00</td></tr>
+        <tr><td>London</td><td class="mono">07:00 – 10:00</td></tr>
+        <tr><td>NY AM</td><td class="mono">12:00 – 15:00</td></tr>
+        <tr><td>London Silver Bullet</td><td class="mono">09:00 – 10:00</td></tr>
+        <tr><td>NY PM Silver Bullet</td><td class="mono">19:00 – 20:00</td></tr>
+      </table>
+      <p>The New Trade panel auto-detects which killzone you're currently in from the clock (you can override it), and the <code>require_killzone</code> rule can block entries taken outside your configured windows entirely.</p>
+
+      <h2 class="section-title">Everything is customizable — nothing is a hardcoded constraint</h2>
+      <p>Cairn's design principle: any behavioral preference is a setting, not an assumption. That includes:</p>
+      <table class="spec">
+        <tr><th>Scope</th><th>What you can change</th></tr>
+        <tr><td><strong>Global</strong></td><td>Pairs, setups, killzones, prop firms, account templates, theme, timezone, week-start day, number formatting.</td></tr>
+        <tr><td><strong>Per account</strong></td><td>Every single rule — enable/disable and its config value — plus the display name.</td></tr>
+        <tr><td><strong>Per session</strong></td><td>Bias fields and key levels for that day.</td></tr>
+      </table>
+
+      <h3 class="sub-title">Pairs</h3>
+      <p>A seeded instrument list ships out of the box — majors, gold, key indices, and BTC — and you can add, edit, or archive anything. Each pair carries: a unique symbol, a display name, its asset class (forex / indices / commodities / crypto / stocks / other), the pip decimal (how many decimal places equal one pip), the pip value per standard lot, and an optional list of correlated symbols used for SMT divergence checks.</p>
+
+      <h3 class="sub-title">Setups</h3>
+      <p>Seeded with ten ICT/SMC-native setup types: <strong>Fair Value Gap (FVG)</strong>, <strong>Order Block</strong>, <strong>Breaker Block</strong>, <strong>Mitigation Block</strong>, <strong>Judas Swing</strong>, <strong>SMT Divergence</strong>, <strong>Silver Bullet</strong>, <strong>Liquidity Sweep Reversal</strong>, <strong>Turtle Soup</strong>, and <strong>Power of Three</strong>. Each has a name, category, description, and display color for tags and charts — add your own or edit these freely.</p>
+
+      <details class="expand">
+        <summary>New to ICT/SMC? Quick plain-English glossary</summary>
+        <div class="expand-body">
+          <table class="spec">
+            <tr><th>Term</th><th>Plain-English meaning</th></tr>
+            <tr><td>ICT</td><td>Inner Circle Trader — the methodology most of these setup names come from.</td></tr>
+            <tr><td>SMC</td><td>Smart Money Concepts — a closely related school of thought.</td></tr>
+            <tr><td>MSS / CHoCH</td><td>Market Structure Shift / Change of Character — the moment price stops making higher highs (or lower lows) and reverses structure.</td></tr>
+            <tr><td>FVG</td><td>Fair Value Gap — a price imbalance left behind by a fast move, often "filled" later.</td></tr>
+            <tr><td>Order Block</td><td>The last opposing candle before a strong move — thought to mark where big players entered.</td></tr>
+            <tr><td>Judas Swing</td><td>An early fakeout move against the real direction of the day, designed to trap early traders.</td></tr>
+            <tr><td>Silver Bullet</td><td>A specific, narrow one-hour killzone within the London or New York session.</td></tr>
+            <tr><td>SMT</td><td>Smart Money Technique — divergence between two correlated pairs (e.g. EURUSD making a new low while GBPUSD doesn't) used as a confirmation signal.</td></tr>
+            <tr><td>DXY</td><td>The US Dollar Index — used as a directional cross-check against dollar-pairs.</td></tr>
+            <tr><td>Clean vs. dirty trade</td><td>A clean trade broke zero rules and followed the plan exactly. A dirty trade broke at least one, or deviated from plan.</td></tr>
+          </table>
+        </div>
+      </details>
+
+      <h3 class="sub-title">Prop firms &amp; account templates</h3>
+      <p>Covered in full on the <a href="#" data-goto="accounts">Accounts &amp; Phases page</a> — firms are user-named and generic, templates are fully editable and exportable.</p>
+
+      <div class="callout">
+        <strong class="tag">How to customize:</strong>
+        <p>Settings → Pairs / Setups / Killzones / Prop Firms / Account Templates. Every list supports add, edit, reorder, and archive (never a hard delete of historical data).</p>
+      </div>
+
+      <span class="pill free">FREE</span> <span style="font-size:0.85rem; color:var(--text-muted);">All customization — pairs, setups, killzones, firms, templates, formatting — is free.</span>
+    </section>
+
+    <!-- ================= ANALYTICS ================= -->
+    <section class="page" id="page-analytics">
+      <div class="eyebrow">Core System</div>
+      <h1 class="page-title">Analytics &amp; Insights</h1>
+      <p class="lede">Six tabs, one persistent filter bar (date range, account, mode, pair, setup, killzone, and a "clean trades only" toggle — filters persist as you switch tabs), and a local insight engine that turns your history into things you should actually change next week.</p>
+
+      <h2 class="section-title">The Discipline Ring &amp; Composite Score</h2>
+      <p>The Discipline Ring is the first thing you see on the Dashboard — a large ring showing your live discipline standing. Alongside it sits a <strong>Composite Performance Score</strong> (a 0–100 rating in the spirit of a "Zella Score," if you've used other journals) built from your win rate, profit factor, average win/loss size, consistency, and clean-trade rate — computed with exact decimal math, never floating-point rounding.</p>
+
+      <div class="ring-wrap">
+        <div class="ring"><div class="ring-inner"><div class="score">92</div><div class="label">Performance</div></div></div>
+      </div>
+
+      <h2 class="section-title">Per-trade A–F grade</h2>
+      <p>Every trade gets a letter grade, computed at read time — never stored, always fresh. It's <strong>process-weighted</strong>: whether you followed your plan and kept your rules clean dominates the grade far more than the outcome. A disciplined, well-managed loss can grade an A. A rule-breaking win can grade an F. The grade rewards the behavior, not the luck.</p>
+
+      <h2 class="section-title">The six analytics tabs</h2>
+
+      <div class="grid">
+        <div class="card"><h4>1 · Performance</h4><p>Total trades, win rate, R-expectancy, total R, net P&amp;L, profit factor. An equity curve (toggle $/R) with a max-drawdown overlay, an R-multiple distribution histogram, streak tracking, and a daily P&amp;L heatmap calendar.</p></div>
+        <div class="card"><h4>2 · Rule Adherence <span class="pill both">Primary tab</span></h4><p>Your headline Rule Adherence Score, a side-by-side clean-vs-dirty comparison (count, win rate, expectancy, total R for each), a bar chart of your most-broken rules, a rule-break impact table, a count of trades the engine actually blocked this period, and a weekly adherence trend line.</p></div>
+        <div class="card"><h4>3 · Setup Performance</h4><p>A setup-by-killzone matrix colored by expectancy or win rate, win rate/expectancy/RR by setup, performance by day of week, and side-by-side comparisons for "with MSS vs. without," "DXY aligned vs. against," and "SMT confirmed vs. not."</p></div>
+        <div class="card"><h4>4 · Behavioral</h4><p>Performance bucketed by emotional state (calm/neutral/urgent) and by need-to-work score, post-loss behavior (1st and 2nd trade after a loss, flagged revenge trades separately), performance by trade-number-of-the-day, an hourly×weekday expectancy heatmap, and a loss-then-win recovery-quality tracker.</p></div>
+        <div class="card"><h4>5 · Accounts &amp; Phases</h4><p>The full account ladder, phase pass-rate trends, cost-vs-payout analysis, cause-of-failure breakdown, days-to-failure distribution, and auto-generated pattern insight cards.</p></div>
+        <div class="card"><h4>6 · Review</h4><p>Your weekly review form and history, a monthly summary preview, and — see below — the local insight engine's live findings.</p></div>
+      </div>
+
+      <h2 class="section-title">The local insight engine</h2>
+      <p>Deterministic statistical heuristics run entirely on your device — <strong>no LLM call, no network round-trip, no telemetry</strong>, ever. It surfaces things like:</p>
+      <ul>
+        <li>"Your win rate drops when urgency scores above 7."</li>
+        <li>"You show negative expectancy trading outside your listed killzones."</li>
+        <li>"Tilt cycle detected: three consecutive losses followed by an over-sized trade, N times in the last M weeks."</li>
+        <li>"Setup X is your highest-expectancy setup, but you only take it N% of the time."</li>
+      </ul>
+      <p>These only surface once there's a statistically meaningful sample — no confident-sounding claim from three trades.</p>
+
+      <h2 class="section-title">Free vs. Pro on Analytics</h2>
+      <table class="spec">
+        <tr><th>Capability</th><th>Free</th><th>Pro</th></tr>
+        <tr><td>Core dashboards (Performance, Rule Adherence basics, Discipline Ring, Composite Score, A–F grade)</td><td class="center">✅</td><td class="center">✅</td></tr>
+        <tr><td>Local insight engine heuristics</td><td class="center">✅</td><td class="center">✅</td></tr>
+        <tr><td>Expanded / cross-cut reports and deeper pattern surfacing</td><td class="center">❌</td><td class="center">✅</td></tr>
+      </table>
+
+      <div class="callout">
+        <strong class="tag">How to use it:</strong>
+        <p>Analytics tab in the sidebar → pick a tab → set your filters once, they follow you across tabs. Check Rule Adherence weekly; that's the tab that actually tells you if the discipline is working, not just whether you made money.</p>
+      </div>
+    </section>
+
+    <!-- ================= NOTEBOOK / CALENDAR / PLAYBOOKS ================= -->
+    <section class="page" id="page-notebook">
+      <div class="eyebrow">Journaling Tools — All Free</div>
+      <h1 class="page-title">Notebook, Calendar &amp; Playbooks</h1>
+      <p class="lede">Three tools that round out Cairn as a full journal, not just a rule enforcer — all free, all local.</p>
+
+      <h2 class="section-title">Notebook</h2>
+      <p>Free-form, markdown-based notes with three ready-made templates: a <strong>trading plan</strong>, a <strong>watchlist</strong>, and a <strong>weekly review</strong>. Notes can be pinned, can be global or scoped to a specific account, and are fully searchable across title and content.</p>
+
+      <h2 class="section-title">Calendar view</h2>
+      <p>A month grid, colored by that day's P&amp;L — darker shades for bigger days in either direction. Click any day to jump straight to every trade taken on it. It's the fastest way to spot a pattern like "my Fridays are consistently my worst day."</p>
+
+      <h2 class="section-title">Playbooks</h2>
+      <p>A playbook is a saved setup template: pair, setup, killzone, required confluence, a default risk %, and a default invalidation chip, all bundled together. Load one with a single tap from a dropdown, or type "New trade from playbook: [name]" into the command palette — the New Trade panel opens pre-filled, and you only have to type in the live prices.</p>
+
+      <h2 class="section-title">Command palette (⌘K)</h2>
+      <p>Fast jump-to-anything: new trade, close trade, jump to any account, log today's bias, or navigate straight to any Settings tab — without ever touching the mouse.</p>
+
+      <h2 class="section-title">Review screen</h2>
+      <p>The home for two things: your <strong>deferred-reflection queue</strong> (trades that were fast-logged and are waiting for your honest write-up, cleared in one calm batch instead of mid-session) and the local insight engine's live pattern callouts.</p>
+
+      <span class="pill free">FREE</span> <span style="font-size:0.85rem; color:var(--text-muted);">Notebook, Calendar, Playbooks, the command palette, and the Review screen are all part of the free core.</span>
+    </section>
+
+    <!-- ================= SECURITY & DATA ================= -->
+    <section class="page" id="page-security">
+      <div class="eyebrow">Trust &amp; Ownership</div>
+      <h1 class="page-title">Security, Privacy &amp; Your Data</h1>
+      <p class="lede">This is a financial app that touches your trading psychology. The posture is deliberately strict.</p>
+
+      <h2 class="section-title">Local-first, always</h2>
+      <p>The desktop app is fully usable offline, forever, with or without an account. Your local SQLite database is the canonical store on your machine — it is never a cache of "the real data somewhere else." No telemetry is ever collected by default; any crash reporting is strictly opt-in and defaults to off.</p>
+
+      <h2 class="section-title">Optional end-to-end-encrypted cloud sync <span class="pill pro">PRO</span></h2>
+      <p>Pro adds optional multi-device sync where the server is <strong>architecturally incapable of reading your content</strong>:</p>
+      <ul>
+        <li>Data is encrypted on your device, using a data key wrapped by a key derived from your password (Argon2id), <em>before</em> anything leaves your machine.</li>
+        <li>The key that unlocks it all never leaves your device.</li>
+        <li>The server stores only ciphertext and a wrapped key — no admin override, no backdoor, ever.</li>
+        <li>Free users never have any vault data on the server at all.</li>
+        <li>Cancelling Pro stops sync but <strong>never</strong> deletes your local data.</li>
+      </ul>
+
+      <h2 class="section-title">Money math you can trust</h2>
+      <p>Every monetary and pip calculation uses exact decimal arithmetic, never floating-point numbers — tested with property-based tests, not just example cases. Every database write is transactional, and every migration is tested running both forward and backward.</p>
+
+      <h2 class="section-title">Backups &amp; your right to leave</h2>
+      <p>Point Cairn's backup system at any folder you like — including one already synced by Dropbox or Google Drive — set a schedule, and restore from any point. Export everything to JSON or CSV at any time, or open your raw local data folder directly in your OS's file explorer. Nothing is ever locked in.</p>
+
+      <h2 class="section-title">Broker safety boundary</h2>
+      <p>Cairn is <strong>read-only against every broker connection, permanently.</strong> No adapter, no Expert Advisor, no integration contains any order-placing, order-modifying, or order-closing code path — this is asserted by an automated test, not just a policy statement.</p>
+    </section>
+
+    <!-- ================= BROKER INTEGRATION ================= -->
+    <section class="page" id="page-broker">
+      <div class="eyebrow">Sub-page &middot; Free Feature</div>
+      <h1 class="page-title">Connect MetaTrader 5 &amp; cTrader</h1>
+      <p class="lede">Cairn's live broker bridges auto-log your trades in real time and watch your live position for rule violations — read-only, forever. This page is the full step-by-step; a separate interactive checklist version of the same guide is also available if you'd like a progress-tracked copy.</p>
+
+      <div class="callout">
+        <strong class="tag">Two separate things happen when you connect a broker:</strong>
+        <p>(1) <strong>The connection</strong> — Cairn and your broker start talking. (2) <strong>Account mapping</strong> — you tell Cairn which of your Cairn accounts a broker account belongs to. Until mapped, fills are held and no trade is created. Cairn never guesses.</p>
+      </div>
+
+      <h2 class="section-title">Part 0 — Before you start</h2>
+      <p>If this is a fresh Cairn install with no accounts yet, open <strong>Cairn → Accounts</strong> and create at least one (any name, any starting balance/phase) before continuing — account mapping later needs somewhere to bind to.</p>
+
+      <h2 class="section-title">Part A — MetaTrader 5 (do this first)</h2>
+      <p>MT5 has no outbound API for third-party apps, so Cairn ships a small, read-only <strong>Expert Advisor (EA)</strong> that runs inside your MT5 terminal and reports fills to Cairn over a connection that never leaves your computer.</p>
+
+      <h3 class="sub-title">A1 — Open the Cairn screen you need</h3>
+      <p>Cairn → <strong>Settings → Integrations</strong> → scroll to the <strong>MetaTrader 5 bridge</strong> card. You'll see a <strong>Pairing token</strong> and a <strong>Listener address</strong> like <span class="mono">127.0.0.1:53127</span>.</p>
+
+      <h3 class="sub-title">A2 — Install the EA (one click)</h3>
+      <p>Open any MT5 terminal you have installed, then click <strong>Install Cairn EA</strong> in Cairn. This installs the bridge into <em>every</em> MT5 terminal Cairn detects on your machine at once — it doesn't matter which one you actually trade from. If the EA ever gets deleted by accident, just click the button again; it's harmless to re-run.</p>
+
+      <h3 class="sub-title">A3 — Compile it (skip if already compiled)</h3>
+      <p>If a <span class="mono">CairnBridge.ex5</span> file is already sitting in the Experts folder, it's pre-compiled — skip this. Otherwise: press <strong>F4</strong> in MT5 to open MetaEditor, open <span class="mono">CairnBridge.mq5</span>, press <strong>F7</strong> to compile (expect <span class="mono">0 errors, 0 warnings</span>), then close MetaEditor.</p>
+
+      <h3 class="sub-title">A4 — ⚠ Allow the local connection</h3>
+      <p>The step people miss. In MT5: <strong>Tools → Options → Expert Advisors</strong> → tick <strong>Allow algorithmic trading</strong> → tick the WebRequest/URL-allow option and add exactly <span class="mono">127.0.0.1</span> → click OK. This master EA switch does not give the bridge trading power — it has no order-placing code at all.</p>
+
+      <h3 class="sub-title">A5 — Attach the EA and paste the token</h3>
+      <p>Open any chart → drag <strong>CairnBridge</strong> from Navigator → Expert Advisors onto it → in the <strong>Inputs</strong> tab set <span class="mono">InpToken</span> (paste from Cairn), <span class="mono">InpPort</span> (match Cairn's listener, default <span class="mono">53127</span>), leave <span class="mono">InpHost</span> as <span class="mono">127.0.0.1</span> → click OK. Look for a 🙂 in the chart's corner.</p>
+
+      <h3 class="sub-title">A6 — Confirm it worked</h3>
+      <p>Back in Cairn's Integrations page, within seconds the MetaTrader 5 status should turn green: "Listening on 127.0.0.1:&lt;port&gt;," and the MT5 panel shows "EA connected" with a ticking "last event" timer.</p>
+
+      <div class="callout warn">
+        <strong class="tag">Login errors are separate.</strong>
+        <p>An MT5 Journal message like <span class="mono">authorization failed (Invalid account)</span> is your broker login, unrelated to the bridge. The heartbeat still works even while logged out — you just won't see real fills until you're logged into a valid account.</p>
+      </div>
+
+      <h2 class="section-title">Part B — cTrader (needs Spotware's approval first)</h2>
+      <p>cTrader has an official, free Open API, but you first register a small "application" with Spotware and wait for their review — typically a few business days. The Cairn side takes two minutes.</p>
+      <ol>
+        <li>Register a free app on Spotware's Open API portal. Redirect URI must be exactly <span class="mono">http://127.0.0.1:53129/ctrader/callback</span>, scope <span class="mono">accounts</span> (read-only).</li>
+        <li>Copy the Client ID and Client Secret Spotware gives you.</li>
+        <li>Paste both into Cairn → Settings → Integrations → cTrader, and click <strong>Save credentials</strong> (stored in your OS keychain, never in plain text).</li>
+        <li>Choose <strong>Demo</strong> or <strong>Live</strong>, click <strong>Connect cTrader</strong>, log in and approve read-only access in the browser tab that opens.</li>
+        <li>Click <strong>Test connection</strong> to confirm.</li>
+      </ol>
+      <p>If Spotware hasn't finished reviewing your app yet, the connect flow will say so plainly — nothing wrong on your end, just wait it out.</p>
+
+      <h2 class="section-title">Part C — Account mapping (one-time, per broker account)</h2>
+      <p>Place (or wait for) one trade on the connected broker account — it appears under <strong>Waiting to be mapped</strong> within seconds. Pick which Cairn account it belongs to, click <strong>Bind</strong>. That's permanent: you never have to re-map that same broker account again, even across app restarts or EA reinstalls.</p>
+
+      <h2 class="section-title">What "connected" gets you</h2>
+      <p>Every fill auto-fills the mechanical facts of the trade — pair, direction, lot size, entry/stop/target, exit, partials — and Cairn's rule engine watches your live position, warning you calmly and immediately if it drifts from your own rules: a stop moved against you, size increased mid-trade, a target cut short, an over-trade past your daily limit, trading after a loss-limit lockout, or an entry outside your configured killzones.</p>
+
+      <div class="callout danger">
+        <strong class="tag">What it will never do:</strong>
+        <p>Place, modify, or close a trade for you. Both bridges are permanently read-only. Cairn cannot block a trade that's already live at the broker — it can only detect and warn. That's a hard, deliberate safety boundary, not a current limitation.</p>
+      </div>
+
+      <span class="pill free">FREE</span> <span style="font-size:0.85rem; color:var(--text-muted);">Live fill capture from both brokers is free. Only the on-chart "Cairn Buy/Sell" gate buttons are Pro.</span>
+    </section>
+
+    <!-- ================= FREE VS PRO ================= -->
+    <section class="page" id="page-compare">
+      <div class="eyebrow">The Decision</div>
+      <h1 class="page-title">Free vs. Pro — Side by Side</h1>
+      <p class="lede">Everything that actually stops you from breaking your own rules is free, permanently. What you pay for is reach and convenience: syncing across devices, the web app, deeper analytics, and one extra on-chart tool.</p>
+
+      <table class="spec">
+        <tr><th>Capability</th><th class="center">Free</th><th class="center">Pro</th></tr>
+        <tr><td>Desktop app, fully offline, forever</td><td class="center">✅</td><td class="center">✅</td></tr>
+        <tr><td>Local trade journal &amp; full trade log</td><td class="center">✅</td><td class="center">✅</td></tr>
+        <tr><td>Real-time rule engine — hard locks, cooldowns, circuit breakers, overrides</td><td class="center">✅</td><td class="center">✅</td></tr>
+        <tr><td>Accounts, phases, templates, prop firms</td><td class="center">✅</td><td class="center">✅</td></tr>
+        <tr><td>Killzones &amp; full customization (pairs/setups/killzones/firms)</td><td class="center">✅</td><td class="center">✅</td></tr>
+        <tr><td>Core dashboards, Discipline Ring, Composite Score, A–F grades</td><td class="center">✅</td><td class="center">✅</td></tr>
+        <tr><td>Local insight engine</td><td class="center">✅</td><td class="center">✅</td></tr>
+        <tr><td>Notebook, Calendar, Playbooks, command palette, Review screen</td><td class="center">✅</td><td class="center">✅</td></tr>
+        <tr><td>Statement file import (MT5 / cTrader / TradingView)</td><td class="center">✅</td><td class="center">✅</td></tr>
+        <tr><td>Live MT5 &amp; cTrader fill capture + live rule warnings</td><td class="center">✅</td><td class="center">✅</td></tr>
+        <tr><td>Backups, full data export, local reset</td><td class="center">✅</td><td class="center">✅</td></tr>
+        <tr><td>Expanded / advanced analytics &amp; deeper insight surfacing</td><td class="center">❌</td><td class="center">✅</td></tr>
+        <tr><td>On-chart pre-trade gate ("Cairn Buy/Sell" chart buttons)</td><td class="center">❌</td><td class="center">✅</td></tr>
+        <tr><td>End-to-end-encrypted cloud sync</td><td class="center">❌</td><td class="center">✅</td></tr>
+        <tr><td>Web app access</td><td class="center">❌</td><td class="center">✅</td></tr>
+        <tr><td>Multiple enrolled devices</td><td class="center">❌</td><td class="center">✅</td></tr>
+      </table>
+
+      <div class="callout">
+        <strong class="tag">Why the split is drawn here:</strong>
+        <p>Anything that stops you from breaking your own rules — the rule engine, hard locks, circuit breakers, live in-trade warnings — would undercut Cairn's entire point if it were paywalled. So it never is. Pro pays for reach (more devices, the browser), depth (deeper analytics), and one extra convenience layer on the chart itself.</p>
+      </div>
+
+      <div class="callout danger">
+        <strong class="tag">Cancelling never deletes anything.</strong>
+        <p>Your local data and full journal history stay exactly as they are if you cancel Pro — you simply lose sync and the paid extras. There is no lock-in.</p>
+      </div>
+
+      <div class="hero-ctas" style="margin-top:30px;">
+        <span class="btn primary" data-goto="pricing">See pricing →</span>
+      </div>
+    </section>
+
+    <!-- ================= PRICING ================= -->
+    <section class="page" id="page-pricing">
+      <div class="eyebrow">Simple, Honest Pricing</div>
+      <h1 class="page-title">Pricing</h1>
+      <p class="lede">No free trials, no auto-charging surprises. Use Free indefinitely, or subscribe to Pro deliberately whenever you're ready.</p>
+
+      <div class="grid">
+        <div class="card">
+          <h4>Free <span class="pill free">$0 forever</span></h4>
+          <p>The entire local discipline engine — rule engine, accounts &amp; phases, killzones, full customization, core analytics, notebook/calendar/playbooks, statement import, and live broker fill capture with live rule warnings. No account required. No time limit.</p>
+        </div>
+        <div class="card">
+          <h4>Pro <span class="pill pro">$15/mo or $150/yr</span></h4>
+          <p>Everything in Free, plus end-to-end-encrypted cloud sync, the web app, multiple devices, advanced analytics, and the on-chart pre-trade gate. Annual billing gives you two months free. In India: ₹1,299/mo or ₹12,990/yr, GST included.</p>
+        </div>
+      </div>
+
+      <div class="callout">
+        <strong class="tag">No trials, on purpose.</strong>
+        <p>Cairn doesn't run free trials that quietly convert to a charge. You either use Free for as long as you want, or you subscribe to Pro because you've decided you want it — a small but deliberate trust decision.</p>
+      </div>
+
+      <h2 class="section-title">Payments</h2>
+      <p>Billing is handled by a Merchant-of-Record payment processor that manages tax and invoicing correctly for your country, so the price you see is the price you pay — no surprise tax line at checkout.</p>
+
+      <footer class="site-footer">Designed &amp; built by Jai Akash.</footer>
+    </section>
+
+  </main>
+</div>
+
+<script>
+(function () {
+  var PAGES = ['home','features','accounts','rules','killzones','analytics','notebook','security','broker','compare','pricing'];
+  var navlinks = document.querySelectorAll('.navlink');
+  var gotoEls = document.querySelectorAll('[data-goto]');
+
+  function showPage(id) {
+    if (PAGES.indexOf(id) === -1) id = 'home';
+    document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('active'); });
+    var target = document.getElementById('page-' + id);
+    if (target) target.classList.add('active');
+    navlinks.forEach(function (l) { l.classList.toggle('active', l.getAttribute('data-page') === id); });
+    window.scrollTo(0, 0);
+    history.replaceState(null, '', '#' + id);
+  }
+
+  navlinks.forEach(function (l) {
+    l.addEventListener('click', function () { showPage(l.getAttribute('data-page')); });
+  });
+  gotoEls.forEach(function (el) {
+    el.addEventListener('click', function (e) {
+      var id = el.getAttribute('data-goto');
+      if (id) { e.preventDefault(); showPage(id); }
+    });
+  });
+
+  var initial = (window.location.hash || '#home').replace('#', '');
+  showPage(initial);
+
+  /* Theme toggle */
+  var themeBtns = document.querySelectorAll('[data-theme-btn]');
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    themeBtns.forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-theme-btn') === t); });
+    try { localStorage.setItem('cairn-guide-theme', t); } catch (e) {}
+  }
+  themeBtns.forEach(function (b) {
+    b.addEventListener('click', function () { applyTheme(b.getAttribute('data-theme-btn')); });
+  });
+  var saved = null;
+  try { saved = localStorage.getItem('cairn-guide-theme'); } catch (e) {}
+  applyTheme(saved === 'night' ? 'night' : 'day');
+})();
+</script>
+</body>
+</html>
