@@ -160,7 +160,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: electron-out
-          path: out/
+          # `pnpm build` runs electron-vite build inside apps/desktop, so output
+          # lands at apps/desktop/out/ — NOT a repo-root out/ (that path never
+          # existed, so this step silently uploaded nothing and smoke-e2e's
+          # download step below found nothing to unpack).
+          path: apps/desktop/out/
           retention-days: 1
 
   # ── 4. Smoke E2E ───────────────────────────────────────────────────────────
@@ -191,7 +195,10 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: electron-out
-          path: out/
+          # Must match the Build job's upload path: playwright (run via
+          # `pnpm --filter @cairn/desktop run test:e2e`, cwd apps/desktop) expects
+          # the built app at apps/desktop/out/, not a repo-root out/.
+          path: apps/desktop/out/
 
       - name: Install Playwright (no browsers needed — Electron ships its own)
         run: pnpm playwright install --with-deps chromium
