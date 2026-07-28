@@ -1,0 +1,144 @@
+<!doctype html>
+<!--
+  Cairn — Privacy Policy (publish-ready).
+  REVIEW BEFORE PUBLISHING: fill every [bracketed] placeholder and have a qualified lawyer
+  review against your jurisdiction (GDPR / UK GDPR / India DPDP / CCPA, etc.).
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cairn — Privacy Policy</title>
+    <style>
+      :root { color-scheme: light; }
+      body {
+        max-width: 760px; margin: 0 auto; padding: 48px 20px 96px;
+        font-family: Georgia, 'Times New Roman', serif; line-height: 1.65;
+        color: #2b2118; background: #faf6ee;
+      }
+      h1 { font-size: 2rem; margin-bottom: 4px; }
+      h2 { font-size: 1.25rem; margin-top: 2.2em; border-bottom: 1px solid #e4d9c6; padding-bottom: 4px; }
+      .meta { color: #6b5d49; font-size: .95rem; margin-bottom: 2em; }
+      a { color: #7c2a24; }
+      table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: .95rem; }
+      th, td { border: 1px solid #e4d9c6; padding: 7px 9px; text-align: left; vertical-align: top; }
+      th { background: #f0e8d8; }
+      .callout { background: #f4ede0; border-left: 3px solid #7c2a24; padding: 12px 16px; margin: 1.5em 0; }
+      footer { margin-top: 4em; padding-top: 1em; border-top: 1px solid #e4d9c6; color: #6b5d49; font-size: .9rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Privacy Policy</h1>
+    <p class="meta">
+      <strong>Cairn</strong> &middot; Effective date: [DATE] &middot; Data controller: [LEGAL ENTITY / Jai Akash],
+      [ADDRESS], [COUNTRY] &middot; Contact: <a href="mailto:support@[yourdomain]">support@[yourdomain]</a>
+    </p>
+
+    <p>
+      Cairn is a discipline-first trading journal. This policy explains what data we process and — just as
+      importantly — what we <em>cannot</em> access, because Cairn is built so that we never hold the keys to
+      your trading data.
+    </p>
+
+    <div class="callout">
+      <strong>The short version.</strong> Cairn is local-first: your trades are stored on your own device and
+      the app works fully offline with no account. If you enable optional cloud sync, your data is
+      end-to-end encrypted on your device before it leaves — our servers store only ciphertext they cannot
+      read. We do not sell your data, we run no ads, and any telemetry is off by default.
+    </div>
+
+    <h2>1. What we collect, and why</h2>
+    <p>
+      <strong>If you use only the free desktop app (no account):</strong> we collect nothing. Your data
+      never leaves your device unless you choose to move it (for example, into a synced folder you control).
+    </p>
+    <p><strong>If you create an account</strong> (required only for paid cloud sync and the web app), we process:</p>
+    <table>
+      <tr><th>Data</th><th>Purpose</th><th>Legal basis (GDPR)</th></tr>
+      <tr><td>Email address</td><td>Account identity, verification, security notices</td><td>Contract</td></tr>
+      <tr><td>Password (stored only as an Argon2id hash with a server-side pepper — never the plaintext)</td><td>Authentication</td><td>Contract</td></tr>
+      <tr><td>Encrypted vault blobs + wrapped data key</td><td>To sync your (to-us-unreadable) data between devices</td><td>Contract</td></tr>
+      <tr><td>Device metadata (name, platform, last-seen)</td><td>Multi-device sync and revocation</td><td>Contract</td></tr>
+      <tr><td>Subscription &amp; billing state</td><td>To provide and bill the paid plan</td><td>Contract</td></tr>
+      <tr><td>Server operational logs (request ids, IP addresses, error traces — PII-scrubbed)</td><td>Security, abuse prevention, reliability</td><td>Legitimate interest</td></tr>
+      <tr><td>Opt-in telemetry (only if you enable it; default off)</td><td>Aggregated crash/usage data to improve the product</td><td>Consent</td></tr>
+    </table>
+    <p>
+      <strong>Payment data</strong> (card numbers, etc.) is handled entirely by our payment processor and
+      Merchant of Record, Dodo Payments (see §4). We never see or store your full card details.
+    </p>
+
+    <h2>2. What we can never access</h2>
+    <p>
+      Your <strong>vault content</strong> — your trades, journal entries, and account details — is encrypted
+      on your device. The encryption key is derived from your password (via Argon2id) and never leaves your
+      device unencrypted. On our servers we hold only ciphertext and a data key wrapped under a key we do not
+      possess. There is no admin override and no backdoor. If you lose both your password and your recovery
+      phrase, we cannot recover your synced data — this is by design.
+    </p>
+
+    <h2>3. Cookies</h2>
+    <p>
+      The desktop app uses no cookies. The web app uses a single essential, secure, http-only session cookie
+      (<code>__Host-refresh</code>) required to keep you signed in; no consent is required for strictly
+      essential cookies. We do not use advertising or third-party tracking cookies. [If you add analytics to
+      the marketing site, disclose it here and add a consent banner where required.]
+    </p>
+
+    <h2>4. Who we share data with (sub-processors)</h2>
+    <p>
+      We share data only with the service providers strictly needed to run the paid service. Each is bound by
+      a data-processing agreement. The current list is maintained at
+      <a href="/subprocessors">our sub-processors page</a> and typically includes: our API hosting provider,
+      our managed database provider, our transactional email provider (Resend), our payment Merchant of
+      Record (Dodo Payments), and our error-tracking provider. The <strong>free local app uses none of
+      these.</strong> We do not share your data with anyone else, and we never sell it.
+    </p>
+
+    <h2>5. Retention</h2>
+    <ul>
+      <li><strong>Local data:</strong> stays on your device until you delete it. Cancelling a subscription never deletes it.</li>
+      <li><strong>Synced (encrypted) vault:</strong> retained while your subscription is active; after cancellation it is kept for 90 days, then crypto-shredded (we delete the wrapped key, permanently rendering the ciphertext undecryptable).</li>
+      <li><strong>Account &amp; billing records:</strong> retained as required for legal and tax obligations, then deleted.</li>
+      <li><strong>Operational logs:</strong> retained for [30–90] days.</li>
+    </ul>
+
+    <h2>6. Your rights</h2>
+    <p>
+      Depending on your jurisdiction (GDPR / UK GDPR / India DPDP / CCPA and others), you may have rights to
+      access, correct, export, or delete your personal data, and to object to or restrict certain processing.
+      To exercise any right, email <a href="mailto:support@[yourdomain]">support@[yourdomain]</a>. Because
+      your vault is encrypted with your own key, a data export of vault content returns ciphertext unless you
+      decrypt it within the app. You may also lodge a complaint with your local data-protection authority.
+    </p>
+
+    <h2>7. International transfers</h2>
+    <p>
+      Your data may be processed in countries other than your own by the sub-processors listed above. Where
+      required, such transfers are covered by appropriate safeguards (e.g. Standard Contractual Clauses or an
+      adequacy decision). [Confirm specifics based on your chosen providers' regions.]
+    </p>
+
+    <h2>8. Security</h2>
+    <p>
+      We use end-to-end encryption for synced vault content (we cannot decrypt it), Argon2id password hashing
+      with a server-side pepper, TLS-only transport, short-lived access tokens with rotating refresh tokens
+      and reuse detection, rate limiting, and strict security headers. No system is perfectly secure, but we
+      design to minimise what an attacker — or we ourselves — could ever access.
+    </p>
+
+    <h2>9. Children</h2>
+    <p>Cairn is not directed to anyone under 18, and we do not knowingly collect their personal data.</p>
+
+    <h2>10. Changes</h2>
+    <p>
+      We will post any changes here and update the effective date. Material changes affecting account holders
+      will be communicated by email.
+    </p>
+
+    <h2>11. Contact</h2>
+    <p>Privacy questions or requests: <a href="mailto:support@[yourdomain]">support@[yourdomain]</a>.</p>
+
+    <footer>&copy; [YEAR] [LEGAL ENTITY].</footer>
+  </body>
+</html>

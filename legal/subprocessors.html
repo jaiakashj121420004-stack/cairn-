@@ -1,0 +1,51 @@
+<!doctype html>
+<!--
+  Cairn — Sub-processors (publish-ready, linked from the Privacy Policy).
+  Keep this current: it must reflect the providers you actually deploy with. Fill placeholders.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cairn — Sub-processors</title>
+    <style>
+      :root { color-scheme: light; }
+      body {
+        max-width: 820px; margin: 0 auto; padding: 48px 20px 96px;
+        font-family: Georgia, 'Times New Roman', serif; line-height: 1.6;
+        color: #2b2118; background: #faf6ee;
+      }
+      h1 { font-size: 2rem; margin-bottom: 4px; }
+      .meta { color: #6b5d49; font-size: .95rem; margin-bottom: 2em; }
+      a { color: #7c2a24; }
+      table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: .92rem; }
+      th, td { border: 1px solid #e4d9c6; padding: 7px 9px; text-align: left; vertical-align: top; }
+      th { background: #f0e8d8; }
+      footer { margin-top: 3em; padding-top: 1em; border-top: 1px solid #e4d9c6; color: #6b5d49; font-size: .9rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Sub-processors</h1>
+    <p class="meta"><strong>Cairn</strong> &middot; Last updated: [DATE] &middot; Contact: <a href="mailto:support@[yourdomain]">support@[yourdomain]</a></p>
+
+    <p>
+      Cairn uses the following sub-processors to provide the paid cloud service. Each is bound by a
+      data-processing agreement (DPA). The <strong>free local desktop app uses none of these</strong> — it
+      runs entirely on your device. Because our hosting and database providers only ever hold your vault as
+      ciphertext, neither they nor we can read your trading data.
+    </p>
+
+    <table>
+      <tr><th>Sub-processor</th><th>Purpose</th><th>Data processed</th><th>Region</th></tr>
+      <tr><td>[Hosting — Railway / Fly.io / Render]</td><td>Runs the API server</td><td>Encrypted vault blobs, account &amp; billing metadata, server logs</td><td>[region]</td></tr>
+      <tr><td>[Database — Neon / Supabase]</td><td>Managed Postgres database</td><td>Ciphertext + metadata (as above)</td><td>[region]</td></tr>
+      <tr><td>Resend</td><td>Transactional email (verify, reset, magic-link)</td><td>Email address, message content</td><td>[region]</td></tr>
+      <tr><td>Dodo Payments</td><td>Payment processing (Merchant of Record)</td><td>Name, email, billing/payment details, tax info</td><td>[region]</td></tr>
+      <tr><td>Sentry <em>(if enabled)</em></td><td>Server error tracking (PII-scrubbed)</td><td>Error traces, request ids</td><td>[region]</td></tr>
+    </table>
+
+    <p>To be notified of changes to this list, email <a href="mailto:support@[yourdomain]">support@[yourdomain]</a>.</p>
+
+    <footer>&copy; [YEAR] [LEGAL ENTITY].</footer>
+  </body>
+</html>
