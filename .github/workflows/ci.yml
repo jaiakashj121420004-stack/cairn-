@@ -201,7 +201,11 @@ jobs:
           path: apps/desktop/out/
 
       - name: Install Playwright (no browsers needed — Electron ships its own)
-        run: pnpm playwright install --with-deps chromium
+        # `pnpm exec` (not bare `pnpm playwright`) — pinning pnpm to 10.33.0 (see the
+        # ci: pin commit) lost the newer pnpm's convenience shorthand that resolves an
+        # unrecognized command straight to a node_modules/.bin binary; `pnpm exec` is
+        # the version-stable way to run a local binary on any pnpm 9+.
+        run: pnpm exec playwright install --with-deps chromium
         # The `chromium` arg is a no-op for Electron tests but avoids
         # playwright install trying to download every browser.
 
