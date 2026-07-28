@@ -36,8 +36,28 @@ export interface PnlResult {
 // ROUND_HALF_CEIL is the decimal.js mode that matches Math.round exactly, so this
 // conversion changes only the precision of the intermediate (now exact), never the
 // rounding of any value that previously landed on a half boundary.
+//
+// The exactness guarantee decimal.js gives us (20 significant figures) is NOT the
+// same guarantee `number` gives us on the `.toNumber()` call below: a JS `number`
+// only represents integers exactly up to Number.MAX_SAFE_INTEGER (2^53 − 1). Past
+// that, `.toNumber()` silently rounds to the nearest representable double — the
+// exact float-precision money bug this whole module exists to prevent (CLAUDE.md
+// §2.5/§19.5), just relocated to the Decimal→number boundary instead of the
+// float-arithmetic it replaced. No realistic trade, account size, or pip value
+// gets anywhere near this bound (see the arbitrary bounds + comment in
+// pnl-calculator.test.ts for the worked margin); if a caller ever produces one that
+// does, the inputs are corrupt, and this module's job is to fail loudly, never
+// hand back a silently wrong integer.
 function roundToInt(d: Decimal): number {
-  return d.toDecimalPlaces(0, Decimal.ROUND_HALF_CEIL).toNumber()
+  const rounded = d.toDecimalPlaces(0, Decimal.ROUND_HALF_CEIL)
+  const asNumber = rounded.toNumber()
+  if (!rounded.equals(new Decimal(asNumber))) {
+    throw new Error(
+      `pnl-calculator: integer result ${rounded.toFixed()} exceeds Number.MAX_SAFE_INTEGER ` +
+        `(${Number.MAX_SAFE_INTEGER}) — refusing to silently return a precision-corrupted value`,
+    )
+  }
+  return asNumber
 }
 
 export function calculatePnl(inputs: PnlInputs): PnlResult {

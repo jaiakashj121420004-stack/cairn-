@@ -8,15 +8,28 @@ import {
 } from '../../electron/services/pnl-calculator'
 import { derivePipValueFromTick } from '../../electron/services/pricing'
 
-// Bounds chosen to stay well inside decimal.js' 20-significant-figure precision so
-// the final integer round is never ambiguous: prices ~1e7 ticks, lots ≤ 1000 std
-// lots (×100), pip value ≤ $100/pip, account ≤ $10M.
+// Bounds chosen so every intermediate AND every final result stays inside
+// Number.MAX_SAFE_INTEGER (2^53 − 1 ≈ 9.007e15) — the tighter of the two ceilings
+// that matter here. decimal.js itself carries 20 significant figures, so pnlCents
+// and pnlR (bounded by price/lot/pipValue/slPips alone) are exact all the way up
+// to ~1e13; decimal.js was never the constraint. The real ceiling is `roundToInt`'s
+// final `.toDecimalPlaces(...).toNumber()`, and — critically — pnlPctBps AMPLIFIES
+// pnlCents by 10_000/accountSizeCents, so a tiny account size blows past
+// MAX_SAFE_INTEGER long before pnlCents itself would. At these bounds the worst
+// case (max price spread × max lot × max pip value, divided by the smallest
+// allowed account) is ~5e13 — about 180× inside MAX_SAFE_INTEGER — so the
+// production guard in pnl-calculator.ts's roundToInt() (which throws rather than
+// silently truncate past that ceiling) never fires here. accountSizeCents' floor
+// of $100 (10_000 cents) is also just realistic: no real trading account is
+// funded at, say, 1 cent, and testing that domain was never the point — the point
+// is proving the formula is exact, which requires staying in a domain where
+// `number` itself CAN be exact.
 const arbDirection = fc.constantFrom<'long' | 'short'>('long', 'short')
 const arbPrice = fc.integer({ min: 1, max: 50_000_000 }) // stored ticks
 const arbLot = fc.integer({ min: 1, max: 100_000 }) // lots × 100
 const arbSlPips = fc.integer({ min: 1, max: 100_000 }) // pips × 10
 const arbPipValue = fc.integer({ min: 1, max: 10_000 }) // cents per std lot per pip
-const arbAccount = fc.integer({ min: 1, max: 1_000_000_000 }) // cents
+const arbAccount = fc.integer({ min: 10_000, max: 1_000_000_000 }) // cents ($100 – $10M)
 
 const arbInputs: fc.Arbitrary<PnlInputs> = fc.record({
   direction: arbDirection,
