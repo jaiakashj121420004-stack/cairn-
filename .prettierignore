@@ -7,3 +7,14 @@ pnpm-lock.yaml
 apps/server/src/docs/scalar-standalone.js
 # Generated build-prompts tracker (produced from prompts.md, not hand-edited)
 cairn-prompts-checklist.html
+# Hand-crafted single-file marketing/features site + interactive connection checklist —
+# embedded hash-router JS and localStorage-persisted state; a Prettier reflow risks disturbing
+# inline <script> behavior with no test coverage to catch it, for zero functional benefit.
+docs/cairn-app-guide.html
+docs/connect-mt5-and-ctrader.html
+# Legal drafts — long-form text documents, not templated or logic-bearing; reformatting these
+# provides no value and risks disturbing copy-paste-sensitive legal text.
+legal/privacy-policy.html
+legal/refund-and-cancellation-policy.html
+legal/subprocessors.html
+legal/terms-of-service.html

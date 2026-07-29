@@ -201,11 +201,12 @@ jobs:
           path: apps/desktop/out/
 
       - name: Install Playwright (no browsers needed — Electron ships its own)
-        # `pnpm exec` (not bare `pnpm playwright`) — pinning pnpm to 10.33.0 (see the
-        # ci: pin commit) lost the newer pnpm's convenience shorthand that resolves an
-        # unrecognized command straight to a node_modules/.bin binary; `pnpm exec` is
-        # the version-stable way to run a local binary on any pnpm 9+.
-        run: pnpm exec playwright install --with-deps chromium
+        # `@playwright/test` is a devDependency of apps/desktop only, not the repo root, so
+        # a bare `pnpm exec playwright` run from the repo root can't find the binary
+        # (ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL — confirmed from the CI #13 job log). Scope
+        # exec to that workspace project with --filter, matching how `pnpm build` /
+        # `pnpm test:e2e` are already invoked elsewhere in this same job.
+        run: pnpm --filter @cairn/desktop exec playwright install --with-deps chromium
         # The `chromium` arg is a no-op for Electron tests but avoids
         # playwright install trying to download every browser.
 
